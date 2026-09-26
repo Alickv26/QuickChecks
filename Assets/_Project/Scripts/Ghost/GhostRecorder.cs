@@ -40,6 +40,7 @@ namespace QuickChecks.Ghost
             _isRecording = false;
             if (_data == null) return null;
             _data.finishTimeMs = finishTimeMs;
+            _data.swipeCount = _data.swipeEvents.Count;
             return _data;
         }
 

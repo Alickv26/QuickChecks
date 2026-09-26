@@ -1,52 +1,55 @@
-# QuickChecks — Swipe Racing Game
+# QuickChecks — Swipe Golf Racing
 
-A mobile-first swipe-based racing game for touch screens. Players flick their kart across handcrafted tracks, time swipes to grab power-ups, and race against async ghosts of friends and the global community.
+A mobile-first swipe-based racing game for touch screens. Players flick their kart across handcrafted tracks, alternating turns with opponents (CPU, pass-and-play, or online). Each swipe is a discrete impulse — closer to billiards than to thumbstick steering. The global leaderboard ranks by **fewest swipes to finish**, making every flick a strategic decision.
 
 > **Status**: Planning + scaffold phase
 > **Target platform**: iOS + Android (Unity 2022.3 LTS+)
-> **Multiplayer model**: Async turn-based (ghost races + leaderboards)
+> **Multiplayer model**: Real-time turn-based (CPU / pass-and-play / online)
 
 ---
 
 ## Core Loop
 
-1. Player selects a track + kart + power-up loadout
-2. Swipe to flick the kart forward; each swipe is a discrete impulse (no slow-drag steering)
-3. Kart coasts and decelerates; a new swipe redirects momentum
-4. Collect power-ups on track for speed boosts / shields / phase-dodges
-5. Leaving the track = stop (restart from checkpoint or DNF)
-6. Finish lap(s) → time recorded as ghost → uploaded to leaderboard
-7. Other players race the same track, see your ghost competing alongside them
+1. Player selects a mode: Solo practice, vs CPU, pass-and-play, or online
+2. Each player picks a kart (distinct stats: speed / boost / friction tradeoffs)
+3. **Turn-based racing**: player A swipes → kart coasts to stop → player B swipes → repeat
+4. Collect power-ups during your coast phase (boost, slingshot, shield, etc.)
+5. Off-track = kart stops at boundary (no extra penalty, just lost position)
+6. Race ends when all karts finish or hit max-swipe cap (50)
+7. **Winner = fewest swipes**; tiebreaker = faster finish time
+8. Solo runs also upload to global leaderboard ("swipe golf" — beat par per track)
 
-**Feel target**: Each swipe should feel like a billiards shot — satisfying, deliberate, with weight.
+**Feel target**: Each swipe should feel like a billiards shot or a golf stroke — satisfying, deliberate, weighted. Each swipe is precious.
 
 ---
 
 ## Implementation Plan
 
-Full plan with milestones, architecture, and file structure lives in **[`PLAN.md`](./PLAN.md)**.
+Full plan with milestones, architecture, and file structure lives in **[`PLAN.md`](./PLAN.md)**. Multiplayer revision (turn-based model) is in **[`Docs/MULTIPLAYER_REVISION.md`](./Docs/MULTIPLAYER_REVISION.md)**.
 
 ### Quick Architecture Snapshot
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    Game Flow Manager                     │
-│   (Menu → Track Select → Race → Results → Upload Ghost)│
+│   (Menu → Mode Select → Track Select → Race → Results)  │
 └─────────────────────────────────────────────────────────┘
         │                                  │
         ▼                                  ▼
 ┌──────────────────┐              ┌─────────────────────┐
-│  Input Layer     │              │  Replay/Ghost Layer│
-│  - SwipeDetector │              │  - GhostRecorder    │
-│  - ZoomGesture   │              │  - GhostPlayer      │
-└──────────────────┘              └─────────────────────┘
-        │
-        ▼
-┌──────────────────────────────────────────────────────────┐
+│  Input Layer     │              │  Turn-Based Layer  │
+│  - SwipeDetector │              │  - TurnManager     │
+│  - ZoomGesture   │              │  - CPUPlayer       │
+│  - CPUPlayer     │              │  - PassPlayManager │
+└──────────────────┘              │  - OnlineTurnClient│
+        │                         └─────────────────────┘
+        ▼                                  │
+┌──────────────────────────────────────────┴───────────────┐
 │              Kart Physics & Control                      │
 │  - Swipe → impulse vector (direction + magnitude)        │
 │  - Momentum + friction + track-boundary collision       │
 │  - PowerUp state machine (boost / shield / phase)        │
+│  - OnKartStopped event → TurnManager.NotifyKartStopped   │
 └──────────────────────────────────────────────────────────┘
         │
         ▼
@@ -56,14 +59,17 @@ Full plan with milestones, architecture, and file structure lives in **[`PLAN.md
 │  - Boundary colliders + checkpoints                      │
 │  - Power-up spawn points                                 │
 │  - Camera rig with pinch-to-zoom                         │
+│  - Per-track "par" (target swipe count for leaderboard)  │
 └──────────────────────────────────────────────────────────┘
         │
         ▼
 ┌──────────────────────────────────────────────────────────┐
-│              Async Multiplayer Layer                     │
-│  - Local ghost storage (PlayerPrefs/JSON)                │
-│  - Backend: Supabase (Postgres + REST)                   │
-│  - Leaderboards per track per region                      │
+│              Multiplayer + Backend Layer                 │
+│  - Local vs CPU (3 difficulty levels)                    │
+│  - Local pass-and-play (2-4 players, same device)       │
+│  - Online (real-time WebSocket, v1.1 — v1 uses stub)     │
+│  - Supabase backend: auth, race results, leaderboards    │
+│  - Leaderboard ranks by swipe_count ASC, finish_time ASC │
 └──────────────────────────────────────────────────────────┘
 ```
 
