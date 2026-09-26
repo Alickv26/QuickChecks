@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Camera = UnityEngine.Camera;
 using QuickChecks.Input;
 
 namespace QuickChecks.Racing
