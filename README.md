@@ -149,6 +149,35 @@ QuickChecks/
 
 ---
 
+## Week 1 Prototype — Validate Swipe Feel
+
+The repo ships with a one-click prototype scene that validates the core mechanic before building the full game.
+
+### Run it
+
+1. Open the project in Unity Hub (2022.3.20f1 LTS)
+2. After packages import, run menu: **Tools > QuickChecks > Build Prototype Scene**
+3. The `Prototype.unity` scene opens automatically — press **Play**
+4. Flick the kart from left to right across the green finish line
+5. Press **R** to reset, try to beat your swipe count
+
+### What it tests
+
+- Swipe detection thresholds (velocity / duration / distance)
+- Impulse feel (billiards-style velocity REPLACE)
+- Friction curve (coast → decelerate → stop)
+- Pinch-to-zoom on mobile
+- Race end + swipe count metric
+
+### Where to tune
+
+- `Assets/_Project/ScriptableObjects/Settings/InputSettings.asset` — swipe thresholds
+- `Assets/_Project/ScriptableObjects/Karts/Kart_Starter.asset` — kart physics
+
+See **[`Docs/PROTOTYPE_README.md`](./Docs/PROTOTYPE_README.md)** for the full validation checklist + tuning guide.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
