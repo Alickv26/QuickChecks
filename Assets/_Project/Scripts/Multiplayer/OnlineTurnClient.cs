@@ -46,7 +46,7 @@ namespace QuickChecks.Multiplayer
             {
                 await Task.Delay(100);
                 MatchId = System.Guid.NewGuid().ToString();
-                OpponentName = "Player_" + Random.Range(1000, 9999);
+                OpponentName = "Player_" + UnityEngine.Random.Range(1000, 9999);
                 IsConnected = true;
                 return true;
             }
@@ -67,7 +67,7 @@ namespace QuickChecks.Multiplayer
             if (useSimulatedOpponent)
             {
                 // Simulate matchmaking delay.
-                await Task.Delay(500 + Random.Range(0, 1000));
+                await Task.Delay(500 + UnityEngine.Random.Range(0, 1000));
                 // Match found.
                 return;
             }

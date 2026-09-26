@@ -42,25 +42,25 @@ namespace QuickChecks.Prototype
         {
             if (_isFinished && _finishMs >= 0)
             {
-                int par = raceStarter != null ? raceStarter.ParSwipes : 0;
-                int best = raceStarter?.SoloGhost?.BestGhost?.swipeCount ?? _finishSwipes;
+                int finishedPar = raceStarter != null ? raceStarter.ParSwipes : 0;
+                int bestSwipes = raceStarter?.SoloGhost?.BestGhost?.swipeCount ?? _finishSwipes;
                 long bestTime = raceStarter?.SoloGhost?.BestGhost?.finishTimeMs ?? _finishMs;
 
-                int deltaVsPar = _finishSwipes - par;
-                int deltaVsBest = _finishSwipes - best;
+                int deltaVsPar = _finishSwipes - finishedPar;
+                int deltaVsBest = _finishSwipes - bestSwipes;
                 string parStr = deltaVsPar <= 0
                     ? $"{_finishSwipes} (par -{Math.Abs(deltaVsPar)})"
                     : $"{_finishSwipes} (par +{deltaVsPar})";
 
-                string bestStr = best == _finishSwipes
+                string bestStr = bestSwipes == _finishSwipes
                     ? "NEW BEST!"
-                    : $"+{deltaVsBest} vs best ({best})";
+                    : $"+{deltaVsBest} vs best ({bestSwipes})";
 
                 return
                     "RACE COMPLETE\n\n" +
                     $"Swipes: {parStr}\n" +
                     $"Time: {_finishMs / 1000f:F2}s\n" +
-                    $"Best: {best} swipes / {bestTime / 1000f:F2}s\n" +
+                    $"Best: {bestSwipes} swipes / {bestTime / 1000f:F2}s\n" +
                     $"{bestStr}\n\n" +
                     "Press R to retry";
             }
@@ -69,17 +69,17 @@ namespace QuickChecks.Prototype
 
             float speed = kart.Velocity.magnitude;
             int currentSwipes = raceStarter != null ? raceStarter.SwipeCount : 0;
-            int par = raceStarter != null ? raceStarter.ParSwipes : 0;
-            int best = raceStarter?.SoloGhost?.BestGhost?.swipeCount ?? 0;
+            int currentPar = raceStarter != null ? raceStarter.ParSwipes : 0;
+            int currentBest = raceStarter?.SoloGhost?.BestGhost?.swipeCount ?? 0;
             bool hasGhost = raceStarter?.SoloGhost?.HasBestRun ?? false;
 
             string ghostStr = hasGhost
-                ? $"Ghost active ({best} swipes)"
+                ? $"Ghost active ({currentBest} swipes)"
                 : "No ghost yet - finish a run";
 
             return
                 "QuickChecks Prototype\n\n" +
-                $"Swipes: {currentSwipes} / par {par}\n" +
+                $"Swipes: {currentSwipes} / par {currentPar}\n" +
                 $"Velocity: {speed:F0} u/s\n" +
                 $"Stopped: {kart.IsStopped}   Off-track: {kart.IsOffTrack}\n\n" +
                 $"{ghostStr}\n\n" +

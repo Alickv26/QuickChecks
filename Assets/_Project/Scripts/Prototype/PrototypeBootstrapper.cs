@@ -393,12 +393,12 @@ namespace QuickChecks.Prototype
                 FinishRace();
             }
 
-            if (Input.GetKeyDown(KeyCode.R))
+            if (UnityEngine.Input.GetKeyDown(KeyCode.R))
             {
                 ResetRace();
             }
 
-            if (Input.GetKeyDown(KeyCode.C))
+            if (UnityEngine.Input.GetKeyDown(KeyCode.C))
             {
                 _soloGhost?.ClearBestRun();
                 Debug.Log("[Prototype] Best run cleared. Restart to race without ghost.");

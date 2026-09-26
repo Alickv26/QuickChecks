@@ -57,12 +57,12 @@ namespace QuickChecks.Input
 
         private void HandleTouchInput()
         {
-            if (Input.touchCount == 0) return;
+            if (UnityEngine.Input.touchCount == 0) return;
 
             // Look for a new touch (began phase) that we haven't claimed yet.
             if (_activeTouchId == null)
             {
-                foreach (var touch in Input.touches)
+                foreach (var touch in UnityEngine.Input.touches)
                 {
                     if (touch.phase == TouchPhase.Began)
                     {
@@ -79,7 +79,7 @@ namespace QuickChecks.Input
             if (_activeTouchId == null) return;
 
             // Track the active touch.
-            foreach (var touch in Input.touches)
+            foreach (var touch in UnityEngine.Input.touches)
             {
                 if (touch.fingerId != _activeTouchId.Value) continue;
 
@@ -108,25 +108,25 @@ namespace QuickChecks.Input
         private void HandleMouseInput()
         {
             // Mouse fallback for editor testing.
-            if (Input.GetMouseButtonDown(0))
+            if (UnityEngine.Input.GetMouseButtonDown(0))
             {
                 _activeTouchId = -1; // sentinel
-                _touchStartPos = Input.mousePosition;
-                _lastTouchPos = Input.mousePosition;
+                _touchStartPos = UnityEngine.Input.mousePosition;
+                _lastTouchPos = UnityEngine.Input.mousePosition;
                 _touchStartTime = Time.realtimeSinceStartup;
                 _peakVelocity = 0f;
             }
-            else if (_activeTouchId == -1 && Input.GetMouseButton(0))
+            else if (_activeTouchId == -1 && UnityEngine.Input.GetMouseButton(0))
             {
-                Vector2 cur = Input.mousePosition;
+                Vector2 cur = UnityEngine.Input.mousePosition;
                 float moveDist = (cur - _lastTouchPos).magnitude;
                 // crude velocity estimate
                 _peakVelocity = Mathf.Max(_peakVelocity, moveDist / Mathf.Max(Time.deltaTime, 0.001f));
                 _lastTouchPos = cur;
             }
-            else if (_activeTouchId == -1 && Input.GetMouseButtonUp(0))
+            else if (_activeTouchId == -1 && UnityEngine.Input.GetMouseButtonUp(0))
             {
-                EvaluateSwipe(Input.mousePosition);
+                EvaluateSwipe(UnityEngine.Input.mousePosition);
                 _activeTouchId = null;
             }
         }
