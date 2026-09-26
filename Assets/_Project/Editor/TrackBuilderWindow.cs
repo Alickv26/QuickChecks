@@ -23,7 +23,8 @@ namespace QuickChecks.Editor
     public class TrackBuilderWindow : EditorWindow
     {
         private TrackDefinition _currentTrack;
-        private bool _isDrawing = false;
+        // _isDrawing reserved for week 3-4 scene-view click-to-add feature
+        // private bool _isDrawing = false;
 
         [MenuItem("Tools/QuickChecks/Track Builder")]
         public static void OpenWindow()

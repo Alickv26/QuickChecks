@@ -73,7 +73,12 @@ namespace QuickChecks.Editor
             // Auto-open the scene for the user.
             EditorSceneManager.OpenScene(SCENE_PATH);
             Selection.activeGameObject = go;
-            SceneView.Frame(new Bounds(go.transform.position, Vector3.one * 30), false);
+
+            // Frame the scene view on the new GameObject (Frame is an instance method).
+            if (SceneView.lastActiveSceneView != null)
+            {
+                SceneView.lastActiveSceneView.Frame(new Bounds(go.transform.position, Vector3.one * 30), false);
+            }
         }
 
         private static T EnsureAsset<T>(string path) where T : ScriptableObject
