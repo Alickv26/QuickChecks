@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Camera = UnityEngine.Camera;
 using QuickChecks.Input;
 
 namespace QuickChecks.Racing
@@ -28,7 +29,7 @@ namespace QuickChecks.Racing
         public KartStats Stats => stats;
 
         private Rigidbody2D _rb;
-        private Camera _mainCam;
+        private UnityEngine.Camera _mainCam;
 
         private void Awake()
         {
@@ -37,7 +38,7 @@ namespace QuickChecks.Racing
             _rb.drag = 0f; // We do friction manually for predictability.
             _rb.angularDrag = 0f;
             _rb.bodyType = RigidbodyType2D.Kinematic; // We drive position manually
-            _mainCam = Camera.main;
+            _mainCam = UnityEngine.Camera.main;
         }
 
         private void OnEnable()

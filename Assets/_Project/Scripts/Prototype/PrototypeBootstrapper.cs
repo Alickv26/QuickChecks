@@ -136,7 +136,7 @@ namespace QuickChecks.Prototype
         {
             // ----- Camera + CameraRig -----
             var camGo = new GameObject("Main Camera");
-            var cam = camGo.AddComponent<Camera>();
+            var cam = camGo.AddComponent<UnityEngine.Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 14;
             cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f); // #0E1414
