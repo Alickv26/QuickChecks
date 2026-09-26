@@ -1,0 +1,40 @@
+using UnityEngine;
+
+namespace QuickChecks.Input
+{
+    /// <summary>
+    /// Tunable thresholds for swipe detection. Stored as a ScriptableObject
+    /// so designers can tweak without code changes, and so per-device
+    /// calibration can override at runtime.
+    /// </summary>
+    [CreateAssetMenu(menuName = "QuickChecks/Input Settings", fileName = "InputSettings")]
+    public class InputSettings : ScriptableObject
+    {
+        [Header("Swipe Detection Thresholds")]
+        [Tooltip("Minimum peak velocity (px/s) for a swipe to count as valid. Below this = ignored.")]
+        public float minSwipeVelocity = 800f;
+
+        [Tooltip("Maximum duration (ms) from touch-down to lift. Above this = treated as drag, not swipe.")]
+        public float maxSwipeDurationMs = 250f;
+
+        [Tooltip("Minimum distance (px) the finger must travel. Below this = tap, not swipe.")]
+        public float minSwipeDistance = 40f;
+
+        [Header("Impulse Scaling")]
+        [Tooltip("Swipe velocity is multiplied by this to get impulse magnitude.")]
+        public float velocityToImpulseScale = 1.2f;
+
+        [Tooltip("Hard cap on impulse magnitude, regardless of swipe speed.")]
+        public float maxImpulseMagnitude = 1200f;
+
+        [Header("Pinch Zoom")]
+        [Tooltip("Minimum ortho camera size (closest zoom, for tight sections).")]
+        public float minCameraZoom = 5f;
+
+        [Tooltip("Maximum ortho camera size (furthest zoom, for long straights).")]
+        public float maxCameraZoom = 20f;
+
+        [Tooltip("Pinch sensitivity — higher = more zoom per pinch gesture.")]
+        public float pinchSensitivity = 0.15f;
+    }
+}
