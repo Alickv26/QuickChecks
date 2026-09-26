@@ -71,6 +71,28 @@ namespace QuickChecks.Multiplayer
         {
             // Hide overlay when new player is ready.
             if (passOverlay != null) passOverlay.Hide();
+
+            // Decision 4 (DECISIONS.md): dim inactive karts to 40% alpha, restore active to 100%.
+            UpdateKartVisibility(playerIndex);
+        }
+
+        /// <summary>
+        /// All karts remain visible (preserves spatial context), but inactive karts
+        /// are dimmed to 40% alpha so visual focus is on the active player.
+        /// </summary>
+        private void UpdateKartVisibility(int activePlayerIndex)
+        {
+            for (int i = 0; i < _players.Count; i++)
+            {
+                var kart = _players[i].kart;
+                if (kart == null) continue;
+                var renderer = kart.GetComponent<SpriteRenderer>();
+                if (renderer == null) continue;
+
+                var color = renderer.color;
+                color.a = (i == activePlayerIndex) ? 1f : 0.4f;
+                renderer.color = color;
+            }
         }
 
         private void HandleRaceFinished(int winnerIndex)

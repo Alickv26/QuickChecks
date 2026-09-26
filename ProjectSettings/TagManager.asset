@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!78 &1
+TagManager:
+  serializedVersion: 2
+  tags:
+  - Checkpoint
+  - Boundary
+  - PowerUp
+  - FinishLine
+  - Kart
+  - GhostKart
+  layers:
+  - Default
+  - TransparentFX
+  - IgnoreRaycast
+  -
+  - Water
+  - UI
+  -
+  -
+  - Track                ; Layer 8 — track surface, no collision
+  - TrackBoundary        ; Layer 9 — colliders for off-track detection
+  - Kart                 ; Layer 10 — player and CPU karts
+  - GhostKart            ; Layer 11 — ghost replays (no collision with karts)
+  - PowerUp              ; Layer 12 — power-up pickups
+  - Checkpoint           ; Layer 13 — checkpoint triggers
+  - Camera               ; Layer 14 — camera rig
+  - UI                   ; Layer 15 — in-world UI overlays
+  -
+  -
+  -
+  -
+  -
+  -
+  -
+  -
+  -
+  -
+  -
+  m_SortingLayers:
+  - name: Background
+    uniqueID: 1001
+    locked: 0
+  - name: Track
+    uniqueID: 1002
+    locked: 0
+  - name: TrackDecorations
+    uniqueID: 1003
+    locked: 0
+  - name: PowerUps
+    uniqueID: 1004
+    locked: 0
+  - name: Ghosts
+    uniqueID: 1005
+    locked: 0
+  - name: Karts
+    uniqueID: 1006
+    locked: 0
+  - name: Particles
+    uniqueID: 1007
+    locked: 0
+  - name: UI
+    uniqueID: 1008
+    locked: 0

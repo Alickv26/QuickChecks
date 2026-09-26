@@ -103,26 +103,30 @@ QuickChecks/
 │   │   ├── Prefabs/          # Karts, power-ups, track pieces
 │   │   ├── Scenes/           # Boot, Menu, TrackSelect, Race, Results
 │   │   ├── ScriptableObjects/# Track definitions, kart stats, power-up defs
-│   │   └── Scripts/
-│   │       ├── Core/         # GameFlow, SceneManagement, EventBus
-│   │       ├── Input/        # SwipeDetector, PinchZoom
-│   │       ├── Racing/       # KartController, KartPhysics, PowerUpSystem
-│   │       ├── Track/        # TrackSegment, TrackValidator, Checkpoints
-│   │       ├── Camera/       # CameraRig, ZoomController
-│   │       ├── Ghost/        # GhostRecorder, GhostPlayer
-│   │       ├── Multiplayer/  # AsyncMultiplayerManager, LeaderboardService
-│   │       ├── UI/           # HUD, Menu, TrackSelect, Results
-│   │       └── Data/         # SaveSystem, SupabaseClient
+│   │   │   └── Scripts/
+│   │   │       ├── Core/         # GameFlow, EventBus
+│   │   │       ├── Input/        # SwipeDetector, InputSettings
+│   │   │       ├── Racing/       # KartController, TurnManager, CPUPlayer, PowerUps
+│   │   │       ├── Track/        # TrackDefinition, TrackBuilder (editor)
+│   │   │       ├── Camera/       # CameraRig, ZoomController
+│   │   │       ├── Ghost/        # GhostRecorder, GhostPlayer, GhostData
+│   │   │       ├── Multiplayer/  # PassPlayManager, OnlineTurnClient, SupabaseClient
+│   │   │       ├── UI/           # HUD, PassPlayOverlay, Menus
+│   │   │       └── Data/         # SaveSystem
+│   │   ├── Editor/              # TrackBuilderWindow, validation tools
+│   │   └── (QuickChecks.Runtime.asmdef + QuickChecks.Editor.asmdef)
 │   ├── Plugins/              # Third-party (Supabase SDK, DOTween, etc.)
 │   └── Settings/             # URP assets, input mappings
 ├── Packages/
-│   └── manifest.json         # Package dependencies
-├── ProjectSettings/          # Unity project config
+│   └── manifest.json         # URP, Input System, TMP, Cinemachine, Newtonsoft, Addressables
+├── ProjectSettings/
+│   ├── ProjectVersion.txt    # Unity 2022.3.20f1
+│   └── TagManager.asset      # Custom layers (Track, Kart, PowerUp, Checkpoint...) + tags
 ├── Docs/
 │   ├── DESIGN.md             # Game design doc (GDD)
 │   ├── ART_BIBLE.md          # Visual style guide
-│   └── TECH_SPEC.md          # Detailed technical architecture
-├── Tools/                    # Editor scripts, track-building tools
+│   ├── MULTIPLAYER_REVISION.md # Turn-based 'swipe golf' spec
+│   └── DECISIONS.md          # Resolved design decisions with reasoning
 └── README.md
 ```
 
@@ -147,14 +151,67 @@ QuickChecks/
 
 ## Getting Started
 
-This repo is initialized with the folder structure and stub scripts. To start developing:
+### Prerequisites
 
-1. Install Unity Hub + Unity 2022.3 LTS
-2. Open Unity Hub → Add project → point to this repo's root
-3. Unity will recognize the project structure; create a new scene in `Assets/_Project/Scenes/`
-4. Open `Assets/_Project/Scripts/Input/SwipeDetector.cs` to see the swipe detection interface
+- **Unity Hub** (latest): https://unity.com/download
+- **Unity 2022.3.20f1** (LTS) — install via Unity Hub
+- **IDE** with C# support: Visual Studio, Rider, or VS Code (Unity Hub will install one)
+- **Supabase project** (free tier is fine) — for backend, set up in week 9
 
-See **[`PLAN.md`](./PLAN.md)** for the full design document.
+### Open in Unity
+
+1. **Clone the repo**:
+   ```bash
+   git clone https://github.com/Alickv26/QuickChecks.git
+   cd QuickChecks
+   ```
+
+2. **Open Unity Hub** → click **Add project from disk** → select the `QuickChecks` folder
+
+3. Unity detects `ProjectSettings/ProjectVersion.txt` and prompts you to install the matching version if missing
+
+4. **First open** takes ~2-5 minutes — Unity imports `Packages/manifest.json` and compiles the Assembly Definitions
+
+5. **Open the Track Builder** once Unity loads: menu `Tools > QuickChecks > Track Builder`
+
+### Assembly Definitions
+
+The project uses **two Assembly Definitions** for clean compile boundaries:
+
+- `QuickChecks.Runtime` — all gameplay code (in `Assets/_Project/Scripts/`)
+- `QuickChecks.Editor` — editor-only tools like Track Builder (in `Assets/_Project/Editor/`)
+
+Drop new scripts anywhere under `Assets/_Project/Scripts/` — they're picked up automatically.
+
+### Layers and Tags
+
+The project ships with custom layers in `ProjectSettings/TagManager.asset`:
+
+| Layer | Name | Used by |
+|-------|------|--------|
+| 8 | Track | Track surface (no collision) |
+| 9 | TrackBoundary | Off-track collision detection |
+| 10 | Kart | Player + CPU karts |
+| 11 | GhostKart | Ghost replays (no collision) |
+| 12 | PowerUp | Power-up pickup triggers |
+| 13 | Checkpoint | Lap progress triggers |
+| 14 | Camera | Camera rig |
+| 15 | UI | In-world UI overlays |
+
+Custom tags: `Checkpoint`, `Boundary`, `PowerUp`, `FinishLine`, `Kart`, `GhostKart`.
+
+### Key Dependencies (`Packages/manifest.json`)
+
+| Package | Why |
+|---------|-----|
+| `com.unity.render-pipelines.universal` (URP 14) | Modern mobile rendering |
+| `com.unity.inputsystem` (1.7) | Multi-touch + swipe + pinch detection |
+| `com.unity.textmeshpro` (3.0) | UI text rendering |
+| `com.unity.cinemachine` (2.10) | Camera follow + damping |
+| `com.unity.nuget.newtonsoft-json` | Ghost JSON serialization |
+| `com.unity.addressables` | Asset loading + remote content delivery |
+
+See **[`PLAN.md`](./PLAN.md)** for the full design document and **[`Docs/DECISIONS.md`](./Docs/DECISIONS.md)** for resolved design decisions.
 
 ---
 

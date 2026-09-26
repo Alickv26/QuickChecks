@@ -1,0 +1,19 @@
+{
+    "name": "QuickChecks.Runtime",
+    "rootNamespace": "QuickChecks",
+    "references": [
+        "GUID:6055be8d2b9c4fa438a5a7a1f9d2c8c0",
+        "GUID:7b7a3f5e1c9b4e6c9f1e7a8b9c0d1e2f"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [
+        "Newtonsoft.Json.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

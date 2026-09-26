@@ -54,7 +54,7 @@ namespace QuickChecks.Racing
 
         [Header("Race Config")]
         [SerializeField] private RaceMode mode = RaceMode.Solo;
-        [SerializeField] private int maxSwipeCap = 50;
+        [SerializeField] private int maxSwipeCap = 50; // fallback if track is null; otherwise track.GetMaxSwipeCap()
         [SerializeField] private float onlineTurnTimeoutSec = 30f;
 
         [Header("References (set at race start)")]
@@ -97,6 +97,13 @@ namespace QuickChecks.Racing
             players = racers;
             trackDefinition = track;
             mode = raceMode;
+
+            // Decision 1 (DECISIONS.md): if track has a swipe cap, use it (formula or designer-set).
+            if (trackDefinition != null)
+            {
+                maxSwipeCap = trackDefinition.GetMaxSwipeCap();
+            }
+
             _raceStartTimeMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             _currentPlayerIndex = 0;
             _phase = TurnPhase.WaitingForTurn;

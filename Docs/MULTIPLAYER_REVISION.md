@@ -249,13 +249,19 @@ For v1 MVP, online is **stubbed** — the `OnlineTurnClient` class exists but on
 
 ---
 
-## Open Questions (Decide Before Week 5)
+## Open Questions (Decided — see DECISIONS.md)
 
-1. **Max-swipe cap per track**: 50 is a placeholder. Should it scale by track length/difficulty? (e.g., track 1 = 30 max, track 8 = 80 max)
-2. **Online match replay**: do online matches produce a "match ghost" both players can replay later? Probably yes for fairness/dispute resolution.
-3. **CPU AI training**: for hard difficulty in v2, should we mine top leaderboard ghosts for optimal lines per track?
-4. **Pass-and-play kart visibility**: do all karts show on screen simultaneously (current plan), or only the active player's kart (cleaner visual)?
-5. **ELO/ranking for online**: should online wins/losses affect a player rank, or just track-by-track leaderboard?
+All five open questions have been resolved. Summary:
+
+| # | Question | Decision |
+|---|----------|----------|
+| 1 | Max-swipe cap per track | Designer-set, default formula `30 + difficultyStars × 10` |
+| 2 | Online match replay storage | Both ghosts stored 7 days, then auto-deleted via Supabase cron |
+| 3 | CPU AI for Hard difficulty | Hybrid: hand-authored optimal line + ±3° noise per difficulty |
+| 4 | Pass-and-play kart visibility | All karts visible; inactive dimmed to 40% alpha |
+| 5 | ELO/ranking for online | Per-track leaderboard + global ELO (online matches only) |
+
+Full reasoning and implementation order: **[`Docs/DECISIONS.md`](./DECISIONS.md)**
 
 ---
 

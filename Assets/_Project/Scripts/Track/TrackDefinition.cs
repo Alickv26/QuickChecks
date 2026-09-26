@@ -46,6 +46,25 @@ namespace QuickChecks.Track
         [Tooltip("Time (seconds) required on previous track to unlock this one.")]
         public float unlockTimeOnPreviousTrack = 60f;
 
+        [Header("Swipe Cap (Decision 1 — see DECISIONS.md)")]
+        [Tooltip("Max swipes per player before DNF. Set to -1 to use formula: 30 + (difficultyStars * 10).")]
+        public int maxSwipeCap = -1;
+
+        [Tooltip("Par = theoretical minimum swipe count to finish. Used for star ratings + leaderboard comparison.")]
+        public int parSwipeCount = 20;
+
+        [Header("CPU AI (Decision 3 — see DECISIONS.md)")]
+        [Tooltip("Optional: URL to a hand-authored 'optimal line' ghost. Hard CPU follows this with ±3° noise. Leave empty for v1 (uses heuristic).")]
+        public string optimalLineGhostUrl = "";
+
+        /// <summary>
+        /// Resolves the effective max swipe cap. If designer set -1, falls back to formula.
+        /// </summary>
+        public int GetMaxSwipeCap()
+        {
+            return maxSwipeCap > 0 ? maxSwipeCap : 30 + (difficultyStars * 10);
+        }
+
         /// <summary>
         /// Validates that the track is completable: spline forms a closed loop,
         /// has reasonable segment count, all checkpoints reachable.
