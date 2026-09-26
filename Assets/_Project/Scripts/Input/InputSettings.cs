@@ -12,20 +12,20 @@ namespace QuickChecks.Input
     {
         [Header("Swipe Detection Thresholds")]
         [Tooltip("Minimum peak velocity (px/s) for a swipe to count as valid. Below this = ignored.")]
-        public float minSwipeVelocity = 800f;
+        public float minSwipeVelocity = 1000f;
 
         [Tooltip("Maximum duration (ms) from touch-down to lift. Above this = treated as drag, not swipe.")]
-        public float maxSwipeDurationMs = 250f;
+        public float maxSwipeDurationMs = 220f;
 
         [Tooltip("Minimum distance (px) the finger must travel. Below this = tap, not swipe.")]
-        public float minSwipeDistance = 40f;
+        public float minSwipeDistance = 50f;
 
         [Header("Impulse Scaling")]
         [Tooltip("Swipe velocity is multiplied by this to get impulse magnitude.")]
-        public float velocityToImpulseScale = 1.2f;
+        public float velocityToImpulseScale = 1.5f;
 
         [Tooltip("Hard cap on impulse magnitude, regardless of swipe speed.")]
-        public float maxImpulseMagnitude = 1200f;
+        public float maxImpulseMagnitude = 1500f;
 
         [Header("Pinch Zoom")]
         [Tooltip("Minimum ortho camera size (closest zoom, for tight sections).")]

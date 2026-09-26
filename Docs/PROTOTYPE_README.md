@@ -1,21 +1,47 @@
-# Week 1 Prototype — Swipe Feel Validation
+# Week 1 Prototype (Polished) — Swipe Feel Validation
 
 > Goal: validate the core swipe-racing feel before building 8 tracks, 8 karts, 6 power-ups, and a multiplayer backend. If the feel is wrong, fix it now — it's 100x cheaper to fix here than after the full game is built.
 
 ---
 
-## What's in the prototype
+## What's in the prototype (polish pass)
 
 A single scene (`Assets/_Project/Scenes/Prototype.unity`) that contains:
 
 - A rectangular play area (40 × 20 units) with 4 walls
+- **4 obstacles** in the middle forcing direction variety (not just straight L→R)
 - A yellow square kart that responds to swipes (billiards-style: each swipe replaces velocity)
 - A green finish line on the right side
-- An on-screen HUD showing swipe count, velocity, and finish status
+- An on-screen HUD showing **swipe count / par / best**, velocity, kart state, race status
 - Pinch-to-zoom camera that follows the kart
-- Swipe event recording (in memory; not persisted)
+- Swipe event recording + **best run persisted** across sessions via PlayerPrefs
 
-**The loop**: flick the kart from the left side to the right. Each flick is a discrete impulse — slow drags are ignored. The kart coasts and decelerates between swipes. When you cross the green line, the race ends and shows your swipe count + time. Press **R** to reset.
+### Polish features added
+
+1. **Kart squash + stretch** on each swipe (`SwipeFeedback.cs`)
+   - Kart compresses perpendicular to swipe direction, snaps back over 120ms
+   - 8-particle burst per swipe in cyan
+2. **Fading trail** behind the kart (`KartTrail.cs`)
+   - Path fades from cyan (recent) to yellow (old) over 3 seconds
+   - Lets player visually see "did I take 4 swipes or 6?"
+3. **Synthesized swipe whoosh** (`SwipeAudio.cs`)
+   - No audio asset files — generates a sine-wave burst on the fly
+   - Pitched by swipe velocity (faster swipe = higher pitch)
+   - Audio gives immediate feedback that swipes have "weight"
+4. **Solo ghost replay** (`SoloGhostPlayer.cs`)
+   - Records best run (fewest swipes, tiebreaker = faster time)
+   - Persists across sessions via PlayerPrefs
+   - On next race, spawns a translucent gray ghost kart that replays your best swipes
+   - Ghost uses a separate `GhostSwipeEvent` so it doesn't drive your kart
+5. **Race results with par comparison**
+   - HUD shows "par 5 swipes" — your goal is to hit par or beat it
+   - On finish: shows your swipes vs par, and delta vs your best
+   - "NEW BEST!" indicator when you set a new personal record
+6. **Curved obstacle course**
+   - 4 obstacles force direction changes — pure straight-line swipes won't work
+   - Tests whether the swipe angle variety feels natural
+
+**The loop**: flick the kart from the left side to the right, navigating around 4 obstacles. Each flick is a discrete impulse — slow drags are ignored. The kart coasts and decelerates between swipes. When you cross the green line, the race ends and shows your swipe count vs par + your best. Press **R** to retry. Press **C** to clear your best run.
 
 ---
 
@@ -59,6 +85,29 @@ Limitation: latency is ~50-100ms, which can make swipes feel sluggish. Use for s
 5. First build takes 5-10 minutes (compiling IL2CPP)
 
 This gives you the real feel — no latency, real touch hardware. Use this for the actual tuning session.
+
+### Linux (Manjaro / Arch) setup notes
+
+If you're on Manjaro/Arch and the Unity Hub AppImage doesn't launch:
+
+1. **AppImage permission**: `chmod +x UnityHub.AppImage` then `./UnityHub.AppImage`
+2. **FUSE dependency** (AppImage requires it): `sudo pacman -S fuse2 fuse3`
+3. **If AppImage still fails** — extract and run directly:
+   ```bash
+   ./UnityHub.AppImage --appimage-extract
+   cd squashfs-root
+   ./AppRun
+   ```
+4. **Alternative: install via AUR** (no AppImage needed):
+   ```bash
+   yay -S unityhub
+   # or for the long-term support editor:
+   yay -S unity-editor
+   ```
+5. **Linux build module**: when installing Unity 2022.3.20f1 via Unity Hub, make sure to check "Linux Build Support (IL2CPP)" in the modules list — needed if you want to build a desktop Linux binary for testing.
+6. **Editor performance**: Unity's Linux editor is officially supported but can have window manager quirks. If you get black screen / GL errors, try launching with `--force-opengl` or use X11 instead of Wayland for the editor session.
+
+Once Unity Hub is running, the project setup is identical to Mac/Windows.
 
 ---
 
@@ -150,16 +199,18 @@ If a typical first-time player can do it in 3-5 swipes, the model works. If they
 
 ### Key parameters to tune (in order of impact)
 
-| Parameter | Asset | Default | Try if feel is... |
+| Parameter | Asset | Default (golf-feel) | Try if feel is... |
 |-----------|-------|---------|-------------------|
-| `minSwipeVelocity` | InputSettings | 800 px/s | Too high if swipes get rejected often |
-| `maxSwipeDurationMs` | InputSettings | 250 ms | Lower if slow drags are slipping through |
-| `velocityToImpulseScale` | InputSettings | 1.2 | Higher = harder flicks feel more impactful |
-| `maxImpulseMagnitude` | InputSettings | 1200 | Cap on max speed per swipe |
-| `frictionPerSecond` | KartStats | 0.15 | Higher = stops faster (more "golf-like") |
-| `impulseMultiplier` | KartStats | 1.0 | Per-kart responsiveness scaling |
-| `stopThreshold` | KartStats | 5 px/s | Below this = stopped (cleanness of stop) |
-| `maxSpeed` | KartStats | 1200 u/s | Hard cap, prevents physics breakage |
+| `minSwipeVelocity` | InputSettings | 1000 px/s | Too high if swipes get rejected often |
+| `maxSwipeDurationMs` | InputSettings | 220 ms | Lower if slow drags are slipping through |
+| `velocityToImpulseScale` | InputSettings | 1.5 | Higher = harder flicks feel more impactful |
+| `maxImpulseMagnitude` | InputSettings | 1500 | Cap on max speed per swipe |
+| `frictionPerSecond` | KartStats | 0.22 | Higher = stops faster (more "golf-like") |
+| `impulseMultiplier` | KartStats | 1.1 | Per-kart responsiveness scaling |
+| `stopThreshold` | KartStats | 8 px/s | Below this = stopped (cleanness of stop) |
+| `maxSpeed` | KartStats | 1500 u/s | Hard cap, prevents physics breakage |
+
+> **Note on defaults (v2)**: tuned toward "golf-like feel" per design call — kart stops dead on wall hit, no sliding. Friction raised from 0.15 → 0.22 so kart decelerates faster between swipes (clearer "now I'm planning my next shot" moment). Stop threshold raised from 5 → 8 px/s for cleaner stops. Swipe velocity floor raised from 800 → 1000 px/s to filter more slow drags.
 
 ### Where to edit
 

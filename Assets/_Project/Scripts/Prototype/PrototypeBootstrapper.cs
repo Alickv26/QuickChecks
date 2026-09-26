@@ -7,27 +7,25 @@ using QuickChecks.Racing;
 using QuickChecks.Ghost;
 using QuickChecks.Core;
 using QuickChecks.Camera;
+using QuickChecks.Audio;
 
 namespace QuickChecks.Prototype
 {
     /// <summary>
-    /// Week 1 prototype: validates swipe feel before committing to full track system.
-    /// This script builds the entire scene at runtime — no manual scene setup needed.
+    /// Week 1 prototype (polished): validates swipe feel + audio feedback + ghost replay
+    /// + turn-based CPU opponent in a single scene that builds itself at runtime.
     ///
-    /// Scene contents (built in Awake):
-    ///   - Camera with CameraRig
-    ///   - Rectangular track with 4 walls + finish line trigger
-    ///   - Player kart (yellow square) with SwipeDetector, KartController, GhostRecorder
-    ///   - HUD canvas with TextMeshPro status text
+    /// Track layout:
+    ///   - Main arena 40x20 with 4 walls
+    ///   - 3 obstacles in the middle forcing direction variety (not just straight L→R)
+    ///   - Finish line on the right
     ///
-    /// Goal: swipe the kart from left to right across the finish line.
-    ///       Press R to reset. Watch the swipe count — fewer is better.
-    ///
-    /// Validation criteria (see PROTOTYPE_README.md):
-    ///   1. Does each swipe feel like a "billiards shot" or "golf stroke"?
-    ///   2. Is the swipe velocity threshold right (no false rejections / no false accepts)?
-    ///   3. Is the friction curve satisfying (coast + decelerate + stop)?
-    ///   4. Does pinch-zoom feel natural on mobile?
+    /// Features added in polish pass:
+    ///   - SwipeFeedback: kart squash + particle burst on each swipe
+    ///   - KartTrail: fading path behind kart (visualizes swipe efficiency)
+    ///   - SwipeAudio: synthesized whoosh pitched by swipe velocity
+    ///   - SoloGhostPlayer: records + replays best run alongside current attempt
+    ///   - Race results screen with par comparison
     /// </summary>
     public class PrototypeBootstrapper : MonoBehaviour
     {
@@ -36,10 +34,31 @@ namespace QuickChecks.Prototype
         [SerializeField] private Vector3 kartSpawn = new Vector3(-15, 0, 0);
         [SerializeField] private float finishLineX = 15f;
 
-        [Header("Tuning (overrides defaults if set)")]
+        [Header("Obstacles (forces direction variety)")]
+        [SerializeField] private Vector2[] obstaclePositions =
+        {
+            new Vector2(-5, 0),    // Center obstacle — must go around
+            new Vector2(0, 5),     // Upper barrier
+            new Vector2(0, -5),    // Lower barrier (creates chicane with above)
+            new Vector2(5, 0),     // Final center obstacle before finish
+        };
+        [SerializeField] private Vector2[] obstacleSizes =
+        {
+            new Vector2(3, 3),
+            new Vector2(3, 8),
+            new Vector2(3, 8),
+            new Vector2(3, 3),
+        };
+
+        [Header("Tuning")]
         [SerializeField] private InputSettings inputSettings;
         [SerializeField] private GameEventSO<SwipeData> swipeEvent;
+        [SerializeField] private GameEventSO<SwipeData> ghostSwipeEvent; // separate event for ghost kart
         [SerializeField] private KartStats kartStats;
+        [SerializeField] private KartStats ghostKartStats;
+
+        [Header("Race Targets")]
+        [SerializeField] private int parSwipes = 5; // theoretical min for this track layout
 
         [Header("Diagnostics")]
         [SerializeField] private bool verboseLogging = true;
@@ -50,6 +69,10 @@ namespace QuickChecks.Prototype
         private GhostRecorder _ghostRecorder;
         private CameraRig _cameraRig;
         private PrototypeHUD _hud;
+        private KartTrail _kartTrail;
+        private SwipeFeedback _swipeFeedback;
+        private SwipeAudio _swipeAudio;
+        private SoloGhostPlayer _soloGhost;
 
         // Race state
         private long _raceStartMs;
@@ -61,6 +84,8 @@ namespace QuickChecks.Prototype
         public KartController Kart => _kart;
         public float FinishLineX => finishLineX;
         public bool IsFinished => _finished;
+        public int ParSwipes => parSwipes;
+        public SoloGhostPlayer SoloGhost => _soloGhost;
 
         public event Action<int, long> OnRaceFinished;
 
@@ -77,8 +102,6 @@ namespace QuickChecks.Prototype
 
         private void EnsureAssets()
         {
-            // If ScriptableObjects aren't assigned, create them in-memory.
-            // (Editor script will save them as .asset files for persistence.)
             if (inputSettings == null)
             {
                 inputSettings = ScriptableObject.CreateInstance<InputSettings>();
@@ -89,12 +112,22 @@ namespace QuickChecks.Prototype
                 swipeEvent = ScriptableObject.CreateInstance<GameEventSO<SwipeData>>();
                 if (verboseLogging) Debug.Log("[Prototype] Created in-memory SwipeEvent");
             }
+            if (ghostSwipeEvent == null)
+            {
+                ghostSwipeEvent = ScriptableObject.CreateInstance<GameEventSO<SwipeData>>();
+                if (verboseLogging) Debug.Log("[Prototype] Created in-memory GhostSwipeEvent");
+            }
             if (kartStats == null)
             {
                 kartStats = ScriptableObject.CreateInstance<KartStats>();
                 kartStats.kartId = "kart_starter";
                 kartStats.displayName = "Starter";
-                if (verboseLogging) Debug.Log("[Prototype] Created in-memory KartStats");
+            }
+            if (ghostKartStats == null)
+            {
+                ghostKartStats = ScriptableObject.CreateInstance<KartStats>();
+                ghostKartStats.kartId = "kart_ghost";
+                ghostKartStats.displayName = "Ghost";
             }
         }
 
@@ -104,7 +137,7 @@ namespace QuickChecks.Prototype
             var camGo = new GameObject("Main Camera");
             var cam = camGo.AddComponent<Camera>();
             cam.orthographic = true;
-            cam.orthographicSize = 12;
+            cam.orthographicSize = 14;
             cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f); // #0E1414
             camGo.transform.position = new Vector3(0, 0, -10);
             camGo.tag = "MainCamera";
@@ -113,13 +146,20 @@ namespace QuickChecks.Prototype
 
             // ----- Track walls -----
             var trackGo = new GameObject("Track");
-            var wallColor = new Color(0.247f, 0.878f, 0.760f, 0.3f); // cyan, 30% alpha
+            var wallColor = new Color(0.247f, 0.878f, 0.760f, 0.3f);
             CreateWall(trackGo.transform, "Wall_Top",    new Vector2(0,  trackSize.y / 2), new Vector2(trackSize.x + 2, 1), wallColor);
             CreateWall(trackGo.transform, "Wall_Bottom", new Vector2(0, -trackSize.y / 2), new Vector2(trackSize.x + 2, 1), wallColor);
             CreateWall(trackGo.transform, "Wall_Left",   new Vector2(-trackSize.x / 2, 0), new Vector2(1, trackSize.y), wallColor);
             CreateWall(trackGo.transform, "Wall_Right",  new Vector2( trackSize.x / 2, 0), new Vector2(1, trackSize.y), wallColor);
 
-            // ----- Finish line (visual + trigger) -----
+            // ----- Obstacles (force direction variety) -----
+            var obstacleColor = new Color(0.247f, 0.878f, 0.760f, 0.5f);
+            for (int i = 0; i < obstaclePositions.Length; i++)
+            {
+                CreateWall(trackGo.transform, $"Obstacle_{i}", obstaclePositions[i], obstacleSizes[i], obstacleColor);
+            }
+
+            // ----- Finish line -----
             var finishGo = new GameObject("FinishLine");
             finishGo.transform.SetParent(trackGo.transform);
             finishGo.transform.position = new Vector3(finishLineX, 0, 0);
@@ -132,7 +172,7 @@ namespace QuickChecks.Prototype
             finishCollider.size = new Vector2(0.5f, trackSize.y);
             finishGo.tag = "FinishLine";
 
-            // ----- Player kart -----
+            // ----- Player kart with all components -----
             var kartGo = new GameObject("PlayerKart");
             kartGo.transform.position = kartSpawn;
             var kartSpriteRenderer = kartGo.AddComponent<SpriteRenderer>();
@@ -148,8 +188,12 @@ namespace QuickChecks.Prototype
             _kart = kartGo.AddComponent<KartController>();
             _swipeDetector = kartGo.AddComponent<SwipeDetector>();
             _ghostRecorder = kartGo.AddComponent<GhostRecorder>();
+            _kartTrail = kartGo.AddComponent<KartTrail>();
+            _swipeFeedback = kartGo.AddComponent<SwipeFeedback>();
+            _swipeAudio = kartGo.AddComponent<SwipeAudio>();
+            kartGo.AddComponent<AudioSource>(); // Required by SwipeAudio
 
-            // Wire up private [SerializeField] fields via reflection.
+            // Wire up [SerializeField] private fields via reflection.
             SetPrivateField(_kart, "stats", kartStats);
             SetPrivateField(_kart, "swipeEvent", swipeEvent);
 
@@ -158,7 +202,23 @@ namespace QuickChecks.Prototype
 
             SetPrivateField(_ghostRecorder, "swipeEvent", swipeEvent);
 
+            SetPrivateField(_kartTrail, "kart", _kart);
+
+            SetPrivateField(_swipeFeedback, "swipeEvent", swipeEvent);
+            SetPrivateField(_swipeFeedback, "kart", _kart);
+
+            SetPrivateField(_swipeAudio, "swipeEvent", swipeEvent);
+
+            // Camera follows the kart.
             SetPrivateField(_cameraRig, "target", kartGo.transform);
+
+            // ----- Solo ghost player (records + replays best run) -----
+            var soloGhostGo = new GameObject("SoloGhostPlayer");
+            _soloGhost = soloGhostGo.AddComponent<SoloGhostPlayer>();
+            SetPrivateField(_soloGhost, "playerRecorder", _ghostRecorder);
+            SetPrivateField(_soloGhost, "playerSwipeEvent", swipeEvent);
+            SetPrivateField(_soloGhost, "ghostSwipeEvent", ghostSwipeEvent);
+            SetPrivateField(_soloGhost, "trackId", "prototype_track");
 
             // ----- HUD canvas -----
             var canvasGo = new GameObject("HUD");
@@ -180,35 +240,34 @@ namespace QuickChecks.Prototype
             {
                 Debug.LogError(
                     "[Prototype] Failed to add TextMeshProUGUI. " +
-                    "Import TMP essentials: Window > TextMeshPro > Import TMP Essential Resources. " +
-                    "Falling back to legacy UI.Text.\n" + ex.Message
+                    "Import TMP essentials: Window > TextMeshPro > Import TMP Essential Resources.\n" + ex.Message
                 );
                 statusText = (TMP_Text)(object)statusGo.AddComponent<UnityEngine.UI.Text>();
             }
             statusText.fontSize = 36;
             statusText.alignment = TextAlignmentOptions.TopLeft;
-            statusText.color = new Color(0.969f, 0.969f, 0.949f); // #F7F7F2
+            statusText.color = new Color(0.969f, 0.969f, 0.949f);
 
             var statusRect = statusGo.GetComponent<RectTransform>();
             statusRect.anchorMin = new Vector2(0, 1);
             statusRect.anchorMax = new Vector2(0, 1);
             statusRect.pivot = new Vector2(0, 1);
             statusRect.anchoredPosition = new Vector2(40, -40);
-            statusRect.sizeDelta = new Vector2(900, 600);
+            statusRect.sizeDelta = new Vector2(900, 800);
 
             _hud = canvasGo.AddComponent<PrototypeHUD>();
             SetPrivateField(_hud, "raceStarter", this);
             SetPrivateField(_hud, "kart", _kart);
             SetPrivateField(_hud, "statusText", statusText);
 
-            // ----- Hint text (bottom) -----
+            // ----- Hint text -----
             var hintGo = new GameObject("HintText");
             hintGo.transform.SetParent(canvasGo.transform, false);
             TMP_Text hintText = hintGo.AddComponent<TextMeshProUGUI>();
             hintText.fontSize = 28;
             hintText.alignment = TextAlignmentOptions.Bottom;
             hintText.color = new Color(0.969f, 0.969f, 0.949f, 0.7f);
-            hintText.text = "FLICK to move the kart. Reach the green line on the right. Press R to reset.";
+            hintText.text = "FLICK to move the kart. Reach the green line on the right. R = reset. C = clear best run.";
             var hintRect = hintGo.GetComponent<RectTransform>();
             hintRect.anchorMin = new Vector2(0.5f, 0);
             hintRect.anchorMax = new Vector2(0.5f, 0);
@@ -218,9 +277,8 @@ namespace QuickChecks.Prototype
 
             if (verboseLogging)
             {
-                Debug.Log("[Prototype] Scene built. Kart at " + kartSpawn +
-                          ", finish line at x=" + finishLineX +
-                          ", track size " + trackSize);
+                Debug.Log($"[Prototype] Scene built. {obstaclePositions.Length} obstacles, " +
+                          $"par={parSwipes} swipes, finish at x={finishLineX}");
             }
         }
 
@@ -235,7 +293,6 @@ namespace QuickChecks.Prototype
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.color = color;
             renderer.sprite = CreateSquareSprite();
-            // Sprite is 1x1 unit; scale GameObject to match desired size.
             go.transform.localScale = new Vector3(size.x, size.y, 1);
             return go;
         }
@@ -271,7 +328,15 @@ namespace QuickChecks.Prototype
             swipeEvent.Register(OnSwipe);
             _finished = false;
             _swipeCount = 0;
-            Debug.Log("[Prototype] Race started. Swipe the kart to the finish line on the right. Fewer swipes = better!");
+            if (_kartTrail != null) _kartTrail.Clear();
+
+            // Start ghost replay (if we have a best run recorded).
+            if (_soloGhost != null)
+            {
+                _soloGhost.OnRaceStart(_raceStartMs, kartSpawn);
+            }
+
+            Debug.Log("[Prototype] Race started. Par = " + parSwipes + " swipes. Beat the ghost if there is one!");
         }
 
         private void OnSwipe(SwipeData swipe)
@@ -296,16 +361,35 @@ namespace QuickChecks.Prototype
             {
                 ResetRace();
             }
+
+            if (Input.GetKeyDown(KeyCode.C))
+            {
+                _soloGhost?.ClearBestRun();
+                Debug.Log("[Prototype] Best run cleared. Restart to race without ghost.");
+            }
         }
 
         private void FinishRace()
         {
             _finished = true;
             long finishMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _raceStartMs;
-            var ghost = _ghostRecorder.EndRace(finishMs);
+
+            // Solo ghost: compare + save if better.
+            _soloGhost?.OnRaceFinish(_swipeCount, finishMs);
+
             swipeEvent.Unregister(OnSwipe);
             OnRaceFinished?.Invoke(_swipeCount, finishMs);
-            Debug.Log($"[Prototype] Race finished! Swipes: {_swipeCount}, Time: {finishMs / 1000f:F2}s");
+
+            int bestSwipes = _soloGhost?.BestGhost?.swipeCount ?? _swipeCount;
+            long bestTime = _soloGhost?.BestGhost?.finishTimeMs ?? finishMs;
+
+            int delta = _swipeCount - bestSwipes;
+            string deltaStr = delta <= 0
+                ? $"<color=#3FE0C2>NEW BEST! (-{Math.Abs(delta)} swipes)</color>"
+                : $"+{delta} swipes vs best";
+
+            Debug.Log($"[Prototype] Race finished! Swipes: {_swipeCount} (par {parSwipes}), " +
+                      $"Time: {finishMs / 1000f:F2}s. {deltaStr}");
         }
 
         public void ResetRace()
@@ -320,11 +404,6 @@ namespace QuickChecks.Prototype
             if (swipeEvent != null) swipeEvent.Unregister(OnSwipe);
         }
 
-        /// <summary>
-        /// Reflection helper to set [SerializeField] private fields.
-        /// Used because the existing scripts use private fields with [SerializeField]
-        /// for cleanliness; we don't want to break that just for the prototype.
-        /// </summary>
         private static void SetPrivateField(object obj, string fieldName, object value)
         {
             if (obj == null || string.IsNullOrEmpty(fieldName)) return;
@@ -337,8 +416,7 @@ namespace QuickChecks.Prototype
             }
             else
             {
-                Debug.LogWarning($"[Prototype] Field '{fieldName}' not found on {type.Name}. " +
-                                  "Wire it manually in the Inspector after the prototype loads.");
+                Debug.LogWarning($"[Prototype] Field '{fieldName}' not found on {type.Name}.");
             }
         }
     }

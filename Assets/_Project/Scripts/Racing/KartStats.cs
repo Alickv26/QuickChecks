@@ -17,16 +17,16 @@ namespace QuickChecks.Racing
 
         [Header("Movement")]
         [Tooltip("Multiplier on incoming swipe impulse. Higher = more responsive to swipes.")]
-        [Range(0.5f, 2f)] public float impulseMultiplier = 1.0f;
+        [Range(0.5f, 2f)] public float impulseMultiplier = 1.1f;
 
-        [Tooltip("Velocity lost per second when coasting. 0.15 = 15% velocity lost per second.")]
-        [Range(0f, 0.5f)] public float frictionPerSecond = 0.15f;
+        [Tooltip("Velocity lost per second when coasting. 0.22 = 22% velocity lost per second.")]
+        [Range(0f, 0.5f)] public float frictionPerSecond = 0.22f;
 
-        [Tooltip("Minimum speed (units/s) below which kart is considered stopped. Used to gate swipe timing.")]
-        public float stopThreshold = 5f;
+        [Tooltip("Minimum speed (units/s) below which kart is considered stopped. Higher = cleaner stop.")]
+        public float stopThreshold = 8f;
 
         [Tooltip("Maximum speed cap, regardless of impulse or boost.")]
-        public float maxSpeed = 1200f;
+        public float maxSpeed = 1500f;
 
         [Header("Boost")]
         [Tooltip("Multiplier applied to velocity during a boost power-up.")]
