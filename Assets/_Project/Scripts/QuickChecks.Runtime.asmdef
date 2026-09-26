@@ -2,8 +2,13 @@
     "name": "QuickChecks.Runtime",
     "rootNamespace": "QuickChecks",
     "references": [
-        "GUID:6055be8d2b9c4fa438a5a7a1f9d2c8c0",
-        "GUID:7b7a3f5e1c9b4e6c9f1e7a8b9c0d1e2f"
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.Cinemachine",
+        "Unity.Addressables",
+        "Unity.Timeline"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

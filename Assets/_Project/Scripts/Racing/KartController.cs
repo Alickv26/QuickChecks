@@ -34,8 +34,8 @@ namespace QuickChecks.Racing
         {
             _rb = GetComponent<Rigidbody2D>();
             _rb.gravityScale = 0f;
-            _rb.linearDamping = 0f; // We do friction manually for predictability.
-            _rb.angularDamping = 0f;
+            _rb.drag = 0f; // We do friction manually for predictability.
+            _rb.angularDrag = 0f;
             _rb.bodyType = RigidbodyType2D.Kinematic; // We drive position manually
             _mainCam = Camera.main;
         }

@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using QuickChecks.Input;
 using QuickChecks.Racing;
@@ -231,22 +232,37 @@ namespace QuickChecks.Prototype
 
             var statusGo = new GameObject("StatusText");
             statusGo.transform.SetParent(canvasGo.transform, false);
-            TMP_Text statusText;
+
+            // Try TMP first; fall back to legacy UI.Text if TMP resources aren't imported.
+            Component statusTextComponent;
             try
             {
-                statusText = statusGo.AddComponent<TextMeshProUGUI>();
+                statusTextComponent = statusGo.AddComponent<TextMeshProUGUI>();
+                Debug.Log("[Prototype] Using TextMeshPro for HUD (recommended).");
             }
             catch (Exception ex)
             {
-                Debug.LogError(
-                    "[Prototype] Failed to add TextMeshProUGUI. " +
-                    "Import TMP essentials: Window > TextMeshPro > Import TMP Essential Resources.\n" + ex.Message
+                Debug.LogWarning(
+                    "[Prototype] TextMeshProUGUI failed (likely TMP Essential Resources not imported). " +
+                    "Falling back to legacy UI.Text. To enable TMP: Window > TextMeshPro > Import TMP Essential Resources.\n" +
+                    "Error: " + ex.Message
                 );
-                statusText = (TMP_Text)(object)statusGo.AddComponent<UnityEngine.UI.Text>();
+                var legacyText = statusGo.AddComponent<Text>();
+                legacyText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                legacyText.fontSize = 24;
+                legacyText.color = new Color(0.969f, 0.969f, 0.949f);
+                legacyText.alignment = TextAnchor.UpperLeft;
+                legacyText.raycastTarget = false;
+                statusTextComponent = legacyText;
             }
-            statusText.fontSize = 36;
-            statusText.alignment = TextAlignmentOptions.TopLeft;
-            statusText.color = new Color(0.969f, 0.969f, 0.949f);
+
+            // Apply common styling (works for both TMP and legacy via duck typing).
+            if (statusTextComponent is TMP_Text tmpText)
+            {
+                tmpText.fontSize = 36;
+                tmpText.alignment = TextAlignmentOptions.TopLeft;
+                tmpText.color = new Color(0.969f, 0.969f, 0.949f);
+            }
 
             var statusRect = statusGo.GetComponent<RectTransform>();
             statusRect.anchorMin = new Vector2(0, 1);
@@ -258,16 +274,36 @@ namespace QuickChecks.Prototype
             _hud = canvasGo.AddComponent<PrototypeHUD>();
             SetPrivateField(_hud, "raceStarter", this);
             SetPrivateField(_hud, "kart", _kart);
-            SetPrivateField(_hud, "statusText", statusText);
+            // Wire up whichever text component we created (TMP if available, legacy otherwise).
+            if (statusTextComponent is TMP_Text tmp)
+                SetPrivateField(_hud, "statusTextTMP", tmp);
+            else if (statusTextComponent is Text legacy)
+                SetPrivateField(_hud, "statusTextLegacy", legacy);
 
             // ----- Hint text -----
             var hintGo = new GameObject("HintText");
             hintGo.transform.SetParent(canvasGo.transform, false);
-            TMP_Text hintText = hintGo.AddComponent<TextMeshProUGUI>();
-            hintText.fontSize = 28;
-            hintText.alignment = TextAlignmentOptions.Bottom;
-            hintText.color = new Color(0.969f, 0.969f, 0.949f, 0.7f);
-            hintText.text = "FLICK to move the kart. Reach the green line on the right. R = reset. C = clear best run.";
+            Component hintTextComponent;
+            try
+            {
+                var tmpHint = hintGo.AddComponent<TextMeshProUGUI>();
+                tmpHint.fontSize = 28;
+                tmpHint.alignment = TextAlignmentOptions.Bottom;
+                tmpHint.color = new Color(0.969f, 0.969f, 0.949f, 0.7f);
+                tmpHint.text = "FLICK to move the kart. Reach the green line on the right. R = reset. C = clear best run.";
+                hintTextComponent = tmpHint;
+            }
+            catch
+            {
+                var legacyHint = hintGo.AddComponent<Text>();
+                legacyHint.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                legacyHint.fontSize = 20;
+                legacyHint.alignment = TextAnchor.LowerCenter;
+                legacyHint.color = new Color(0.969f, 0.969f, 0.949f, 0.7f);
+                legacyHint.text = "FLICK to move the kart. Reach the green line. R = reset. C = clear best.";
+                legacyHint.raycastTarget = false;
+                hintTextComponent = legacyHint;
+            }
             var hintRect = hintGo.GetComponent<RectTransform>();
             hintRect.anchorMin = new Vector2(0.5f, 0);
             hintRect.anchorMax = new Vector2(0.5f, 0);

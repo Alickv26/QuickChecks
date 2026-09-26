@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using UnityEngine;
 using TMPro;
 using QuickChecks.Racing;
@@ -8,14 +7,16 @@ namespace QuickChecks.Prototype
 {
     /// <summary>
     /// On-screen debug HUD for the polished Week 1 prototype.
-    /// Shows: swipe count (current / par / best), velocity, kart state, race time,
-    /// finish status with delta vs best.
+    /// Supports both TMP_Text and legacy UnityEngine.UI.Text — set whichever
+    /// you're using via the Inspector. The bootstrapper wires whichever one
+    /// it managed to create.
     /// </summary>
     public class PrototypeHUD : MonoBehaviour
     {
         [SerializeField] private PrototypeBootstrapper raceStarter;
         [SerializeField] private KartController kart;
-        [SerializeField] private TMP_Text statusText;
+        [SerializeField] private TMP_Text statusTextTMP;
+        [SerializeField] private UnityEngine.UI.Text statusTextLegacy;
 
         private long _finishMs = -1;
         private int _finishSwipes = -1;
@@ -33,8 +34,12 @@ namespace QuickChecks.Prototype
 
         private void Update()
         {
-            if (statusText == null) return;
+            string text = BuildStatusText();
+            if (!string.IsNullOrEmpty(text)) SetText(text);
+        }
 
+        private string BuildStatusText()
+        {
             if (_isFinished && _finishMs >= 0)
             {
                 int par = raceStarter != null ? raceStarter.ParSwipes : 0;
@@ -44,24 +49,23 @@ namespace QuickChecks.Prototype
                 int deltaVsPar = _finishSwipes - par;
                 int deltaVsBest = _finishSwipes - best;
                 string parStr = deltaVsPar <= 0
-                    ? $"<color=#3FE0C2><b>{_finishSwipes}</b> (par -{Math.Abs(deltaVsPar)})</color>"
-                    : $"<color=#FFD166><b>{_finishSwipes}</b> (par +{deltaVsPar})</color>";
+                    ? $"{_finishSwipes} (par -{Math.Abs(deltaVsPar)})"
+                    : $"{_finishSwipes} (par +{deltaVsPar})";
 
                 string bestStr = best == _finishSwipes
-                    ? "<color=#3FE0C2>NEW BEST!</color>"
-                    : $"<color=#7B8A8A>+{deltaVsBest} vs best ({best})</color>";
+                    ? "NEW BEST!"
+                    : $"+{deltaVsBest} vs best ({best})";
 
-                statusText.text =
-                    $"<b>RACE COMPLETE</b>\n\n" +
+                return
+                    "RACE COMPLETE\n\n" +
                     $"Swipes: {parStr}\n" +
-                    $"Time: <color=#3FE0C2><b>{_finishMs / 1000f:F2}s</b></color>\n" +
-                    $"Best: <b>{best}</b> swipes / <b>{bestTime / 1000f:F2}s</b>\n" +
+                    $"Time: {_finishMs / 1000f:F2}s\n" +
+                    $"Best: {best} swipes / {bestTime / 1000f:F2}s\n" +
                     $"{bestStr}\n\n" +
-                    $"<i>Press <b>R</b> to retry</i>";
-                return;
+                    "Press R to retry";
             }
 
-            if (kart == null) return;
+            if (kart == null) return "";
 
             float speed = kart.Velocity.magnitude;
             int currentSwipes = raceStarter != null ? raceStarter.SwipeCount : 0;
@@ -70,16 +74,22 @@ namespace QuickChecks.Prototype
             bool hasGhost = raceStarter?.SoloGhost?.HasBestRun ?? false;
 
             string ghostStr = hasGhost
-                ? $"<color=#7B8A8A>Ghost active ({best} swipes)</color>"
-                : "<color=#7B8A8A>No ghost yet — finish a run</color>";
+                ? $"Ghost active ({best} swipes)"
+                : "No ghost yet - finish a run";
 
-            statusText.text =
-                $"<b>QuickChecks Prototype</b>\n\n" +
-                $"Swipes: <color=#3FE0C2><b>{currentSwipes}</b></color> / par {par}\n" +
-                $"Velocity: <b>{speed:F0}</b> u/s\n" +
-                $"Stopped: <b>{kart.IsStopped}</b>   Off-track: <b>{kart.IsOffTrack}</b>\n\n" +
+            return
+                "QuickChecks Prototype\n\n" +
+                $"Swipes: {currentSwipes} / par {par}\n" +
+                $"Velocity: {speed:F0} u/s\n" +
+                $"Stopped: {kart.IsStopped}   Off-track: {kart.IsOffTrack}\n\n" +
                 $"{ghostStr}\n\n" +
-                $"<i>Flick to move • Pinch to zoom • R = reset • C = clear best</i>";
+                "Flick to move - Pinch to zoom - R = reset - C = clear best";
+        }
+
+        private void SetText(string text)
+        {
+            if (statusTextTMP != null) statusTextTMP.text = text;
+            else if (statusTextLegacy != null) statusTextLegacy.text = text;
         }
 
         private void HandleRaceFinished(int swipes, long timeMs)

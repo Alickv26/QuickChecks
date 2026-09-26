@@ -2,7 +2,12 @@
     "name": "QuickChecks.Editor",
     "rootNamespace": "QuickChecks.Editor",
     "references": [
-        "QuickChecks.Runtime"
+        "QuickChecks.Runtime",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.Cinemachine"
     ],
     "includePlatforms": [
         "Editor"

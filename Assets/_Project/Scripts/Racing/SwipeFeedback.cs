@@ -29,7 +29,11 @@ namespace QuickChecks.Racing
 
         // Particle pool
         private readonly List<Particle> _particles = new();
-        private struct Particle
+
+        /// <summary>
+        /// Public so it can be exposed via GetActiveParticles().
+        /// </summary>
+        public struct Particle
         {
             public Vector3 position;
             public Vector3 velocity;

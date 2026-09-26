@@ -19,14 +19,15 @@ TagManager:
   - UI
   -
   -
-  - Track                ; Layer 8 — track surface, no collision
-  - TrackBoundary        ; Layer 9 — colliders for off-track detection
-  - Kart                 ; Layer 10 — player and CPU karts
-  - GhostKart            ; Layer 11 — ghost replays (no collision with karts)
-  - PowerUp              ; Layer 12 — power-up pickups
-  - Checkpoint           ; Layer 13 — checkpoint triggers
-  - Camera               ; Layer 14 — camera rig
-  - UI                   ; Layer 15 — in-world UI overlays
+  - Track
+  - TrackBoundary
+  - Kart
+  - GhostKart
+  - PowerUp
+  - Checkpoint
+  - Camera
+  - UI
+  -
   -
   -
   -
