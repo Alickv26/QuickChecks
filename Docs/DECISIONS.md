@@ -1,119 +1,294 @@
 # Design Decisions — QuickChecks
 
-**Document version**: 1.0
+**Document version**: 2.0
 **Date**: 2026-09-27
-**Resolves**: Open questions in `Docs/MULTIPLAYER_REVISION.md` §"Open Questions"
+**Resolves**: Open questions in `Docs/MULTIPLAYER_REVISION.md` §"Open Questions" + deeper design questions from planning session
 
 > These decisions are made with reasoning. Override any of them — just say which one(s) and I'll update the docs and code.
 
 ---
 
-## Decision 1: Max-swipe cap per track — Designer-set, with formula as default
+## Decisions 1–5 (from v1.0, unchanged)
 
-**Question**: Should the 50-swipe cap scale by track length/difficulty, or be fixed?
+1. **Max-swipe cap per track** — Designer-set, default formula `30 + (difficultyStars × 10)`
+2. **Online match replay** — Both ghosts stored 7 days, then auto-deleted via Supabase cron
+3. **CPU AI for Hard** — Hybrid: hand-authored optimal line + ±3° noise per difficulty
+4. **Pass-and-play kart visibility** — All karts visible; inactive dimmed to 40% alpha
+5. **ELO/ranking for online** — Per-track leaderboard + global ELO (online matches only, +25 win / −15 loss)
 
-**Decision**: **Each track gets a designer-set `maxSwipeCap` in its `TrackDefinition`.** Default formula: `30 + (difficultyStars × 10)`. So:
-- Track 1 (★): 40 swipes
-- Track 3 (★★): 50 swipes
-- Track 5 (★★★): 60 swipes
-- Track 8 (★★★★★): 80 swipes
-
-Designers can override per track if a specific track needs more or less headroom.
-
-**Why**: A flat cap punishes long tracks and is too generous on short ones. Scaling by difficulty is a good baseline, but designers need flexibility for outlier tracks (e.g., a very long Track 3 that needs 60). This matches how Mario Kart gives different time limits per track.
-
-**Code change**: Add `maxSwipeCap` field to `TrackDefinition` (default `-1`, meaning "use formula"). `TurnManager` resolves `-1` to `30 + track.difficultyStars * 10` at race start.
+Full reasoning for 1–5: see git history (commit `c9e1b7a`).
 
 ---
 
-## Decision 2: Online match replay — Store both ghosts for 7 days, then auto-delete
+## Decision 6: Monetization — Freemium unlock (new)
 
-**Question**: Do online matches produce a "match ghost" both players can replay later?
+**Question**: What monetization model do you want?
 
-**Decision**: **Yes — store both players' ghosts for 7 days, then auto-delete via Supabase cron.** Both players can replay the match from their results screen during that window.
+**Decision**: **Freemium unlock.** Free demo with 3 tracks + 3 karts + solo practice + daily tracks. One-time IAP unlocks the full game (all 8 tracks + all 8 karts + online ranked matches).
 
 **Why**:
-- **Dispute resolution**: if a player suspects cheating (impossibly few swipes), they can review the replay
-- **Learning**: losing player can study the winner's swipe pattern to improve
-- **Storage cost**: 2 ghosts × ~7 KB × ~10K matches/day = ~140 MB/day. 7-day retention = ~1 GB peak. Manageable on Supabase free tier.
-- **Privacy**: 7 days is short enough that no long-term tracking concerns arise
+- **Lowest friction to entry**: anyone can download and try without commitment
+- **No ongoing monetization pressure**: once they unlock, they have everything — no F2P grind, no ads interrupting races, no pay-to-win dynamics
+- **Clear value proposition**: "pay once, get the whole game" is an easy sell for a $3-5 mobile game
+- **Avoids the F2P death spiral**: no daily login rewards, no energy systems, no currencies — keeps design clean and player-focused
+- **Cross-platform parity**: identical experience on iOS + Android
 
-**Code change**: Add `match_id` field to `race_results` table. Both rows share the same `match_id`. Add Supabase scheduled function (pg_cron) that deletes rows older than 7 days where `mode = 'online'`.
+**Open follow-ups (need to decide before implementation)**:
+- IAP price point: $2.99 / $4.99 / $9.99?
+- Free tier: does it include daily tracks? Ghost uploads? Online?
+- Paywall trigger: where exactly does the unlock prompt appear?
+- Restore purchases flow on reinstall?
+- Regional pricing (Tier 1 vs Tier 2/3 countries)?
+
+**Code impact**:
+- New `IAPService` for App Store / Play Store receipts
+- New `EntitlementManager` to gate tracks/karts behind unlock state
+- Free tier config: 3 tracks flagged as `isFree = true` in TrackDefinition
+- Paywall UI: "Unlock Full Game" button on locked track/kart select
 
 ---
 
-## Decision 3: CPU AI training — Hybrid: hand-authored baseline + noise from random top-10 ghost
+## Decision 7: Tutorial — Forced 30-second scene (new)
 
-**Question**: For Hard difficulty in v2, should we mine top leaderboard ghosts for optimal lines, or have designers hand-author them?
+**Question**: How should we teach the swipe mechanic to new players?
 
-**Decision**: **Hybrid.** Designers hand-author one "optimal line" per track (recorded as a ghost during dev). Hard CPU follows this line with ±3° noise. Medium and Easy use the same line with progressively more noise (±10°, ±25°) and lower magnitude (per existing `CPUPlayer` config).
+**Decision**: **Forced tutorial** — a dedicated 30-second scene runs before track 1 on first launch. Sequence:
+1. "Swipe to move" — kart on empty arena, player must swipe to continue
+2. "Slow drags don't work" — player must try a slow drag (rejected) then a fast swipe (accepted)
+3. "Goal: fewest swipes" — explains the par/star system
+4. "Reach the green line" — short finish-line demo
+
+After completion: tutorial is marked complete (PlayerPrefs flag) and never shown again unless player clears save data.
 
 **Why**:
-- Pure ML (training on top ghosts) is overkill for v1, requires data we don't have yet
-- Pure hand-authoring is rigid — same line every match feels robotic
-- **Hybrid**: designer-set line + noise = consistent difficulty, but each match feels slightly different. Top-ghost mining can be a v2 enhancement once we have player data.
+- **Forces understanding of the unique mechanic** — swipe golf is unusual; players won't intuit "slow drags are rejected"
+- **30 seconds is short** — respects player time, doesn't drag
+- **Hands-on beats text** — players learn by doing, not reading tooltips
+- **No skip option** — every player enters track 1 with the same baseline understanding, simplifies onboarding analytics
 
-**Code change**: Add `optimalLineGhostUrl` field to `TrackDefinition`. `CPUPlayer` loads this ghost at race start and uses it as the basis for swipe direction (with noise added per difficulty).
+**Open follow-ups**:
+- Returning player on new device: skip tutorial if Supabase profile says completed?
+- Failure recovery: if player can't swipe fast enough (motor impairment), do we lower threshold in tutorial?
+- Voice-over or text-only?
+- Tutorial kart: same as Starter kart or a special "tutorial kart" with forgiving stats?
+
+**Code impact**:
+- New `TutorialScene` + `TutorialController` script
+- New `TutorialStep` enum (Move, RejectSlow, ExplainPar, FinishLine)
+- PlayerPrefs flag `tutorial_completed`
+- Game flow update: Boot → Tutorial (if not completed) → Main Menu
 
 ---
 
-## Decision 4: Pass-and-play kart visibility — All karts visible, inactive dimmed
+## Decision 8: Solo depth — Daily tracks (new)
 
-**Question**: Do all karts show on screen simultaneously, or only the active player's kart?
+**Question**: Beyond ghost races, what solo content keeps players engaged?
 
-**Decision**: **All karts always visible.** Inactive karts are dimmed to ~40% alpha. Camera follows the active player's kart. Other players' karts stay rendered at their last position.
+**Decision**: **Daily tracks only** (no challenge modes, no story mode, no endless runner). One procedurally generated track per day, same for all players globally, with its own leaderboard. Resets at UTC midnight.
 
 **Why**:
-- **Spatial context**: players see how far ahead/behind they are — adds tension
-- **Strategic decisions**: "Player 2 is right at the chicane — I need to be precise here to catch up"
-- **Visual interest**: empty track is boring; 4 karts on track is dynamic
-- **Dimming inactive karts** keeps visual focus on the active player without losing spatial info
+- **Strongest retention hook in mobile puzzle games** (Wordle, Mini Crosswords, Spelunky Daily)
+- **One track = one decision per day** — low commitment, high return rate
+- **Procedural generation validated** — we can use a seeded RNG with date as seed; everyone gets the same track
+- **Avoids content bloat** — no need to design 50+ handcrafted challenge tracks
+- **Natural social mechanic** — players compare daily scores with friends
 
-**Code change**: When `TurnManager.OnTurnStart` fires, dim all karts except the active one (`SpriteRenderer.color` × 0.4 alpha). When `OnTurnEnd` fires, restore all to full alpha for the brief transition. Camera rig follows only the active kart.
+**Open follow-ups**:
+- Daily track difficulty: fixed (always medium) or rotates (easy/medium/hard per day of week)?
+- Missed days: can players replay old dailies (without leaderboard) or are they gone forever?
+- Daily track length: shorter than handcrafted (2-min race) or full-length?
+- Procedural generator: needs constraints to ensure tracks are actually fun (not just random walls)
+- Track validation: how do we ensure daily track is solvable under par?
+
+**Code impact**:
+- New `DailyTrackGenerator` (seeded RNG with date-based seed)
+- New `DailyLeaderboard` (separate from main per-track leaderboard)
+- UI: "Daily Track" button on main menu, shows today's track + leaderboard
+- Backend: new Supabase table `daily_results` with `track_date` column
 
 ---
 
-## Decision 5: ELO/ranking for online — Both: per-track leaderboard + global ELO
+## Decision 9: Progression — Linear unlock (new)
 
-**Question**: Should online wins/losses affect a global player rank, or just track-by-track leaderboards?
+**Question**: What's the progression/unlock model?
 
-**Decision**: **Both.**
-- **Per-track leaderboard**: ranks by `swipeCount ASC, finishTimeMs ASC` (existing design). Shows skill on a specific track.
-- **Global ELO**: starts at 1000, +25 for online win, -15 for online loss, +10 for online draw. Updated only from online ranked matches (not CPU, not pass-and-play).
-- **Matchmaking**: pairs players within ±100 ELO of each other to keep matches competitive.
+**Decision**: **Linear unlock.** Finish track N under par (or with at least 1 star) → unlock track N+1. Karts unlock in parallel: finishing track N unlocks kart N+1.
 
 **Why**:
-- Per-track leaderboards reward specialists (player who's great at one track)
-- Global ELO rewards generalists and gives matchmaking a signal
-- Asymmetric ELO delta (+25 win / -15 loss) keeps average climbing slowly — feels rewarding, not punishing. Standard in casual games (Clash Royale, Hearthstone use similar).
-- Skipping CPU/pass-play from ELO prevents inflation from grinding easy CPU wins.
+- **Simple, predictable, no currency** — players always know what's next
+- **Avoids F2P grind mechanics** — no star grinding, no XP farming
+- **Matches the freemium model**: tracks 1-3 free, track 4+ requires IAP unlock
+- **Forgiving**: only 1 star needed (out of 3) to progress, so most players won't get stuck
 
-**Code change**: Add `elo` column to `players` table (default 1000). Add `OnlineMatchmakingService.MatchmakeAsync(playerId)` that queries `online_queue` for players within ELO range. Add `UpdateEloOnMatchEnd(winnerId, loserId)` server-side function.
+**Open follow-ups**:
+- Par target per track: designer-set, or formula (e.g., `20 + difficultyStars × 5`)?
+- Soft-lock prevention: if player can't hit par after N attempts, do we offer a "skip" option?
+- Replay value: once unlocked, do tracks have any reason to replay beyond leaderboard climbing?
 
----
-
-## Summary Table
-
-| # | Question | Decision | Risk |
-|---|----------|----------|------|
-| 1 | Max-swipe cap scaling | Designer-set, default formula `30 + stars×10` | Low — designers can override per track |
-| 2 | Online replay storage | 7-day retention, both ghosts stored | Low — ~1 GB peak storage on free tier |
-| 3 | CPU AI for Hard | Hybrid: hand-authored line + ±3° noise | Low — can enhance with ML in v2 |
-| 4 | Pass-play kart visibility | All visible, inactive dimmed to 40% alpha | Low — already implemented in design |
-| 5 | ELO ranking | Per-track + global ELO (online only) | Medium — matchmaking queue may be empty at launch |
+**Code impact**:
+- `TrackDefinition` already has `parSwipeCount` field (committed)
+- `TrackProgress` save data: track unlocked state + stars earned
+- Unlock check: race end → if `swipeCount <= parSwipeCount * 1.5` → unlock next track
 
 ---
 
-## Implementation Order
+## Decision 10: CPU symmetry — Identical rules (new)
 
-These decisions affect different parts of the codebase and can be implemented independently:
+**Question**: Should CPU play by the same rules as human players?
 
-1. **Decision 1** (cap scaling): implement in week 2 alongside track system
-2. **Decision 4** (kart dimming): implement in week 5 with pass-and-play
-3. **Decision 3** (CPU hybrid AI): implement in week 6 with CPU AI work
-4. **Decision 5** (ELO): implement in week 9 with backend
-5. **Decision 2** (replay retention): implement in week 10 with backend polish
+**Decision**: **Symmetric.** CPU uses identical swipe thresholds, power-ups, friction, max-swipe cap. Only difference is the AI's swipe accuracy (noise level per difficulty).
+
+**Why**:
+- **Fairness perception**: players don't feel cheated when they lose to CPU
+- **Simpler to balance**: one set of rules, one set of edge cases
+- **Easier to reason about CPU difficulty**: just tune the noise, not separate physics
+- **Future-proofs for online**: if CPU plays same rules as humans, we can substitute CPU for disconnected players in online matches
+
+**Code impact**: None — current `CPUPlayer` already uses the same `swipeEvent` and `KartController` as humans.
 
 ---
 
-*End of decisions doc. For full multiplayer context, see `Docs/MULTIPLAYER_REVISION.md`.*
+## Decision 11: Online auth — Anonymous only (new)
+
+**Question**: What authentication model for online play?
+
+**Decision**: **Anonymous only.** Auto-generated UUID on first launch, stored in PlayerPrefs. No email, no password, no OAuth.
+
+**Why**:
+- **Lowest friction**: zero onboarding time for online
+- **Privacy-friendly**: no PII collected, no GDPR/CCPA concerns for accounts
+- **Sufficient for our scope**: we don't need cross-device sync in v1
+- **Easy to upgrade later**: anonymous ID can be linked to email/OAuth later if needed
+
+**Trade-offs accepted**:
+- **No cross-device sync**: player loses progress on reinstall (mitigated by Supabase storing ghosts by player ID)
+- **No friend list**: player can't add specific friends; only races against global top-N
+- **Identity is just an ID**: display name is auto-generated ("Player_1234"), player can edit it once via settings
+
+**Open follow-ups**:
+- Display name generator: random word + number ("SwiftFox_42") or just numbers ("Player_1234")?
+- Name edit: allowed once, unlimited, or never?
+- Account upgrade path: if we want cross-device later, can we link anonymous ID to email without losing data?
+
+**Code impact**:
+- `SupabaseClient` already has anonymous auth stub (committed)
+- New `PlayerProfile` with editable display name
+- UUID generation on first launch, stored in PlayerPrefs
+
+---
+
+## Decision 12: Localization — English only at launch (new)
+
+**Question**: Localization strategy at launch?
+
+**Decision**: **English only at launch.** All UI text, tutorial copy, error messages in English. No localization infrastructure built for v1.
+
+**Why**:
+- **Fastest to ship**: no translation work, no string table management
+- **Smallest scope**: avoids the "localization hell" of last-minute string changes
+- **Market reality**: English-only covers US, UK, Canada, Australia, India, Scandinavia, Netherlands — sufficient for v1 launch
+- **Phase 2**: localize to top 5 languages 30-60 days post-launch based on actual player geography
+
+**Trade-offs accepted**:
+- **Limits non-English markets**: Japan, Korea, China, France, Germany, Spain, LATAM under-served
+- **Lower install conversion** in non-English markets
+- **Player feedback will tell us** which languages are worth localizing
+
+**Code impact**:
+- All UI text hardcoded in scripts (no string tables for v1)
+- When we localize: extract all strings to `Localization.csv`, add `LocalizationService`, use `Localize("key")` instead of literal strings
+- Architecture should make this future migration easy — keep all user-facing strings in one place per script
+
+---
+
+## Decision 13: Accessibility — Full at launch (new)
+
+**Question**: What accessibility features at launch?
+
+**Decision**: **Full accessibility from day one.** Three features:
+1. **Color-blind mode** — alternate palettes for protanopia, deuteranopia, tritanopia (toggle in settings)
+2. **One-finger mode** — auto-zoom replaces pinch-to-zoom (long-press to toggle zoom-in/zoom-out)
+3. **Audio cues** — distinct SFX for: power-up collected, boundary hit, finish line approaching, ghost passing you
+
+**Why**:
+- **Right thing to do** — accessibility matters from day one, not as a v2 patch
+- **Broadens market** — ~8% of men have some color blindness; one-finger mode helps one-handed play
+- **Differentiates** — most mobile racing games ignore accessibility
+- **Cheap to implement** if planned early — expensive to retrofit
+
+**Open follow-ups**:
+- Color-blind palettes: 3 separate palettes (one per condition) or one "high-contrast" universal palette?
+- One-finger mode: long-press toggle vs auto-zoom based on track segment?
+- Audio cue volume: separate slider from music/SFX, or fixed at 50% volume?
+- Haptics: include as part of accessibility (some players can't hear audio cues)?
+
+**Code impact**:
+- `AccessibilitySettings` ScriptableObject with toggles for each feature
+- `ColorBlindPalette` asset — swap colors at runtime via `ColorPalette` component
+- `OneFingerZoomController` — alternative to current `CameraRig` pinch input
+- `AudioCueManager` — plays distinct cues for events (extends current `SwipeAudio`)
+- Settings UI: Accessibility section with 3 toggles + sliders
+
+---
+
+## Summary table
+
+| # | Decision | Status |
+|---|----------|--------|
+| 1 | Max-swipe cap scaling | Locked |
+| 2 | Online replay 7-day retention | Locked |
+| 3 | CPU AI hybrid line + noise | Locked |
+| 4 | Pass-play kart dimming | Locked |
+| 5 | ELO per-track + global | Locked |
+| 6 | Monetization: freemium unlock | Locked, follow-ups open |
+| 7 | Tutorial: forced 30-sec | Locked, follow-ups open |
+| 8 | Solo depth: daily tracks | Locked, follow-ups open |
+| 9 | Progression: linear | Locked, follow-ups open |
+| 10 | CPU symmetry: identical rules | Locked |
+| 11 | Online auth: anonymous only | Locked, follow-ups open |
+| 12 | Localization: English only at launch | Locked |
+| 13 | Accessibility: full at launch | Locked, follow-ups open |
+
+---
+
+## Open follow-ups (priority order)
+
+The decisions above left several follow-up questions. Listed in priority order (most impactful first):
+
+### High priority (block implementation)
+
+1. **Freemium paywall trigger** — where exactly does the unlock prompt appear? (After track 3? On first attempt at track 4? On first daily track completion?)
+2. **IAP price point** — $2.99 / $4.99 / $9.99? Affects ARPU forecasts
+3. **Tutorial failure recovery** — what if a player can't swipe fast enough? Lower threshold or skip step?
+4. **Daily track difficulty** — fixed or rotates by day of week?
+5. **Daily track missed days** — replayable (no leaderboard) or gone forever?
+
+### Medium priority (affect UX but not blocking)
+
+6. **Color-blind palette approach** — 3 separate palettes or 1 universal high-contrast?
+7. **One-finger zoom UX** — long-press toggle or auto-zoom per track segment?
+8. **Display name generator** — random word+number or just numbers?
+9. **Par target per track** — designer-set or formula-based?
+10. **Soft-lock prevention** — skip option after N failed attempts?
+
+### Low priority (polish, can decide later)
+
+11. **Audio cue volume** — separate slider or fixed?
+12. **Haptics as accessibility** — include or skip?
+13. **Tutorial voice-over** — text-only or recorded VO?
+14. **Account upgrade path** — anonymous → email linking for future cross-device?
+
+---
+
+## Open questions NOT yet answered
+
+Two questions from the planning session weren't answered — flag here for next round:
+
+- **Session length target**: quick burst (1-3 min) / casual medium (5-10 min) / deep session (15-30 min) / mixed?
+- **Audio direction**: original composer / licensed library / procedural / hybrid?
+
+These affect scope and budget — need to decide before week 5 (audio implementation).
+
+---
+
+*End of decisions doc v2.0. For full multiplayer context, see `Docs/MULTIPLAYER_REVISION.md`. For prototype status, see `Docs/PROTOTYPE_README.md`.*
