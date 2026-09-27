@@ -165,6 +165,9 @@ namespace QuickChecks.Prototype
             _cameraRig = camGo.AddComponent<CameraRig>();
             SetPrivateField(_cameraRig, "inputSettings", inputSettings);
 
+            // Pinch-to-zoom + mouse-wheel zoom input handler (Week 3-4: camera polish).
+            camGo.AddComponent<QuickChecks.Input.PinchZoomInput>();
+
             // ----- Spline-based track (Week 2: real Bezier track, replaces rectangular arena) -----
             // Build an oval test track using 4 cubic Bezier segments (16 control points).
             // This is the same shape that will become Track 1: "First Lap" (★ difficulty).
