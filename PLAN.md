@@ -1,18 +1,30 @@
 # QuickChecks — Implementation Plan
 
-**Document version**: 1.0
+**Document version**: 2.0
 **Last updated**: 2026-09-27
 **Owner**: Game design + dev
+**Supersedes**: v1.0 (which described async ghost racing — that model was replaced)
 
 ---
 
 ## 1. Vision Statement
 
-QuickChecks is a top-down, swipe-controlled kart racing game where every flick is a deliberate, weighted impulse — closer to billiards than to thumbstick steering. Tracks are handcrafted, minimal-vector circuits designed around precise swipes through tight chicanes, power-up pickups, and risk/reward shortcuts.
+QuickChecks is a top-down, swipe-controlled kart racing game where every flick is a deliberate, weighted impulse — closer to billiards or golf than to thumbstick steering. Tracks are handcrafted, minimal-vector circuits designed around precise swipes through tight chicanes, power-up pickups, and risk/reward shortcuts.
 
-The competitive layer is **asynchronous**: your best run becomes a ghost that other players race against on the same track. No real-time netcode, no matchmaking delays, no rage quits. Just you, the track, and 50 ghosts of players slightly better than you.
+The competitive layer is **real-time turn-based**: players alternate swipes during an active race, and the global leaderboard ranks by **fewest swipes to complete** each track — not fastest time. Each track has a "par" (theoretical minimum swipe count), and players compete to beat par, the global leaderboard, and their own personal ghost.
 
-**North Star metric**: Average session length ≥ 8 minutes, week-1 retention ≥ 35%.
+Three game modes:
+- **Solo practice** — race against your personal best ghost, climb global leaderboard, beat par
+- **Local multiplayer** — pass-and-play (2-4 players sharing device) or vs CPU (3 difficulty levels)
+- **Online** — real-time turn-based matches via WebSocket (v1 stubbed with simulated CPU opponent, real netcode ships in v1.1)
+
+Plus a **daily track** (procedurally generated, same for all players globally, resets UTC midnight) for daily engagement.
+
+**North Star metrics**:
+- Average session length: 1-3 minutes (quick burst)
+- Day-1 retention ≥ 40%
+- Day-7 retention ≥ 25%
+- Freemium conversion ≥ 8% (free → paid unlock)
 
 ---
 
@@ -22,46 +34,70 @@ The competitive layer is **asynchronous**: your best run becomes a ghost that ot
 
 A valid move is a **quick flick**, not a slow drag. We detect this by:
 
-- **Velocity threshold**: Swipe must reach ≥ 800 px/s peak velocity
-- **Duration cap**: Swipe must complete in ≤ 250ms from touch-down to lift
-- **Distance floor**: Swipe must travel ≥ 40px (prevents taps registering)
+- **Velocity threshold**: Swipe must reach ≥ 1000 px/s peak velocity (golf-feel tuned)
+- **Duration cap**: Swipe must complete in ≤ 220ms from touch-down to lift
+- **Distance floor**: Swipe must travel ≥ 50px (prevents taps registering)
 - **Direction**: Free-angle (any direction, not locked to 8-way)
 
 When a valid swipe fires, the kart receives an **impulse vector**:
 - Direction: normalized swipe vector (in screen space, transformed to world)
-- Magnitude: scaled by swipe speed (capped at max impulse)
-- The kart's existing velocity is **replaced**, not added (billiards model)
+- Magnitude: scaled by swipe speed (capped at `maxImpulseMagnitude = 1500`)
+- The kart's existing velocity is **replaced**, not added (billiards/golf model)
 
 Slow drags (below thresholds) are ignored — no input. This forces intentional flicks, prevents "drag steering," and creates the skill ceiling.
+
+**Tutorial exception**: Tutorial uses 300 px/s threshold (lower) so players with motor impairments can complete it; auto-restores to 1000 px/s after tutorial finishes.
 
 ### 2.2 Kart Physics
 
 ```
 Every FixedUpdate tick:
-  velocity *= frictionCoefficient (0.985 per tick at 60fps)
+  velocity *= frictionPerSecond (0.22 per second, applied as 1 - 0.22*dt)
   position += velocity * deltaTime
-  
-  if (currentSpeed < 5 px/s):
+
+  if (currentSpeed < stopThreshold (8 px/s)):
     state = STOPPED
     // Player must swipe again to move
+    // In multiplayer, turn ends here
 ```
 
 Key tuning constants (in `KartStats` ScriptableObject):
-- `maxImpulse` (per-kart cap on swipe force)
-- `frictionCoefficient` (per-kart deceleration)
-- `mass` (affects collision response with other karts/ghosts)
-- `boostMultiplier` (how much a speed power-up multiplies velocity)
+- `impulseMultiplier` (per-kart responsiveness; default 1.1)
+- `frictionPerSecond` (deceleration; default 0.22 for golf feel)
+- `stopThreshold` (clean stop boundary; default 8 px/s)
+- `maxSpeed` (hard cap; default 1500 u/s)
+- `boostMultiplier` (boost power-up effect; default 1.8×)
+- `boostDurationSec` (boost duration; default 1.5s)
 
-### 2.3 Track Boundaries
+### 2.3 Turn-Based Multiplayer Model
+
+Each player's turn:
+1. **Turn start** — camera snaps to active player's kart, input enabled
+2. **Player input window** — player plans + executes a swipe (no time limit in local; 30s in online)
+3. **Swipe execution** — kart receives impulse, starts moving
+4. **Coast phase** — kart decelerates due to friction
+5. **Turn end** — kart velocity drops below `stopThreshold`
+6. **Hand-off** — turn passes to next player
+
+**Boundary collision**: Kart stops dead at track walls (golf-like, no sliding). Turn ends. Next turn, player swipes from current stuck position.
+
+**Off-track**: No penalty beyond lost position (no extra turn loss, no time penalty).
+
+**Race end**: All karts cross finish line OR all hit max-swipe cap (50-80 per track based on difficulty).
+- **Winner**: fewest total swipes
+- **Tiebreaker**: faster finish time
+- **DNF**: kart hits max-swipe cap without finishing
+
+### 2.4 Track Boundaries
 
 Tracks are defined as **Bezier spline paths** with a track width. The playable area is between the inner and outer splines. If the kart center exits the outer boundary:
 
 1. Velocity is set to 0 immediately
 2. State → `OFF_TRACK`
-3. Player can swipe again — kart restarts from last checkpoint passed
-4. Penalty: +2 seconds added to race time per off-track event
+3. Turn ends (in multiplayer)
+4. Player can swipe again — kart restarts from current stuck position
 
-### 2.4 Power-Up System
+### 2.5 Power-Up System
 
 Six power-ups split into two categories. Each kart has 1 power-up slot (last collected replaces previous).
 
@@ -81,88 +117,73 @@ Six power-ups split into two categories. Each kart has 1 power-up slot (last col
 | **Rewind** | On tap, kart rewinds 1 second of position | 1 use | Mid-track safety net |
 | **Magnet** | Pulls nearby power-ups toward kart | 6s | Power-up dense sections |
 
-### 2.5 Camera & Zoom
+Power-up effects tick in real game time. Duration power-ups (Boost, Shield, Magnet) only benefit the active player's turn — opponent doesn't benefit during their turn since they're a different kart.
+
+**Spawn rules**:
+- Power-ups respawn 5s after pickup
+- Max 2 active pickups on a track at once (prevents hoarding)
+- Last 200m before finish line: no new pickups (pure skill section)
+
+### 2.6 Camera & Zoom
 
 - **Default**: Top-down, follows kart with slight lag (smoothing factor 0.15)
-- **Pinch zoom**: Pinch in/out adjusts orthographic camera size between `minZoom` (close, tight sections) and `maxZoom` (far, long straights)
+- **Pinch zoom**: Pinch in/out adjusts orthographic camera size between `minZoom` (5, tight sections) and `maxZoom` (20, long straights)
 - **Auto-zoom**: Tracks declare zoom hints per segment (e.g., "tight chicane ahead → zoom in")
 - **Player override**: Player pinch always takes precedence for 2s, then auto-zoom resumes
+- **Accessibility**: One-finger mode (long-press toggles zoom-in/zoom-out) for one-handed play — Decision 13
 
-### 2.6 Checkpoints & Race Format
+### 2.7 Checkpoints & Race Format
 
 - Tracks have 6-12 checkpoints along the spline
 - Must pass all in order to register a lap
 - Race format: 1 lap for sprints, 3 laps for circuit (per track config)
-- Off-track respawn = last checkpoint + 2s penalty
+- Off-track doesn't reset to checkpoint — kart stays stuck at boundary (golf-like)
 
 ---
 
-## 3. Async Multiplayer Architecture
+## 3. Game Modes
 
-### 3.1 Ghost Format
+### 3.1 Solo Practice
 
-Each completed race produces a **ghost file** — a compact JSON recording of every swipe event:
+- Race any unlocked track alone
+- Personal ghost replays alongside (best run by swipe count)
+- Auto-uploads to global leaderboard on race end
+- Par comparison shown on results screen
 
-```json
-{
-  "trackId": "track_04_neon_sprint",
-  "kartId": "kart_viper",
-  "finishTimeMs": 42850,
-  "swipeEvents": [
-    {"t": 120, "x": 540, "y": 980, "dx": 0.7, "dy": -0.3, "mag": 850},
-    {"t": 320, "x": 580, "y": 950, "dx": 0.4, "dy": -0.9, "mag": 720},
-    // ... ~40-80 events for a typical race
-  ],
-  "powerUpsCollected": ["boost", "slingshot", "shield"]
-}
-```
+### 3.2 Local vs CPU (3 difficulties)
 
-Payload size: ~5-8 KB per ghost. Stored as JSON blob in Supabase Storage.
+- Player vs 1-3 CPU karts
+- Turn-based: human swipes, CPU takes its turn, etc.
+- Difficulty levels:
+  - **Easy**: ±25° direction noise, 50-80% magnitude
+  - **Medium**: ±10° direction noise, 75-95% magnitude
+  - **Hard**: ±3° direction noise, 92-100% magnitude (hybrid: follows designer-authored optimal line + noise)
+- CPU plays by identical rules (Decision 10: symmetric)
 
-### 3.2 Race Flow (Async)
+### 3.3 Local Pass-and-Play
 
-1. Player selects track → app fetches top 10 global ghosts + top 3 friend ghosts
-2. Player races; up to 3 ghosts are rendered simultaneously during the race
-3. On finish, player's ghost is uploaded; leaderboard updates
-4. Other players see this ghost in future races on the same track
+- 2-4 human players share one device
+- Between turns: full-screen "Pass to Player N" overlay (tap to dismiss)
+- 30s turn timer optional (default off for casual play)
+- All karts visible at all times; inactive dimmed to 40% alpha (Decision 4)
 
-### 3.3 Backend Schema (Supabase / Postgres)
+### 3.4 Online Multiplayer (v1.1 — stubbed in v1)
 
-```sql
--- Players (anonymous auth, opt-in profile)
-CREATE TABLE players (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  display_name TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+- 2 players connected via WebSocket
+- Real-time turn sync: each swipe event sent to opponent, replayed on their screen
+- 30s turn timer; auto-skip on timeout (kart stays put)
+- Match result uploads to global leaderboard + ELO (+25 win / −15 loss)
+- v1 ships with stub: `OnlineTurnClient` simulates opponent using CPUPlayer (Medium difficulty)
+- v1.1 ships real WebSocket infrastructure
 
--- Ghosts (one per finished race)
-CREATE TABLE ghosts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  player_id UUID REFERENCES players(id),
-  track_id TEXT NOT NULL,
-  kart_id TEXT NOT NULL,
-  finish_time_ms INTEGER NOT NULL,
-  ghost_url TEXT NOT NULL,  -- Supabase Storage URL
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+### 3.5 Daily Track
 
--- Leaderboard (materialized view for fast reads)
-CREATE VIEW leaderboard AS
-SELECT DISTINCT ON (player_id, track_id)
-  player_id, track_id, finish_time_ms, ghost_url, created_at
-FROM ghosts
-ORDER BY player_id, track_id, finish_time_ms ASC;
-```
-
-Row-level security: players can only insert ghosts for their own `player_id`.
-
-### 3.4 Race Integrity
-
-To prevent cheating (impossibly fast times):
-- Server validates `finish_time_ms` against theoretical min time per track (precomputed via speedrun)
-- Ghost file must have plausible swipe count (≥ 20, ≤ 200)
-- Flag suspicious runs for review; don't auto-ban (false positive cost too high)
+- One procedurally generated track per day, same for all players globally
+- Resets at UTC midnight (Decision 19: missed dailies gone forever)
+- Difficulty rotates by day of week (Decision 18):
+  - Mon: Easy (★) / Tue: Easy-Med / Wed: Med (★★) / Thu: Med-Hard / Fri: Hard (★★★) / Sat: Expert (★★★★) / Sun: Expert+ (★★★★★)
+- Separate global leaderboard per daily track
+- Available to free players (gated only by IAP for full leaderboard participation)
 
 ---
 
@@ -177,10 +198,14 @@ Each track is a **ScriptableObject** with:
 - Power-up spawn points (manually placed)
 - Camera zoom hints per segment
 - Visual style (color palette, decorations)
+- `parSwipeCount` (designer-set during playtesting — Decision 21)
+- `maxSwipeCap` (default formula `30 + difficultyStars × 10` — Decision 1)
+- `isFree` (boolean for freemium gating — Decision 16)
+- `optimalLineGhostUrl` (optional, for Hard CPU AI — Decision 3)
 
 ### 4.2 Track Editor Tool
 
-A custom Unity Editor window (`Tools > Track Builder`) lets designers:
+A custom Unity Editor window (`Tools > QuickChecks > Track Builder`) lets designers:
 1. Draw spline points by clicking in scene view
 2. Adjust track width with a slider
 3. Auto-generate boundaries + checkpoints
@@ -192,16 +217,28 @@ This tool is built in weeks 3-4 and used to build all 8 tracks in weeks 7-8.
 
 ### 4.3 Track Difficulty Progression
 
-| Track # | Name | Difficulty | Feature focus |
-|---------|------|------------|---------------|
-| 1 | First Lap | ★ | Straight-line swipes, single power-up type |
-| 2 | Curves 101 | ★ | Gentle curves, introduce zoom |
-| 3 | Chicane Sprint | ★★ | Tight sections require zoom-in |
-| 4 | Neon Sweep | ★★ | Long straights with boosts |
-| 5 | Hairpin Highway | ★★★ | Sharp 180° turns, phase dodge power-up |
-| 6 | Slipstream | ★★★ | Slingshot-heavy, defensive power-ups matter |
-| 7 | Maze Run | ★★★★ | Complex layout, requires path memorization |
-| 8 | Final Check | ★★★★★ | All mechanics combined, longest track |
+| Track # | Name | Difficulty | Par (target) | Max Swipes | Free/Paid |
+|---------|------|------------|---------------|------------|-----------|
+| 1 | First Lap | ★ | ~12 | 40 | Free |
+| 2 | Curves 101 | ★ | ~15 | 40 | Free |
+| 3 | Chicane Sprint | ★★ | ~18 | 50 | Free |
+| 4 | Neon Sweep | ★★ | ~22 | 50 | Paid |
+| 5 | Hairpin Highway | ★★★ | ~28 | 60 | Paid |
+| 6 | Slipstream | ★★★ | ~32 | 60 | Paid |
+| 7 | Maze Run | ★★★★ | ~40 | 70 | Paid |
+| 8 | Final Check | ★★★★★ | ~50 | 80 | Paid |
+
+(Par values are targets — designer sets actual values during playtesting weeks 10-11.)
+
+### 4.4 Daily Track Generator
+
+- Seeded RNG: `seed = YYYYMMDD` (date as integer)
+- Difficulty parameters derived from day of week (Decision 18)
+- Constraints to ensure track is solvable under par:
+  - Track length bounded by difficulty (Easy: ~30 units, Expert+: ~80 units)
+  - Obstacle density bounded (Easy: 2-3 obstacles, Expert+: 8-12)
+  - Always at least one path through (validated by TrackValidator before publishing)
+- Generated track uploaded to Supabase once per day (server-side cron job)
 
 ---
 
@@ -214,9 +251,11 @@ This tool is built in weeks 3-4 and used to build all 8 tracks in weeks 7-8.
 - Track surface: `#1B2A2A` (slightly lighter)
 - Track borders: `#3FE0C2` (cyan accent)
 - Kart player: `#FFD166` (warm yellow)
-- Ghost karts: `#7B8A8A` (muted gray-blue, low alpha)
+- Ghost karts: `#7B8A8A` (muted gray-blue, 60% alpha)
 - Power-ups: Category-coded (boost=`#FF6B6B`, shield=`#4ECDC4`, magnet=`#C7A3FF`)
 - UI text: `#F7F7F2` (off-white)
+
+**Color-blind palettes** (Decision 13): 3 alternate palettes (protanopia, deuteranopia, tritanopia) toggleable in settings.
 
 **Typography**: Inter or Manrope (clean geometric sans-serif), bold for numbers.
 
@@ -225,11 +264,16 @@ This tool is built in weeks 3-4 and used to build all 8 tracks in weeks 7-8.
 - Power-up pickup = particle burst + 0.1s screen flash in power-up color
 - Finish line = confetti + slowmo on victory lap
 
-### 5.2 Audio
+### 5.2 Audio (Original Composer — Decision 15)
 
-- **Music**: Synthwave + chill electronic, 120-130 BPM (matches swipe rhythm)
-- **SFX**: Swipe whoosh (pitched by swipe speed), power-up chime, boundary bonk, finish fanfare
+- **Music**: Original synthwave soundtrack, 8-12 tracks (~$2-5K budget)
+  - 120-130 BPM, matches swipe rhythm
+  - Composer search begins week 2, contract signed by week 4, first track by week 8
+- **SFX**: Composer-designed + synthesized fallback (current `SwipeAudio.cs`)
+  - Swipe whoosh (pitched by swipe velocity, 220-880 Hz)
+  - Power-up chime, boundary bonk, finish fanfare
 - **Haptics**: Light impact on swipe, medium on power-up, heavy on boundary hit
+- **Audio cues (accessibility)**: Distinct SFX for power-up collected, boundary hit, finish line approaching, ghost passing (Decision 13)
 
 ---
 
@@ -240,34 +284,33 @@ This tool is built in weeks 3-4 and used to build all 8 tracks in weeks 7-8.
 ```
 Scripts/
 ├── Core/
-│   ├── GameFlowManager.cs      # State machine: Boot → Menu → Race → Results
+│   ├── GameFlowManager.cs      # State machine: Boot → Tutorial → Menu → Race → Results
 │   ├── SceneLoader.cs          # Async scene loading with progress
 │   ├── EventBus.cs             # Decoupled event system (ScriptableObject events)
-│   └── ServiceLocator.cs       # DI for services (auth, leaderboard, save)
+│   └── ServiceLocator.cs       # DI for services (auth, leaderboard, save, IAP)
 ├── Input/
 │   ├── SwipeDetector.cs        # Touch → swipe event detection
 │   ├── PinchZoomInput.cs       # Pinch gesture → zoom factor
-│   └── InputSettings.cs        # Tunable thresholds (ScriptableObject)
+│   ├── OneFingerZoomController.cs  # Accessibility alt (Decision 13)
+│   └── InputSettings.cs       # Tunable thresholds (ScriptableObject)
 ├── Racing/
-│   ├── KartController.cs       # Receives swipes, applies impulse
-│   ├── KartPhysics.cs          # Friction, velocity integration
+│   ├── KartController.cs      # Receives swipes, applies impulse
 │   ├── KartStats.cs            # Per-kart tunable stats (ScriptableObject)
+│   ├── KartTrail.cs            # Fading visual trail
+│   ├── SwipeFeedback.cs        # Squash + particle burst
 │   ├── PowerUpSystem.cs        # Manages active power-up, applies effects
 │   ├── PowerUpBase.cs          # Abstract base for power-ups
-│   ├── PowerUps/
-│   │   ├── BoostPowerUp.cs
-│   │   ├── SlingshotPowerUp.cs
-│   │   ├── PhaseDodgePowerUp.cs
-│   │   ├── ShieldPowerUp.cs
-│   │   ├── RewindPowerUp.cs
-│   │   └── MagnetPowerUp.cs
+│   ├── PowerUps/               # 6 concrete power-up classes
+│   ├── TurnManager.cs          # Turn orchestration, race end detection
+│   ├── CPUPlayer.cs            # AI with difficulty-based noise
 │   └── CheckpointTracker.cs    # Tracks passed checkpoints, validates laps
 ├── Track/
-│   ├── TrackDefinition.cs      # ScriptableObject: spline, width, power-ups
+│   ├── TrackDefinition.cs      # ScriptableObject: spline, width, power-ups, par
 │   ├── TrackSegment.cs         # One Bezier segment + boundary colliders
 │   ├── TrackBuilder.cs         # Editor tool for designers
 │   ├── TrackValidator.cs       # Validates track is completable
-│   └── BoundaryCollider.cs    # 2D collider for off-track detection
+│   ├── BoundaryCollider.cs     # 2D collider for off-track detection
+│   └── DailyTrackGenerator.cs  # Seeded procedural generation (Decision 8)
 ├── Camera/
 │   ├── CameraRig.cs            # Follows kart, applies smoothing
 │   ├── ZoomController.cs       # Ortho size control, pinch + auto-zoom
@@ -276,18 +319,40 @@ Scripts/
 │   ├── GhostRecorder.cs        # Captures swipe events during race
 │   ├── GhostPlayer.cs          # Replays swipe events as ghost kart
 │   ├── GhostData.cs            # JSON-serializable ghost format
+│   ├── SoloGhostPlayer.cs      # Records + replays personal best (local)
 │   └── GhostRepository.cs      # Local cache + remote fetch
 ├── Multiplayer/
-│   ├── AsyncMultiplayerManager.cs # Orchestrates ghost loading for race
+│   ├── AsyncMultiplayerManager.cs  # (renamed) MultiplayerManager
+│   ├── PassPlayManager.cs      # Local pass-and-play flow
+│   ├── OnlineTurnClient.cs     # WebSocket stub (v1) / real (v1.1)
 │   ├── LeaderboardService.cs   # Fetches top-N ghosts for track
 │   ├── SupabaseClient.cs       # REST wrapper for Supabase
-│   └── AuthService.cs          # Anonymous auth, profile creation
+│   ├── AuthService.cs          # Anonymous auth (Decision 11)
+│   └── DisplayNameGenerator.cs # Adjective+Animal_Number (Decision 22)
+├── Monetization/
+│   ├── IAPService.cs           # App Store / Play Store IAP wrapper (Decision 6)
+│   ├── EntitlementManager.cs   # Gate tracks/karts behind unlock state (Decision 16)
+│   └── PaywallController.cs    # Paywall modal UI
+├── Onboarding/
+│   ├── TutorialController.cs   # 4-step tutorial scene (Decision 7)
+│   ├── TutorialStep.cs         # Enum: Move, RejectSlow, ExplainPar, FinishLine
+│   └── FirstLaunchFlow.cs     # Auth + tutorial + name generation
+├── Accessibility/
+│   ├── AccessibilitySettings.cs # Toggles + slider (Decision 13)
+│   ├── ColorBlindPalette.cs    # Alternate color palettes
+│   └── AudioCueManager.cs      # Distinct SFX for events
+├── Audio/
+│   ├── SwipeAudio.cs           # Synthesized whoosh (fallback)
+│   ├── MusicPlayer.cs          # Crossfades between composer tracks
+│   └── SfxPlayer.cs            # One-shot SFX playback
 ├── UI/
 │   ├── HUDController.cs        # Lap counter, timer, position
 │   ├── MainMenuController.cs
-│   ├── TrackSelectController.cs
+│   ├── TrackSelectController.cs  # Includes paywall gating (Decision 16)
 │   ├── ResultsScreenController.cs
-│   └── LeaderboardPanel.cs
+│   ├── LeaderboardPanel.cs
+│   ├── DailyTrackPanel.cs      # Decision 8
+│   └── PassPlayOverlay.cs      # Decision 4
 └── Data/
     ├── SaveSystem.cs           # Local save (PlayerPrefs + JSON)
     ├── PlayerProfile.cs
@@ -296,20 +361,7 @@ Scripts/
 
 ### 6.2 Event-Driven Communication
 
-Systems communicate via a **ScriptableObject event bus** to avoid tight coupling:
-
-```csharp
-[CreateAssetMenu(menuName = "Events/SwipeEvent")]
-public class SwipeEvent : ScriptableObject {
-    public Action<SwipeData> OnSwipe;
-    public void Raise(SwipeData data) => OnSwipe?.Invoke(data);
-}
-```
-
-Benefits:
-- KartController subscribes to SwipeEvent without SwipeDetector knowing about it
-- Easy to add new listeners (e.g., analytics, haptics) without modifying detectors
-- Plays nice with Unity Inspector for wiring
+Systems communicate via a **ScriptableObject event bus** to avoid tight coupling. Each event is a separate ScriptableObject asset.
 
 ### 6.3 Performance Targets
 
@@ -324,70 +376,272 @@ Benefits:
 
 ---
 
-## 7. MVP Scope (Single-Player Full)
+## 7. Backend Architecture
 
-The v1 cut delivers:
+### 7.1 Supabase Schema (Postgres)
 
-✅ **In scope:**
-- 8 handcrafted tracks (difficulty 1-5 stars)
-- 8 karts with distinct stats (speed/accel/grip tradeoffs)
-- 6 power-ups (3 speed/utility, 3 defensive)
-- Swipe input + impulse physics
-- Pinch-to-zoom + auto-zoom
-- Ghost recording + local replay
-- Supabase backend: auth, ghost upload, global leaderboard
-- Async multiplayer: race against top-10 ghosts on each track
-- Full game flow: menu → track select → race → results → upload
-- Player profile: best times per track, kart unlocks
-- Progression: unlock next track by finishing previous in under X seconds
+```sql
+-- Players (anonymous auth — Decision 11)
+CREATE TABLE players (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  display_name TEXT NOT NULL,
+  elo INTEGER DEFAULT 1000,
+  is_premium BOOLEAN DEFAULT FALSE,
+  tutorial_completed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-❌ **Out of scope (v2+):**
-- Real-time multiplayer
-- Offensive power-ups
-- Track modifiers
-- User-generated tracks
-- Cosmetic kart skins (sold separately later)
-- Daily challenges / seasons
+-- Race results (every finished race)
+CREATE TABLE race_results (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  player_id UUID REFERENCES players(id),
+  track_id TEXT NOT NULL,
+  kart_id TEXT NOT NULL,
+  swipe_count INTEGER NOT NULL,
+  finish_time_ms INTEGER NOT NULL,
+  mode TEXT NOT NULL CHECK (mode IN ('solo', 'vs_cpu_easy', 'vs_cpu_medium', 'vs_cpu_hard', 'pass_play', 'online', 'daily')),
+  ghost_url TEXT,
+  match_id UUID,  -- nullable; set for online matches
+  daily_track_date DATE,  -- nullable; set for daily tracks
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Per-track leaderboard (best result per player per track)
+CREATE VIEW leaderboard AS
+SELECT DISTINCT ON (player_id, track_id)
+  player_id, track_id, swipe_count, finish_time_ms, mode, ghost_url, created_at
+FROM race_results
+WHERE mode IN ('solo', 'online')
+ORDER BY player_id, track_id, swipe_count ASC, finish_time_ms ASC;
+
+-- Daily track leaderboard (separate, resets per date)
+CREATE VIEW daily_leaderboard AS
+SELECT DISTINCT ON (player_id, daily_track_date)
+  player_id, daily_track_date, swipe_count, finish_time_ms, ghost_url, created_at
+FROM race_results
+WHERE mode = 'daily' AND daily_track_date = CURRENT_DATE
+ORDER BY player_id, daily_track_date, swipe_count ASC, finish_time_ms ASC;
+
+-- Online match queue (for v1.1 matchmaking)
+CREATE TABLE online_queue (
+  player_id UUID PRIMARY KEY,
+  track_id TEXT NOT NULL,
+  elo INTEGER NOT NULL,
+  joined_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Online matches (active + historical)
+CREATE TABLE online_matches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  track_id TEXT NOT NULL,
+  player_a UUID REFERENCES players(id),
+  player_b UUID REFERENCES players(id),
+  status TEXT NOT NULL CHECK (status IN ('active', 'a_finished', 'b_finished', 'completed', 'abandoned')),
+  current_turn_player UUID REFERENCES players(id),
+  swipes_a INTEGER DEFAULT 0,
+  swipes_b INTEGER DEFAULT 0,
+  winner UUID REFERENCES players(id),
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+-- Daily track definitions (one per day, generated by cron)
+CREATE TABLE daily_tracks (
+  track_date DATE PRIMARY KEY,
+  difficulty INTEGER NOT NULL,
+  track_json TEXT NOT NULL,
+  par_swipe_count INTEGER NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 7.2 Row-Level Security
+
+- `players`: SELECT/UPDATE only own row (via `auth.uid() = id`)
+- `race_results`: INSERT only with own `player_id`; SELECT all (leaderboard is public)
+- `online_queue`: INSERT only own row; DELETE only own row
+- `online_matches`: INSERT/UPDATE only if `player_a` or `player_b` is self
+
+### 7.3 Scheduled Jobs (pg_cron)
+
+- **Daily track generation**: Every day at 00:00 UTC, generate new daily track, INSERT into `daily_tracks`
+- **Old ghost cleanup**: Every day at 03:00 UTC, DELETE `race_results` older than 7 days where `mode = 'online'` (Decision 2)
+- **Old online match cleanup**: Every day at 03:00 UTC, DELETE `online_matches` older than 30 days where `status = 'completed'`
 
 ---
 
-## 8. Risk Register
+## 8. Monetization Implementation
+
+### 8.1 IAP Setup
+
+- **Product ID**: `unlock_full_game`
+- **Price**: $4.99 USD (Decision 17)
+- **Platform**: App Store Connect + Google Play Console
+- **Type**: Non-consumable (one-time purchase, restored on reinstall)
+
+### 8.2 Receipt Validation
+
+- Client calls Supabase Edge Function `validate-iap` with receipt
+- Edge Function calls Apple/Google validation endpoints
+- On success: `UPDATE players SET is_premium = TRUE WHERE id = $current_player`
+- Client polls/refreshes entitlement on app launch
+
+### 8.3 Entitlement Gating
+
+| Content | Free | Premium |
+|---------|------|---------|
+| Tracks 1-3 | ✅ | ✅ |
+| Tracks 4-8 | ❌ (grayed in track select) | ✅ |
+| Karts 1-3 | ✅ | ✅ |
+| Karts 4-8 | ❌ | ✅ |
+| Solo practice + ghost | ✅ | ✅ |
+| Daily track | ✅ (limited leaderboard) | ✅ (full leaderboard) |
+| Local multiplayer | ✅ | ✅ |
+| Online ranked (v1.1) | ❌ | ✅ |
+
+### 8.4 Paywall UI (Decision 16)
+
+- **Trigger**: Player taps grayed-out track 4+ in track select
+- **Modal**: Shows "Unlock Full Game" + price + feature list + "Restore Purchases" button
+- **Close**: "Maybe later" dismisses, returns to track select
+- **Success**: On IAP completion, modal closes, all tracks ungrayed
+
+---
+
+## 9. Onboarding Flow
+
+### 9.1 First Launch
+
+1. **Anonymous auth** (Decision 11) — Supabase auto-creates player ID, no UI
+2. **Display name generation** (Decision 22) — auto-generated as `AdjectiveAnimal_Number`, e.g., "SwiftFox_42"
+3. **Tutorial** (Decision 7) — forced 30-second scene with 4 steps:
+   - Step 1: "Swipe to move" — kart on empty arena, player must swipe to continue
+   - Step 2: "Slow drags don't work" — player tries slow drag (rejected), then fast swipe (accepted)
+   - Step 3: "Goal: fewest swipes" — explains par/star system
+   - Step 4: "Reach the green line" — short finish-line demo
+4. **Main menu** — player can now race, daily track, or open settings
+
+### 9.2 Tutorial Failure Recovery (Decision 20)
+
+- Tutorial uses 300 px/s swipe threshold (vs 1000 px/s in main game)
+- If player still can't swipe fast enough after 3 attempts at step 1: threshold auto-lowers further to 200 px/s
+- On tutorial completion: threshold restores to 1000 px/s for main game
+- Tutorial can be re-triggered from Settings → "Replay Tutorial"
+
+---
+
+## 10. Accessibility Implementation (Decision 13)
+
+### 10.1 Color-Blind Mode
+
+- 3 alternate palettes: protanopia, deuteranopia, tritanopia
+- Toggleable in Settings → Accessibility
+- Implementation: `ColorBlindPalette` ScriptableObject swaps all `SpriteRenderer.color` and `TMPro.TextMeshProUGUI.color` at runtime
+- UI preview in settings shows palette before applying
+
+### 10.2 One-Finger Mode
+
+- Long-press (500ms) toggles between zoom-in (ortho 8) and zoom-out (ortho 16)
+- Replaces pinch-to-zoom requirement
+- Toggleable in Settings → Accessibility
+- Default: off (preserves normal pinch-to-zoom for majority)
+
+### 10.3 Audio Cues
+
+- Distinct SFX for events:
+  - Power-up collected (high chime)
+  - Boundary hit (low thud)
+  - Finish line approaching (rising tone, last 200m)
+  - Ghost passing you (descending whoosh)
+- Volume: separate slider in Settings (default 60%)
+- Implementation: `AudioCueManager` subscribes to game events, plays one-shot SFX
+
+---
+
+## 11. MVP Scope (v1.0)
+
+✅ **In scope:**
+- 8 handcrafted tracks (3 free, 5 paid)
+- 8 karts (3 free, 5 paid)
+- 6 power-ups (3 speed/utility, 3 defensive)
+- Swipe input + impulse physics (golf-feel tuned)
+- Pinch-to-zoom + auto-zoom + one-finger accessibility mode
+- Forced 30-second tutorial
+- Solo practice + ghost replay + global leaderboard
+- Local vs CPU (3 difficulties) + pass-and-play (2-4 players)
+- Daily tracks (procedural, day-of-week difficulty rotation)
+- Freemium IAP at $4.99 (track-select gate paywall)
+- Anonymous auth + auto-generated display names
+- Full accessibility: color-blind mode, one-finger mode, audio cues
+- Original synthwave soundtrack (8-12 tracks)
+- English only at launch
+
+❌ **Out of scope (v1.1+):**
+- Real-time online WebSocket sync (v1 ships with simulated CPU opponent)
+- Friends list
+- Offensive power-ups
+- Track modifiers
+- User-generated tracks
+- Cosmetic kart skins
+- Cross-device sync (anonymous ID lost on reinstall)
+- Localization to non-English languages
+- Daily track archive (missed dailies gone forever)
+
+---
+
+## 12. Risk Register
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
 | Swipe input feels bad on different screen sizes | High | Critical | Build swipe-calibration tool that runs on first launch; per-device tuning presets |
+| Composer availability delays audio | Medium | High | Start search week 2, contract by week 4; have procedural fallback (`SwipeAudio.cs`) |
 | Track builder tool takes longer than expected | Medium | High | Start with simple manual track authoring; tool comes later |
 | Supabase free tier limits hit unexpectedly | Medium | Medium | Add Redis cache layer if read QPS > 50/s; migrate to dedicated Postgres if needed |
 | Ghost integrity cheating | Medium | Medium | Server-side validation, manual review queue, don't auto-ban |
 | Performance issues with 3 ghost replays | Low | High | Profile early (week 6), cap ghost count, use object pooling |
 | Art style drift during 8 tracks | Medium | Low | Lock art bible in week 1, weekly art review |
+| Online matchmaking queue empty at launch | High | Medium | v1 ships without real online (CPU stub); v1.1 launches online after critical mass |
+| Daily track procedural generation produces unfun tracks | Medium | High | TrackValidator runs at generation time; manual review queue for flagged tracks |
+| IAP receipt validation issues | Low | High | Use Supabase Edge Function (server-side); test on TestFlight + Google Play internal track before launch |
+| Tutorial abandonment (players quit during 30s) | Low | Medium | Track step-by-step completion rates; if >10% drop, simplify steps |
 
 ---
 
-## 9. Open Questions
+## 13. Roadmap (12 weeks)
 
-Things we still need to decide before week 3:
+| Week | Milestone | Deliverable |
+|------|-----------|-------------|
+| 1 | **Project setup + swipe prototype** ✅ | Unity project, swipe detection, kart moves with flicks, ghost replay, audio, trail, obstacles |
+| 2 | **Kart physics + track prototype + start composer search** | Impulse physics polish, boundary collision, 1 test track, composer shortlist |
+| 3-4 | **Camera + zoom + track builder tool + sign composer** | Pinch/auto-zoom, dynamic follow cam, in-editor track builder, signed composer contract |
+| 5 | **Power-up system + IAP + EntitlementManager** | All 6 power-ups, spawn points, $4.99 IAP integration, paywall UI |
+| 6 | **Ghost recording + tutorial + daily track generator** | Ghost recorder/player, 4-step tutorial scene, seeded daily track generator |
+| 7-8 | **Full game flow + tracks 1-4 + first audio tracks** | Menu → track select → race → results, 4 of 8 tracks built, first 2-3 music tracks delivered |
+| 9 | **Supabase backend + auth** | Anonymous auth, race result upload, leaderboard query, top-10 display, display name generation |
+| 10 | **All 8 tracks + 8 karts + composer delivers remaining tracks** | Content complete, balancing pass begins, all music delivered |
+| 11 | **Polish: juice, SFX, haptics, accessibility + playtesting** | Particle effects, screen shake, haptics, color-blind mode, one-finger mode, par tuning |
+| 12 | **Beta release** | TestFlight + Google Play internal track, crash fixes, store listing assets |
 
-1. **Kart unlock progression** — linear (track 1 unlocks kart 1) or star-based (earn stars per track, spend on karts)?
-2. **Monetization** — fully free? Ads? IAP for cosmetic kart skins? Decide before launch.
-3. **Track 1 difficulty** — should it be a tutorial with on-screen hints, or just an easy track that players figure out?
-4. **Audio contractor** — in-house or hired? Synthwave composer rates vary 5x.
-5. **TestFlight + Google Play beta rollout strategy** — how many testers, what feedback loop?
-6. **Localization** — English-only at launch, or localize to top 5 languages from day 1?
-7. **Accessibility** — color-blind mode, single-finger mode (no pinch required), audio cues?
+### v1.1 Roadmap (post-launch, 4-6 weeks)
+
+| Week | Milestone |
+|------|-----------|
+| 1-2 | Real-time online WebSocket sync (replace `OnlineTurnClient` stub) |
+| 3 | Matchmaking queue + ELO updates on match end |
+| 4 | Online match replay viewer (7-day retention) |
+| 5-6 | Polish + first content update (new tracks?) |
 
 ---
 
-## 10. Next Steps (Week 1)
+## 14. Open Items (All Resolved — see DECISIONS.md v3.0)
 
-- [ ] Install Unity 2022.3 LTS + set up project
-- [ ] Initialize git, push scaffold to GitHub
-- [ ] Build swipe detection prototype (single scene, cube that responds to swipes)
-- [ ] Draft art bible v1 (color palette + kart silhouette)
-- [ ] Pick a name + reserve App Store / Play Store listing
-- [ ] Set up Supabase project + create schema
-- [ ] Validate swipe thresholds on at least 3 different devices
+All 22 design questions are locked. No further design decisions needed until playtesting (weeks 10-11), when:
+- Par values per track get finalized based on player data
+- Power-up spawn point balance gets tuned
+- CPU difficulty levels get validated against real player skill distribution
+
+For the full decisions log with reasoning, see **[`Docs/DECISIONS.md`](./Docs/DECISIONS.md)** v3.0.
 
 ---
 
-*This is a living document. Update version + date when making material changes.*
+*End of PLAN.md v2.0. For design decisions, see `Docs/DECISIONS.md`. For multiplayer spec, see `Docs/MULTIPLAYER_REVISION.md`. For prototype status, see `Docs/PROTOTYPE_README.md`.*
