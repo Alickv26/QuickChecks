@@ -34,6 +34,20 @@ namespace QuickChecks.Input
         [SerializeField] private InputSettings settings;
         [SerializeField] private Core.GameEventSO<SwipeData> swipeEvent;
 
+        [Header("Editor Testing (mouse fallback)")]
+        [Tooltip("Lower threshold for mouse swipes in editor — mice can't flick as fast as fingers. Only affects editor builds.")]
+        [SerializeField] private float editorMinSwipeVelocity = 400f;
+
+        [Tooltip("Max duration for mouse swipe (longer than touch — mouse drags are slower).")]
+        [SerializeField] private float editorMaxSwipeDurationMs = 400f;
+
+        [Tooltip("Min distance for mouse swipe (smaller than touch — easier to test).")]
+        [SerializeField] private float editorMinSwipeDistance = 20f;
+
+        [Header("Diagnostics")]
+        [Tooltip("Log every mouse-down/up event with velocity/distance for debugging swipe feel.")]
+        [SerializeField] private bool logAllSwipeAttempts = true;
+
         private int? _activeTouchId = null;
         private Vector2 _touchStartPos;
         private float _touchStartTime;
@@ -41,6 +55,25 @@ namespace QuickChecks.Input
         private float _peakVelocity;
 
         private long _raceStartTimeMs;
+
+        // Effective thresholds (touch or editor depending on platform)
+        private float _minVelocity;
+        private float _maxDurationMs;
+        private float _minDistance;
+
+        private void Awake()
+        {
+#if UNITY_EDITOR || UNITY_STANDALONE
+            // Use relaxed thresholds when testing with mouse.
+            _minVelocity = editorMinSwipeVelocity;
+            _maxDurationMs = editorMaxSwipeDurationMs;
+            _minDistance = editorMinSwipeDistance;
+#else
+            _minVelocity = settings != null ? settings.minSwipeVelocity : 1000f;
+            _maxDurationMs = settings != null ? settings.maxSwipeDurationMs : 220f;
+            _minDistance = settings != null ? settings.minSwipeDistance : 50f;
+#endif
+        }
 
         private void Update()
         {
@@ -86,7 +119,6 @@ namespace QuickChecks.Input
                 switch (touch.phase)
                 {
                     case TouchPhase.Moved:
-                        // Update peak velocity (deltaPosition / deltaTime).
                         float dt = touch.deltaTime;
                         if (dt > 0f)
                         {
@@ -107,21 +139,40 @@ namespace QuickChecks.Input
 
         private void HandleMouseInput()
         {
-            // Mouse fallback for editor testing.
+            // Ignore mouse input if touch is active (touch takes priority).
+            if (UnityEngine.Input.touchCount > 0 && _activeTouchId != -1)
+            {
+                return;
+            }
+
             if (UnityEngine.Input.GetMouseButtonDown(0))
             {
-                _activeTouchId = -1; // sentinel
+                _activeTouchId = -1; // sentinel for mouse
                 _touchStartPos = UnityEngine.Input.mousePosition;
                 _lastTouchPos = UnityEngine.Input.mousePosition;
                 _touchStartTime = Time.realtimeSinceStartup;
                 _peakVelocity = 0f;
+
+                if (logAllSwipeAttempts)
+                {
+                    Debug.Log($"[Swipe] Mouse down at {_touchStartPos}. Threshold: v>={_minVelocity}px/s, " +
+                              $"dur<={_maxDurationMs}ms, dist>={_minDistance}px");
+                }
             }
             else if (_activeTouchId == -1 && UnityEngine.Input.GetMouseButton(0))
             {
                 Vector2 cur = UnityEngine.Input.mousePosition;
                 float moveDist = (cur - _lastTouchPos).magnitude;
-                // crude velocity estimate
-                _peakVelocity = Mathf.Max(_peakVelocity, moveDist / Mathf.Max(Time.deltaTime, 0.001f));
+                // crude velocity estimate (px/s)
+                float v = moveDist / Mathf.Max(Time.deltaTime, 0.001f);
+                if (v > _peakVelocity)
+                {
+                    _peakVelocity = v;
+                    if (logAllSwipeAttempts && v > 100f)
+                    {
+                        Debug.Log($"[Swipe] Tracking: peakV={_peakVelocity:F0}px/s, dist={(cur - _touchStartPos).magnitude:F0}px");
+                    }
+                }
                 _lastTouchPos = cur;
             }
             else if (_activeTouchId == -1 && UnityEngine.Input.GetMouseButtonUp(0))
@@ -136,9 +187,18 @@ namespace QuickChecks.Input
             float durationMs = (Time.realtimeSinceStartup - _touchStartTime) * 1000f;
             float distance = (endPos - _touchStartPos).magnitude;
 
-            bool tooSlow = _peakVelocity < settings.minSwipeVelocity;
-            bool tooLong = durationMs > settings.maxSwipeDurationMs;
-            bool tooShort = distance < settings.minSwipeDistance;
+            bool tooSlow = _peakVelocity < _minVelocity;
+            bool tooLong = durationMs > _maxDurationMs;
+            bool tooShort = distance < _minDistance;
+
+            if (logAllSwipeAttempts)
+            {
+                string verdict = tooSlow ? "TOO SLOW" :
+                                  tooLong ? "TOO LONG" :
+                                  tooShort ? "TOO SHORT" : "VALID";
+                Debug.Log($"[Swipe] Eval: peakV={_peakVelocity:F0}px/s, dur={durationMs:F0}ms, " +
+                          $"dist={distance:F0}px -> {verdict}");
+            }
 
             if (tooSlow || tooLong || tooShort)
             {
@@ -148,8 +208,8 @@ namespace QuickChecks.Input
 
             Vector2 direction = (endPos - _touchStartPos).normalized;
             float magnitude = Mathf.Min(
-                _peakVelocity * settings.velocityToImpulseScale,
-                settings.maxImpulseMagnitude
+                _peakVelocity * (settings != null ? settings.velocityToImpulseScale : 1.5f),
+                settings != null ? settings.maxImpulseMagnitude : 1500f
             );
 
             var data = new SwipeData
@@ -161,7 +221,15 @@ namespace QuickChecks.Input
                 rawVelocityPxS = _peakVelocity
             };
 
-            swipeEvent?.Raise(data);
+            if (swipeEvent != null)
+            {
+                swipeEvent.Raise(data);
+            }
+            else
+            {
+                Debug.LogError("[SwipeDetector] swipeEvent is null! Cannot raise swipe event. " +
+                               "Wire it up in the Inspector or via the PrototypeSceneBuilder.");
+            }
         }
     }
 }

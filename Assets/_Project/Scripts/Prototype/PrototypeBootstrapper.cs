@@ -142,6 +142,23 @@ namespace QuickChecks.Prototype
             cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f); // #0E1414
             camGo.transform.position = new Vector3(0, 0, -10);
             camGo.tag = "MainCamera";
+
+            // Add AudioListener (one per scene required by Unity's audio system).
+            // Destroy any existing listener first to avoid "two listeners" warning.
+            var existingListeners = FindObjectsOfType<AudioListener>();
+            foreach (var listener in existingListeners)
+            {
+                if (listener.gameObject != camGo)
+                {
+                    Debug.LogWarning($"[Prototype] Destroying duplicate AudioListener on '{listener.gameObject.name}'.");
+                    Destroy(listener);
+                }
+            }
+            if (existingListeners.Length == 0 || !camGo.GetComponent<AudioListener>())
+            {
+                camGo.AddComponent<AudioListener>();
+            }
+
             _cameraRig = camGo.AddComponent<CameraRig>();
             SetPrivateField(_cameraRig, "inputSettings", inputSettings);
 
