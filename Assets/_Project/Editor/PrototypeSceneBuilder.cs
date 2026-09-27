@@ -31,11 +31,32 @@ namespace QuickChecks.Editor
             System.IO.Directory.CreateDirectory("Assets/_Project/Scenes");
 
             // Create ScriptableObject assets so the bootstrapper can wire them up persistently.
+            // Note: must use concrete non-generic subclasses (SwipeEvent, GhostSwipeEvent)
+            // because Unity's CreateInstance<T>() cannot instantiate generic ScriptableObject
+            // types like GameEventSO<SwipeData> — it returns null, which then causes
+            // AssetDatabase.CreateAsset to throw ArgumentNullException.
             var inputSettings = EnsureAsset<QuickChecks.Input.InputSettings>(INPUT_SETTINGS_PATH);
-            var swipeEvent = EnsureAsset<QuickChecks.Core.GameEventSO<QuickChecks.Input.SwipeData>>(SWIPE_EVENT_PATH);
-            var ghostSwipeEvent = EnsureAsset<QuickChecks.Core.GameEventSO<QuickChecks.Input.SwipeData>>(GHOST_SWIPE_EVENT_PATH);
+            var swipeEvent = EnsureAsset<QuickChecks.Core.SwipeEvent>(SWIPE_EVENT_PATH);
+            var ghostSwipeEvent = EnsureAsset<QuickChecks.Core.GhostSwipeEvent>(GHOST_SWIPE_EVENT_PATH);
             var kartStats = EnsureKartStats(KART_STATS_PATH, "kart_starter", "Starter");
             var ghostKartStats = EnsureKartStats(GHOST_KART_STATS_PATH, "kart_ghost", "Ghost");
+
+            // Abort if any asset failed to create — better than continuing with nulls.
+            if (inputSettings == null || swipeEvent == null || ghostSwipeEvent == null ||
+                kartStats == null || ghostKartStats == null)
+            {
+                EditorUtility.DisplayDialog(
+                    "Prototype Scene Build Failed",
+                    "One or more ScriptableObject assets could not be created.\n\n" +
+                    "Check the Console (Window > General > Console) for the specific error.\n\n" +
+                    "Common causes:\n" +
+                    "  • Compile errors in the project (fix red errors first)\n" +
+                    "  • Asset import still in progress (wait for import to finish, retry)\n" +
+                    "  • Permission issues in Assets/_Project folder",
+                    "OK"
+                );
+                return;
+            }
 
             // Create new empty scene.
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -87,6 +108,14 @@ namespace QuickChecks.Editor
             if (existing != null) return existing;
 
             var asset = ScriptableObject.CreateInstance<T>();
+            if (asset == null)
+            {
+                Debug.LogError($"[PrototypeSceneBuilder] Failed to create instance of {typeof(T).Name}. " +
+                               $"If {typeof(T).Name} is a generic type (e.g., GameEventSO<SwipeData>), " +
+                               "Unity cannot instantiate it via CreateInstance<T>(). " +
+                               "Create a concrete non-generic subclass instead.");
+                return null;
+            }
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
