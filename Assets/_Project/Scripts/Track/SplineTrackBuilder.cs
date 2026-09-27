@@ -72,6 +72,9 @@ namespace QuickChecks.Track
             // Build finish line
             var finishLine = BuildFinishLine(points, halfWidth, closedLoop);
 
+            // Build power-up pickups (Week 5)
+            BuildPowerUpPickups(points, halfWidth, closedLoop, trackDefinition);
+
             var data = new TrackRuntimeData
             {
                 checkpoints = checkpoints,
@@ -257,7 +260,6 @@ namespace QuickChecks.Track
 
         private GameObject BuildFinishLine(IReadOnlyList<Vector2> points, float halfWidth, bool closedLoop)
         {
-            // Finish line at t=0 (start of spline)
             Vector2 center = BezierSpline.EvaluateSpline(points, 0f, closedLoop);
             Vector2 tangent = BezierSpline.EvaluateSplineTangent(points, 0f, closedLoop);
             float angle = Mathf.Atan2(tangent.y, tangent.x) * Mathf.Rad2Deg;
@@ -284,6 +286,61 @@ namespace QuickChecks.Track
             sr.sortingOrder = finishLineSortingOrder;
 
             return go;
+        }
+
+        private void BuildPowerUpPickups(IReadOnlyList<Vector2> points, float halfWidth, bool closedLoop, TrackDefinition trackDefinition)
+        {
+            if (trackDefinition.powerUpSpawns == null || trackDefinition.powerUpSpawns.Length == 0)
+            {
+                Debug.Log("[SplineTrackBuilder] No power-up spawns defined for this track.");
+                return;
+            }
+
+            var container = new GameObject("PowerUps");
+            container.transform.SetParent(transform, false);
+
+            int placed = 0;
+            foreach (var spawn in trackDefinition.powerUpSpawns)
+            {
+                if (spawn.powerUp == null)
+                {
+                    Debug.LogWarning($"[SplineTrackBuilder] Power-up spawn at t={spawn.t} has no powerUp assigned. Skipping.");
+                    continue;
+                }
+
+                // Compute position: along spline at t, offset by lateralOffset along the normal
+                Vector2 center = BezierSpline.EvaluateSpline(points, spawn.t, closedLoop);
+                Vector2 tangent = BezierSpline.EvaluateSplineTangent(points, spawn.t, closedLoop);
+                Vector2 normal = new Vector2(-tangent.y, tangent.x);
+                Vector2 spawnPos = center + normal * spawn.lateralOffset;
+
+                var go = new GameObject($"PowerUp_{spawn.powerUp.powerUpId}_t{spawn.t:F2}");
+                go.transform.SetParent(container.transform, false);
+                go.transform.position = spawnPos;
+                go.transform.localScale = Vector3.one;
+
+                // Add visual sprite (colored circle would be nice; for prototype use square)
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.color = spawn.powerUp.effectColor;
+                sr.sprite = CreateSquareSprite();
+                sr.drawMode = SpriteDrawMode.Sliced;
+                sr.size = new Vector2(1f, 1f);  // 1x1 unit pickup
+                sr.sortingOrder = 8;  // Above track surface (0), above checkpoints (5)
+
+                // Add trigger collider
+                var col = go.AddComponent<CircleCollider2D>();
+                col.radius = 0.6f;  // Pickup radius
+                col.isTrigger = true;
+
+                // Add PowerUpPickup component
+                var pickup = go.AddComponent<Racing.PowerUpPickup>();
+                pickup.powerUp = spawn.powerUp;
+                pickup.oneTimeUse = spawn.oneTimeUse;
+
+                placed++;
+            }
+
+            Debug.Log($"[SplineTrackBuilder] Placed {placed} power-up pickups.");
         }
 
         private Sprite _cachedSquareSprite;

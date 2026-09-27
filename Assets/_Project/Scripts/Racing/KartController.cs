@@ -133,6 +133,9 @@ namespace QuickChecks.Racing
 
         private void FixedUpdate()
         {
+            // Always record position for rewind (even when stopped, so first swipe has history)
+            RecordPositionForRewind();
+
             if (isStopped) return;
 
             if (stats == null)
@@ -235,6 +238,85 @@ namespace QuickChecks.Racing
         {
             // TODO: implement boost state with timer. For now, instant velocity multiply.
             currentVelocity *= multiplier;
+            isStopped = false;
+            Debug.Log($"[Kart] Boost applied: x{multiplier}, new velocity {currentVelocity.magnitude:F0} u/s.");
         }
+
+        /// <summary>
+        /// Slingshot power-up: sets velocity to a specific vector (direction + magnitude).
+        /// Used by SlingshotPowerUp to pull kart toward next checkpoint.
+        /// </summary>
+        public void ApplySlingshot(Vector2 newVelocity)
+        {
+            currentVelocity = newVelocity;
+            isStopped = false;
+            if (_rb != null) _rb.velocity = newVelocity;
+            Debug.Log($"[Kart] Slingshot applied: new velocity {currentVelocity} (mag {currentVelocity.magnitude:F0}).");
+        }
+
+        /// <summary>
+        /// Phase Dodge power-up: when active, next boundary exit doesn't stop the kart.
+        /// The kart "phases through" one wall.
+        /// </summary>
+        private bool _phaseDodgeActive = false;
+        public bool IsPhaseDodgeActive => _phaseDodgeActive;
+
+        public void ActivatePhaseDodge()
+        {
+            _phaseDodgeActive = true;
+            Debug.Log("[Kart] Phase Dodge activated — next boundary hit will be ignored.");
+        }
+
+        public void DeactivatePhaseDodge()
+        {
+            _phaseDodgeActive = false;
+        }
+
+        /// <summary>
+        /// Rewind power-up: stores position history, rewinds 1 second on use.
+        /// </summary>
+        private readonly System.Collections.Generic.List<Vector2> _positionHistory = new();
+        private const float REWIND_HISTORY_DURATION_SEC = 2f;
+        private const float REWIND_SAMPLE_INTERVAL = 0.05f;
+        private float _lastRewindSampleTime = 0f;
+
+        public void RecordPositionForRewind()
+        {
+            if (Time.time - _lastRewindSampleTime >= REWIND_SAMPLE_INTERVAL)
+            {
+                _lastRewindSampleTime = Time.time;
+                _positionHistory.Add(_rb != null ? _rb.position : (Vector2)transform.position);
+                // Trim history to ~2 seconds worth of samples
+                int maxSamples = Mathf.CeilToInt(REWIND_HISTORY_DURATION_SEC / REWIND_SAMPLE_INTERVAL);
+                while (_positionHistory.Count > maxSamples)
+                {
+                    _positionHistory.RemoveAt(0);
+                }
+            }
+        }
+
+        public void Rewind(float secondsToRewind)
+        {
+            int samplesToRewind = Mathf.CeilToInt(secondsToRewind / REWIND_SAMPLE_INTERVAL);
+            if (_positionHistory.Count == 0 || samplesToRewind <= 0)
+            {
+                Debug.Log("[Kart] Rewind: no history available.");
+                return;
+            }
+
+            int targetIndex = Mathf.Max(0, _positionHistory.Count - samplesToRewind - 1);
+            Vector2 rewindPos = _positionHistory[targetIndex];
+            if (_rb != null)
+            {
+                _rb.position = rewindPos;
+                _rb.velocity = Vector2.zero;
+            }
+            currentVelocity = Vector2.zero;
+            isStopped = true;
+            Debug.Log($"[Kart] Rewound {secondsToRewind}s to position {rewindPos}.");
+        }
+
+        // Note: FixedUpdate is defined earlier in this file. Rewind position recording
+        // happens via RecordPositionForRewind() called from the existing FixedUpdate.
     }
 }

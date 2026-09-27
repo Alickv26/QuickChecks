@@ -36,6 +36,31 @@ namespace QuickChecks.Track
         [Tooltip("If true, this track is available in the free demo. If false, requires IAP unlock.")]
         public bool isFree = false;
 
+        [Header("Power-Up Spawns")]
+        [Tooltip("Power-up spawn points along the track. Each entry places a PowerUpPickup at the " +
+                 "given t-parameter (0-1, position along the spline). The powerUp field on the spawn " +
+                 "determines which power-up is granted.")]
+        public PowerUpSpawn[] powerUpSpawns = new PowerUpSpawn[0];
+
+        /// <summary>
+        /// A power-up spawn point on the track.
+        /// </summary>
+        [System.Serializable]
+        public struct PowerUpSpawn
+        {
+            [Tooltip("Position along the spline (0-1). 0 = start, 0.5 = halfway, 1 = end.")]
+            [Range(0f, 1f)] public float t;
+
+            [Tooltip("Lateral offset from centerline (in world units). Positive = left, negative = right.")]
+            public float lateralOffset;
+
+            [Tooltip("The power-up to grant when collected. Assign a PowerUpBase asset (e.g., PowerUp_Boost).")]
+            public Racing.PowerUpBase powerUp;
+
+            [Tooltip("If true, this pickup is one-time use (no respawn).")]
+            public bool oneTimeUse;
+        }
+
         [Header("Camera")]
         [Tooltip("Default ortho camera size when on this track.")]
         public float defaultZoom = 12f;

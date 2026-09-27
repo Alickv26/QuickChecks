@@ -231,6 +231,7 @@ namespace QuickChecks.Prototype
             _swipeFeedback = kartGo.AddComponent<SwipeFeedback>();
             _swipeAudio = kartGo.AddComponent<SwipeAudio>();
             kartGo.AddComponent<AudioSource>(); // Required by SwipeAudio
+            kartGo.AddComponent<PowerUpSystem>(); // Required for power-up pickups (Week 5)
 
             // Checkpoint tracker — detects lap completion via checkpoint triggers + finish line.
             var checkpointTracker = kartGo.AddComponent<CheckpointTracker>();
@@ -288,6 +289,21 @@ namespace QuickChecks.Prototype
             // ----- Solo ghost player (records + replays best run) -----
             var soloGhostGo = new GameObject("SoloGhostPlayer");
             _soloGhost = soloGhostGo.AddComponent<SoloGhostPlayer>();
+
+            // ----- Week 5: IAP + EntitlementManager (singleton DontDestroyOnLoad) -----
+            // These persist across scenes; for prototype we create them at runtime.
+            if (Monetization.EntitlementManager.Instance == null)
+            {
+                var emGo = new GameObject("[EntitlementManager]");
+                emGo.AddComponent<Monetization.EntitlementManager>();
+            }
+            if (Monetization.IAPService.Instance == null)
+            {
+                var iapGo = new GameObject("[IAPService]");
+                var iap = iapGo.AddComponent<Monetization.IAPService>();
+                // Force stub mode for prototype (no real IAP integration yet)
+                SetPrivateField(iap, "useStubMode", true);
+            }
             SetPrivateField(_soloGhost, "playerRecorder", _ghostRecorder);
             SetPrivateField(_soloGhost, "playerSwipeEvent", swipeEvent);
             SetPrivateField(_soloGhost, "ghostSwipeEvent", ghostSwipeEvent);
@@ -489,6 +505,19 @@ namespace QuickChecks.Prototype
                 _soloGhost?.ClearBestRun();
                 Debug.Log("[Prototype] Best run cleared. Restart to race without ghost.");
             }
+
+            // Week 5 testing: press P to toggle premium entitlement (simulate IAP purchase)
+            if (UnityEngine.Input.GetKeyDown(KeyCode.P))
+            {
+                var em = Monetization.EntitlementManager.Instance;
+                if (em != null)
+                {
+                    bool newState = !em.IsPremium;
+                    em.SetPremium(newState);
+                    Debug.Log($"[Prototype] Premium entitlement toggled to: {newState}. " +
+                              "(In production, this is set by IAPService after a real purchase.)");
+                }
+            }
         }
 
         private void FinishRace()
@@ -578,12 +607,58 @@ namespace QuickChecks.Prototype
                 // p3 of segment 4 = p0 of segment 1 = (-15, 0) — handled by closedLoop flag
             };
 
+            // Power-up spawns (Week 5): place 3 pickups along the track for testing.
+            def.powerUpSpawns = new Track.TrackDefinition.PowerUpSpawn[]
+            {
+                new Track.TrackDefinition.PowerUpSpawn
+                {
+                    t = 0.25f,
+                    lateralOffset = 0f,
+                    powerUp = CreateBoostPowerUp(),
+                    oneTimeUse = false
+                },
+                new Track.TrackDefinition.PowerUpSpawn
+                {
+                    t = 0.55f,
+                    lateralOffset = 0f,
+                    powerUp = CreateMagnetPowerUp(),
+                    oneTimeUse = false
+                },
+                new Track.TrackDefinition.PowerUpSpawn
+                {
+                    t = 0.85f,
+                    lateralOffset = 0f,
+                    powerUp = CreateShieldPowerUp(),
+                    oneTimeUse = false
+                },
+            };
+
             if (!def.Validate(out string error))
             {
                 Debug.LogError($"[Prototype] Test track is invalid: {error}");
             }
 
             return def;
+        }
+
+        // Helper methods to create power-up ScriptableObject instances in-memory for the prototype.
+        // In production, these would be .asset files in Assets/_Project/ScriptableObjects/PowerUps/.
+        private Racing.PowerUpBase CreateBoostPowerUp()
+        {
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.BoostPowerUp>();
+            return pu;
+        }
+
+        private Racing.PowerUpBase CreateMagnetPowerUp()
+        {
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.MagnetPowerUp>();
+            return pu;
+        }
+
+        private Racing.PowerUpBase CreateShieldPowerUp()
+        {
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.ShieldPowerUp>();
+            return pu;
         }
 
         private static void SetPrivateField(object obj, string fieldName, object value)
