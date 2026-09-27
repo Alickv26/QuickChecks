@@ -181,10 +181,14 @@ namespace QuickChecks.Prototype
             var finishGo = new GameObject("FinishLine");
             finishGo.transform.SetParent(trackGo.transform);
             finishGo.transform.position = new Vector3(finishLineX, 0, 0);
+            finishGo.transform.localScale = Vector3.one; // Don't scale transform — collider.size is in local space.
+
             var finishSpriteRenderer = finishGo.AddComponent<SpriteRenderer>();
             finishSpriteRenderer.color = new Color(0.247f, 0.878f, 0.760f, 0.4f);
             finishSpriteRenderer.sprite = CreateSquareSprite();
-            finishGo.transform.localScale = new Vector3(0.5f, trackSize.y, 1);
+            finishSpriteRenderer.drawMode = SpriteDrawMode.Sliced;
+            finishSpriteRenderer.size = new Vector2(0.5f, trackSize.y);
+
             var finishCollider = finishGo.AddComponent<BoxCollider2D>();
             finishCollider.isTrigger = true;
             finishCollider.size = new Vector2(0.5f, trackSize.y);
@@ -198,15 +202,25 @@ namespace QuickChecks.Prototype
             // ----- Player kart with all components -----
             var kartGo = new GameObject("PlayerKart");
             kartGo.transform.position = kartSpawn;
+            kartGo.transform.localScale = Vector3.one; // Don't scale transform — collider + sprite use their own size.
+
             var kartSpriteRenderer = kartGo.AddComponent<SpriteRenderer>();
             kartSpriteRenderer.color = new Color(1f, 0.82f, 0.4f); // #FFD166 yellow
             kartSpriteRenderer.sprite = CreateSquareSprite();
             kartSpriteRenderer.sortingOrder = 10;
-            kartGo.transform.localScale = new Vector3(1.5f, 1.5f, 1);
+            kartSpriteRenderer.drawMode = SpriteDrawMode.Sliced;
+            kartSpriteRenderer.size = new Vector2(1.5f, 1.5f); // Visual size of the kart
+
             try { kartGo.tag = "Kart"; }
             catch (System.Exception) { /* Tag not defined — non-blocking. */ }
             int kartLayer = LayerMask.NameToLayer("Kart");
             if (kartLayer >= 0) kartGo.layer = kartLayer;
+
+            // CRITICAL: Add a BoxCollider2D so the kart can actually collide with walls.
+            // Without this, OnCollisionEnter2D never fires (Dynamic body needs a collider
+            // to register collisions with other colliders).
+            var kartCollider = kartGo.AddComponent<BoxCollider2D>();
+            kartCollider.size = new Vector2(1.5f, 1.5f); // Match the sprite size
 
             var kartRb = kartGo.AddComponent<Rigidbody2D>();
             _kart = kartGo.AddComponent<KartController>();
@@ -360,13 +374,23 @@ namespace QuickChecks.Prototype
             var go = new GameObject(name);
             go.transform.SetParent(parent);
             go.transform.position = pos;
+
+            // IMPORTANT: BoxCollider2D.size is in LOCAL space.
+            // If we also set transform.localScale = size, the collider gets
+            // multiplied by size in world space (e.g., 40x40 instead of 40x1).
+            // Solution: keep transform.localScale = (1,1,1) and set collider.size = size directly.
+            go.transform.localScale = Vector3.one;
+
             var collider = go.AddComponent<BoxCollider2D>();
             collider.size = size;
 
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.color = color;
             renderer.sprite = CreateSquareSprite();
-            go.transform.localScale = new Vector3(size.x, size.y, 1);
+            // Scale the SPRITE (visual) to match the collider — but via draw mode,
+            // not transform.localScale, so it doesn't double-scale the collider.
+            renderer.drawMode = SpriteDrawMode.Sliced;
+            renderer.size = size;
             return go;
         }
 
