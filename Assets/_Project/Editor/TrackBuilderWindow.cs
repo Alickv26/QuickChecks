@@ -199,6 +199,35 @@ namespace QuickChecks.Editor
                 Debug.Log($"[TrackBuilder] Saved track '{_currentTrack.trackId}'.");
             }
 
+            // --- Daily Track Generation (Week 6) ---
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Daily Track Generator", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Generates a procedural track for today's date (UTC).\n" +
+                "Difficulty rotates by day of week (Mon=easy, Sun=expert+).\n" +
+                "Seed = YYYYMMDD (same for all players globally).",
+                MessageType.Info);
+
+            if (GUILayout.Button("Generate Today's Daily Track"))
+            {
+                var dailyTrack = QuickChecks.Track.DailyTrackGenerator.GenerateForToday();
+                _currentTrack = dailyTrack;
+                Selection.activeObject = dailyTrack;
+                SceneView.RepaintAll();
+                Debug.Log($"[TrackBuilder] Generated daily track '{dailyTrack.trackId}'.");
+            }
+
+            if (GUILayout.Button("Generate Daily Track for Specific Date"))
+            {
+                // For testing: generate for a date 7 days from now (forces different difficulty)
+                var testDate = System.DateTime.UtcNow.AddDays(7);
+                var dailyTrack = QuickChecks.Track.DailyTrackGenerator.GenerateForDate(testDate);
+                _currentTrack = dailyTrack;
+                Selection.activeObject = dailyTrack;
+                SceneView.RepaintAll();
+                Debug.Log($"[TrackBuilder] Generated test daily track for {testDate:yyyy-MM-dd}.");
+            }
+
             EditorGUILayout.EndScrollView();
         }
 

@@ -615,9 +615,9 @@ CREATE TABLE daily_tracks (
 |------|-----------|-------------|
 | 1 | **Project setup + swipe prototype** ✅ | Unity project, swipe detection, kart moves with flicks, ghost replay, audio, trail, obstacles |
 | 2 | **Kart physics + Bezier spline track system + checkpoint detection** ✅ | Impulse physics polish, real Bezier track (oval test), checkpoints, lap detection, TrackValidator, TrackLibrary |
-| 3-4 | **Camera + zoom polish + Track Builder editor tool** | Pinch-to-zoom input handler, dynamic follow cam with smoothing, in-editor track builder (scene-view click to add Bezier points) |
-| 5 | **Power-up system + IAP + EntitlementManager** | All 6 power-ups, spawn points, $4.99 IAP integration, paywall UI |
-| 6 | **Ghost recording + tutorial + daily track generator** | Ghost recorder/player, 4-step tutorial scene, seeded daily track generator |
+| 3-4 | **Camera + zoom polish + Track Builder editor tool** ✅ | Pinch-to-zoom input handler (PinchZoomInput), dynamic follow cam with smoothing (CameraRig), in-editor TrackBuilderWindow with scene-view click-to-add Bezier points |
+| 5 | **Power-up system + IAP + EntitlementManager** ✅ | All 6 power-ups (Boost, Slingshot, Phase, Shield, Rewind, Magnet), PowerUpPickup triggers, $4.99 IAP service (stubbed), EntitlementManager, PaywallController |
+| 6 | **Ghost recording + tutorial + daily track generator** ✅ | 4-step tutorial scene (TutorialController + FirstLaunchFlow), seeded DailyTrackGenerator with day-of-week difficulty, lower swipe threshold (300 px/s) during tutorial |
 | 7-8 | **Full game flow + tracks 1-4 + free audio curation begins** | Menu → track select → race → results, 4 of 8 tracks built, browse free music libraries |
 | 9 | **Supabase backend + auth + audio integration** | Anonymous auth, race result upload, leaderboard query, top-10 display, display name generation, integrate curated audio |
 | 10 | **All 8 tracks + 8 karts + SFX from Kenney/Freesound** | Content complete, balancing pass begins, SFX sourced + integrated |
