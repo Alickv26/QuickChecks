@@ -305,15 +305,33 @@ All open follow-ups from v2.0 are now resolved.
 
 ---
 
-### Decision 15: Audio direction — Original composer
+### Decision 15: Audio direction — Free / open-source libraries (revised)
 
-**Decision**: Hire an **in-house synthwave composer** for an original soundtrack. Budget: $2,000-5,000 for 8-12 tracks (~$250-400 per track) + SFX library.
+**Decision**: **Use free and open-source audio** — public-domain or permissively-licensed synthwave tracks from free music libraries, plus open-source SFX. **Zero upfront budget** for audio.
 
-**Why**: Original music gives the game a distinct identity (vs. generic Epidemic Sound library tracks). Synthwave matches the minimal-vector visual aesthetic. Composer can also do SFX design.
+**Why (revised from v2.0)**:
+- Saves $2-5K composer budget — that money goes elsewhere (or stays in pocket)
+- Plenty of high-quality free synthwave / chill electronic exists on:
+  - **Free Music Archive** (freemusicarchive.org) — CC-licensed
+  - **Incompetech** (Kevin MacLeod) — CC-BY, huge library
+  - **Pixabay Music** — royalty-free, no attribution required
+  - **YouTube Audio Library** — free for any use
+  - **SoundCloud Creative Commons** — filter by CC-BY
+- For SFX: **Freesound.org** (CC-licensed), **Kenney.nl** (CC0 game SFX packs)
+- Quality is sufficient for a $4.99 mobile game; not AAA, but professional enough
+- Trade-off accepted: less distinctive identity than original music, but ship-able on day one
 
-**Trade-offs accepted**: Higher upfront cost than licensed library. Composer availability affects timeline (need to book by week 5 to ship by week 12).
+**Trade-offs accepted**:
+- Less unique audio identity (other games may use the same tracks)
+- Need to credit per-license requirements (CC-BY requires attribution)
+- Some tracks may need editing to loop seamlessly
 
-**Action item**: Begin composer search in week 2; sign contract by week 4; first track delivered by week 8.
+**Process**:
+- Week 8-9: browse libraries, curate 8-12 tracks that fit the synthwave brief
+- Week 10: source SFX from Freesound/Kenney, edit as needed
+- Week 11: integrate into Unity, set up MusicPlayer + SfxPlayer
+
+**Action item**: Update `Docs/AUDIO_BRIEF.md` to list specific free libraries + curation criteria. Remove `Docs/COMPOSER_SEARCH.md` (no longer needed).
 
 ---
 
@@ -437,7 +455,7 @@ All open follow-ups from v2.0 are now resolved.
 | 12 | Localization: English only at launch | Locked |
 | 13 | Accessibility: full at launch | Locked |
 | 14 | Session length: 1-3 min quick burst | Locked |
-| 15 | Audio: original composer, $2-5K budget | Locked |
+| 15 | Audio: free / open-source libraries (no budget) | Locked (revised) |
 | 16 | Paywall: track-select gate (hard wall) | Locked |
 | 17 | IAP price: $4.99 one-time | Locked |
 | 18 | Daily difficulty: day-of-week rotation | Locked |

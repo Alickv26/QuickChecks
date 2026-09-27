@@ -1,7 +1,8 @@
 # Audio Brief — QuickChecks
 
-**Audience**: Composer candidates evaluating whether to take on the project
-**Length**: 1-page reference, expand as needed
+**Approach**: Free / open-source audio (per Decision 15, revised)
+**Budget**: $0 — sourced from public-domain and permissively-licensed libraries
+**Status**: Curation phase begins Week 8
 
 ---
 
@@ -21,16 +22,9 @@
 
 **Synthwave / chill electronic**, 110-135 BPM depending on track intensity.
 
-### Why synthwave
+### Reference mood (for curation)
 
-- Matches the minimal-vector visual aesthetic (dark, neon, geometric)
-- 120-130 BPM aligns with the natural swipe rhythm (~1 swipe per second)
-- Synth textures are non-intrusive during focused play
-- Synthwave has a strong identity vs. generic electronic music
-
-### Reference tracks
-
-Listen to these to understand the target mood:
+Listen to these to understand the target vibe — we want free tracks that sound similar:
 
 | Artist | Track | What to take from it |
 |--------|-------|----------------------|
@@ -38,7 +32,6 @@ Listen to these to understand the target mood:
 | Kavinsky | "Nightcall" | Synthwave edge, driving rhythm |
 | HOME | "Resonance" | Chill electronic, nostalgic warmth |
 | Com Truise | "Brokewear" | Retro synth textures, tape saturation |
-| The Midnight | "Days of Thunder" | Sweeping leads, vocal-adjacent melody |
 
 ### What we DON'T want
 
@@ -50,10 +43,10 @@ Listen to these to understand the target mood:
 
 ---
 
-## Track list (8-12 tracks)
+## Track list (8-12 tracks needed)
 
-| # | Track name | In-game purpose | BPM | Length | Mood |
-|---|-----------|-----------------|-----|--------|------|
+| # | Track name | In-game purpose | Target BPM | Length | Mood |
+|---|-----------|-----------------|------------|--------|------|
 | 1 | Main Menu Theme | Title screen, settings, track-select | 110 | 2-3 min, loopable | Calm, inviting |
 | 2 | First Lap | Track 1 (★ difficulty) | 120 | 3-4 min, loopable | Upbeat, simple |
 | 3 | Curves 101 | Track 2 (★) | 122 | 3-4 min | Similar to #2, slight variation |
@@ -93,68 +86,136 @@ Listen to these to understand the target mood:
 
 ---
 
+## Free audio sources
+
+### Music libraries (curate 8-12 tracks from these)
+
+| Source | URL | License | Notes |
+|--------|-----|---------|-------|
+| **Free Music Archive** | freemusicarchive.org | CC-BY, CC0 | Search "synthwave", "chillwave", "electronic" |
+| **Incompetech** | incompetech.com | CC-BY | Kevin MacLeod's huge library |
+| **Pixabay Music** | pixabay.com/music | Pixabay License (no attribution) | Free for commercial use |
+| **YouTube Audio Library** | youtube.com/audiolibrary | YouTube License | Free for any use, including commercial |
+| **SoundCloud CC** | soundcloud.com (filter CC-BY) | CC-BY | Search "synthwave" + filter "Creative Commons" |
+| **Bensound** | bensound.com | Bensound License (free with attribution) | Free for commercial use with credit |
+| **ccMixter** | ccmixter.org | CC-BY, CC0 | Remix-friendly community |
+
+### SFX libraries
+
+| Source | URL | License | Notes |
+|--------|-----|---------|-------|
+| **Freesound** | freesound.org | Various CC | Search "whoosh", "chime", "ui click" |
+| **Kenney.nl** | kenney.nl/assets | CC0 | Game-focused packs, no attribution needed |
+| **OpenGameArt** | opengameart.org | Various CC | Mixed quality, check license per asset |
+| **Pixabay SFX** | pixabay.com/sound-effects | Pixabay License | Free, no attribution |
+
+### License requirements per source
+
+| License | Attribution required? | Commercial use? | Modifications? |
+|---------|----------------------|-----------------|----------------|
+| CC0 | No | Yes | Yes |
+| CC-BY | **Yes** (in credits) | Yes | Yes |
+| CC-BY-SA | Yes + share-alike | Yes | Yes (derivative must be CC-BY-SA) |
+| CC-BY-NC | Yes | **No** | Yes |
+| Pixabay License | No | Yes | Yes |
+| Bensound License | Yes (in credits) | Yes | No (must use as-is) |
+
+**Avoid**: CC-BY-NC (non-commercial) and CC-BY-ND (no derivatives) — incompatible with a commercial game.
+
+---
+
+## Curation criteria
+
+For each candidate track, evaluate:
+
+| Criterion | Pass/Fail |
+|----------|-----------|
+| License allows commercial use (CC0, CC-BY, Pixabay) | ✅ Required |
+| Style fits synthwave / chill electronic brief | ✅ Required |
+| BPM is in 110-135 range | ✅ Required |
+| Loops seamlessly (or can be edited to loop) | ✅ Required |
+| No vocals | ✅ Required |
+| Length 2-4 minutes | ✅ Required |
+| Quality is professional (no clipping, good mix) | ✅ Required |
+| Doesn't sound like stock corporate music | ✅ Required |
+| Attribution recorded for credits screen | ✅ Required (if CC-BY) |
+
+---
+
+## Credits screen
+
+For each track with attribution requirement (CC-BY), include in credits:
+
+```
+Music:
+- "Track Name" by Artist Name
+  Source: freemusicarchive.org
+  License: CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+```
+
+For SFX with attribution:
+
+```
+Sound Effects:
+- "Sound Name" by Artist Name
+  Source: freesound.org
+  License: CC-BY 4.0
+```
+
+CC0 and Pixabay License tracks/SFX don't need attribution but can still be credited out of courtesy.
+
+---
+
 ## Technical requirements
 
 ### File formats
 
-- **Music**: WAV (44.1 kHz, 16-bit) + MP3 (320 kbps) for each track
+- **Music**: WAV (44.1 kHz, 16-bit) for in-game + OGG (96 kbps) for size-optimized builds
 - **SFX**: WAV (44.1 kHz, 16-bit), mono for SFX, stereo for ambient
-- **Stems**: per-track stems as separate WAV files (drums, bass, melody, pads, etc.)
-- **Source files**: project files (FL Studio, Ableton, Logic, etc.) delivered at end
-
-### Length & looping
-
-- Music tracks must **loop seamlessly** (start and end on the same beat)
-- Target loop length: 2-4 minutes per track
-- Race complete / failed stings: non-looping, fixed duration
+- **Length**: music tracks 2-4 min (loopable), SFX 0.1-3 sec
 
 ### Loudness
 
 - Mastered to **-14 LUFS** (Spotify standard, matches mobile listening)
 - True peak: -1 dBTP
 
----
+### Loop editing
 
-## Credits & ownership
-
-- Composer credited in game credits screen + App Store / Play Store listing
-- **Full buyout**: we own all audio outright, royalty-free, perpetual, worldwide
-- Composer may use the work in their portfolio after launch (Dec 2026)
-- Composer may NOT re-sell the tracks to other clients
-
----
-
-## Optional: haptics
-
-If the composer also does haptic design (rare but valuable):
-
-- Light impact on swipe (10ms vibration)
-- Medium impact on power-up pickup (30ms)
-- Heavy impact on boundary hit (50ms)
-
-If not, we'll handle haptics in-house using iOS/Android native APIs.
+Some free tracks won't loop seamlessly. For those, edit in Audacity (free):
+1. Open track in Audacity
+2. Find a natural break point (end of phrase, ~16 bars)
+3. Trim to that point
+4. Apply a 50ms crossfade at the loop point
+5. Export as WAV
 
 ---
 
-## Demos
+## Curation tracking
 
-If a composer wants to demonstrate fit, the most useful demo is:
+Use this table to track candidates as you find them:
 
-**10-15 second snippet** of "First Lap" (Track 2 in the list above)
-- 120 BPM
-- Upbeat but not aggressive
-- Synth lead + pad + simple drum pattern
-- Should feel "swipeable" — like you'd flick the kart to the beat
-
-We pay for any demo we use at the composer's standard rate.
-
----
-
-## Contact
-
-Project repo: https://github.com/Alickv26/QuickChecks
-Contact: [your email]
+| # | Track name | Artist | Source | License | BPM | Style fit (1-5) | Loops? | Used for | Attribution needed? |
+|---|-----------|--------|--------|---------|-----|-----------------|--------|----------|---------------------|
+| 1 | | | | | | | | | |
+| 2 | | | | | | | | | |
+| 3 | | | | | | | | | |
+| 4 | | | | | | | | | |
 
 ---
 
-*End of audio brief. For composer search process, see `Docs/COMPOSER_SEARCH.md`.*
+## Action items (Week 8-9)
+
+- [ ] Browse Free Music Archive, Pixabay Music, Incompetech for synthwave tracks
+- [ ] Curate 10-12 candidates that fit the brief (BPM 110-135, no vocals, loopable)
+- [ ] Verify license per track (must be commercial-use OK)
+- [ ] Download WAV files, edit for loop if needed
+- [ ] Organize into `Assets/_Project/Audio/Music/` with naming convention:
+  - `track_01_first_lap.wav`, `track_02_curves_101.wav`, etc.
+  - `menu_theme.wav`, `daily_track.wav`, `race_complete.wav`, `race_failed.wav`
+- [ ] Record attribution info in a `CREDITS.md` file at repo root
+- [ ] Source SFX from Freesound + Kenney
+- [ ] Integrate via MusicPlayer + SfxPlayer (scripts already in `Scripts/Audio/`)
+
+---
+
+*End of audio brief. For audio direction decision, see `Docs/DECISIONS.md` §15.*

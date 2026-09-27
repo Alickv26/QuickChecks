@@ -264,13 +264,15 @@ This tool is built in weeks 3-4 and used to build all 8 tracks in weeks 7-8.
 - Power-up pickup = particle burst + 0.1s screen flash in power-up color
 - Finish line = confetti + slowmo on victory lap
 
-### 5.2 Audio (Original Composer — Decision 15)
+### 5.2 Audio (Free / Open-Source — Decision 15 revised)
 
-- **Music**: Original synthwave soundtrack, 8-12 tracks (~$2-5K budget)
-  - 120-130 BPM, matches swipe rhythm
-  - Composer search begins week 2, contract signed by week 4, first track by week 8
-- **SFX**: Composer-designed + synthesized fallback (current `SwipeAudio.cs`)
-  - Swipe whoosh (pitched by swipe velocity, 220-880 Hz)
+- **Music**: Curated from free libraries (Free Music Archive, Pixabay, Incompetech, YouTube Audio Library)
+  - 120-130 BPM synthwave / chill electronic
+  - 8-12 tracks sourced + edited for seamless looping (Audacity)
+  - All licenses verified for commercial use (CC0, CC-BY, Pixabay License)
+  - Attribution recorded for credits screen (CC-BY requires this)
+- **SFX**: From Freesound + Kenney.nl (CC0 game SFX packs)
+  - Swipe whoosh (current `SwipeAudio.cs` synthesized fallback works if no asset found)
   - Power-up chime, boundary bonk, finish fanfare
 - **Haptics**: Light impact on swipe, medium on power-up, heavy on boundary hit
 - **Audio cues (accessibility)**: Distinct SFX for power-up collected, boundary hit, finish line approaching, ghost passing (Decision 13)
@@ -612,13 +614,13 @@ CREATE TABLE daily_tracks (
 | Week | Milestone | Deliverable |
 |------|-----------|-------------|
 | 1 | **Project setup + swipe prototype** ✅ | Unity project, swipe detection, kart moves with flicks, ghost replay, audio, trail, obstacles |
-| 2 | **Kart physics + track prototype + start composer search** | Impulse physics polish, boundary collision, 1 test track, composer shortlist |
-| 3-4 | **Camera + zoom + track builder tool + sign composer** | Pinch/auto-zoom, dynamic follow cam, in-editor track builder, signed composer contract |
+| 2 | **Kart physics + Bezier spline track system + checkpoint detection** ✅ | Impulse physics polish, real Bezier track (oval test), checkpoints, lap detection, TrackValidator, TrackLibrary |
+| 3-4 | **Camera + zoom polish + Track Builder editor tool** | Pinch-to-zoom input handler, dynamic follow cam with smoothing, in-editor track builder (scene-view click to add Bezier points) |
 | 5 | **Power-up system + IAP + EntitlementManager** | All 6 power-ups, spawn points, $4.99 IAP integration, paywall UI |
 | 6 | **Ghost recording + tutorial + daily track generator** | Ghost recorder/player, 4-step tutorial scene, seeded daily track generator |
-| 7-8 | **Full game flow + tracks 1-4 + first audio tracks** | Menu → track select → race → results, 4 of 8 tracks built, first 2-3 music tracks delivered |
-| 9 | **Supabase backend + auth** | Anonymous auth, race result upload, leaderboard query, top-10 display, display name generation |
-| 10 | **All 8 tracks + 8 karts + composer delivers remaining tracks** | Content complete, balancing pass begins, all music delivered |
+| 7-8 | **Full game flow + tracks 1-4 + free audio curation begins** | Menu → track select → race → results, 4 of 8 tracks built, browse free music libraries |
+| 9 | **Supabase backend + auth + audio integration** | Anonymous auth, race result upload, leaderboard query, top-10 display, display name generation, integrate curated audio |
+| 10 | **All 8 tracks + 8 karts + SFX from Kenney/Freesound** | Content complete, balancing pass begins, SFX sourced + integrated |
 | 11 | **Polish: juice, SFX, haptics, accessibility + playtesting** | Particle effects, screen shake, haptics, color-blind mode, one-finger mode, par tuning |
 | 12 | **Beta release** | TestFlight + Google Play internal track, crash fixes, store listing assets |
 
