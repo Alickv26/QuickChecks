@@ -21,11 +21,13 @@ namespace QuickChecks.Input
         public float minSwipeDistance = 50f;
 
         [Header("Impulse Scaling")]
-        [Tooltip("Swipe velocity is multiplied by this to get impulse magnitude.")]
-        public float velocityToImpulseScale = 1.5f;
+        [Tooltip("Swipe velocity is multiplied by this to get impulse magnitude. " +
+                 "Lower = smaller impulses per swipe (kart moves shorter distances).")]
+        public float velocityToImpulseScale = 0.4f;
 
-        [Tooltip("Hard cap on impulse magnitude, regardless of swipe speed.")]
-        public float maxImpulseMagnitude = 1500f;
+        [Tooltip("Hard cap on impulse magnitude (units/sec of velocity). " +
+                 "Kart at 250 u/s travels ~4 units per frame at 60fps — feels right for a 40-unit-wide track.")]
+        public float maxImpulseMagnitude = 250f;
 
         [Header("Pinch Zoom")]
         [Tooltip("Minimum ortho camera size (closest zoom, for tight sections).")]

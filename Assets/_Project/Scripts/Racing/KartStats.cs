@@ -25,8 +25,9 @@ namespace QuickChecks.Racing
         [Tooltip("Minimum speed (units/s) below which kart is considered stopped. Higher = cleaner stop.")]
         public float stopThreshold = 8f;
 
-        [Tooltip("Maximum speed cap, regardless of impulse or boost.")]
-        public float maxSpeed = 1500f;
+        [Tooltip("Maximum speed cap, regardless of impulse or boost. " +
+                 "Match this to InputSettings.maxImpulseMagnitude for predictable behavior.")]
+        public float maxSpeed = 250f;
 
         [Header("Boost")]
         [Tooltip("Multiplier applied to velocity during a boost power-up.")]

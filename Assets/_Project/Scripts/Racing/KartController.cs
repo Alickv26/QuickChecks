@@ -33,10 +33,27 @@ namespace QuickChecks.Racing
         private void Awake()
         {
             _rb = GetComponent<Rigidbody2D>();
-            _rb.gravityScale = 0f;
-            _rb.drag = 0f; // We do friction manually for predictability.
+            _rb.gravityScale = 0f;       // Top-down game — no gravity.
+            _rb.drag = 0f;                // We do friction manually for predictability.
             _rb.angularDrag = 0f;
-            _rb.bodyType = RigidbodyType2D.Kinematic; // We drive position manually
+            _rb.mass = 1f;                // Default mass, explicit for predictability.
+
+            // DYNAMIC (not Kinematic) so collisions actually happen with static colliders (walls).
+            // Kinematic bodies don't collide with static colliders — they pass through.
+            // Dynamic bodies with gravityScale=0 + drag=0 behave like Kinematic for our purposes,
+            // but DO generate collision responses when they hit BoxCollider2D walls.
+            _rb.bodyType = RigidbodyType2D.Dynamic;
+
+            // Freeze Z rotation so collisions don't spin the kart uncontrollably.
+            // We control rotation manually via MoveRotation in FixedUpdate.
+            _rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+
+            // Collision detection: Continuous prevents fast-moving kart from tunneling through thin walls.
+            _rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+
+            // Sleep mode: Never sleep — we want responsive physics even when kart is idle.
+            _rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
+
             _mainCam = UnityEngine.Camera.main;
         }
 
@@ -97,12 +114,6 @@ namespace QuickChecks.Racing
                 return;
             }
 
-            if (swipeEvent == null)
-            {
-                Debug.LogError("[Kart] swipeEvent is null! Cannot receive swipes.");
-                return;
-            }
-
             // Convert screen-space direction to world-space (top-down: just rotate).
             Vector2 worldDir = ScreenDirectionToWorld(swipe.direction);
 
@@ -110,6 +121,9 @@ namespace QuickChecks.Racing
             // Cap impulse so resulting velocity doesn't exceed maxSpeed.
             impulse = Mathf.Min(impulse, stats.maxSpeed);
 
+            // SET velocity directly (billiards/golf model — replaces, not adds).
+            // We use MovePosition in FixedUpdate which respects collisions because
+            // the Rigidbody is Dynamic (not Kinematic).
             currentVelocity = worldDir * impulse;
             isStopped = false;
 
@@ -145,6 +159,7 @@ namespace QuickChecks.Racing
             {
                 currentVelocity = Vector2.zero;
                 isStopped = true;
+                _rb.velocity = Vector2.zero;
             }
             else
             {
@@ -153,16 +168,39 @@ namespace QuickChecks.Racing
                     currentVelocity = currentVelocity.normalized * stats.maxSpeed;
             }
 
-            // Move the kart.
-            Vector2 delta = currentVelocity * Time.fixedDeltaTime;
-            Vector2 newPos = _rb.position + delta;
-            _rb.MovePosition(newPos);
+            // Drive the Rigidbody2D's velocity directly (Dynamic body — collisions still apply).
+            // Setting .velocity on a Dynamic Rigidbody2D is the recommended way to drive it
+            // while still respecting collision responses. Walls (BoxCollider2D) will stop the kart.
+            _rb.velocity = currentVelocity;
 
             // Rotate kart to face velocity direction (for sprite flip / visual).
             if (currentVelocity.sqrMagnitude > 1f)
             {
                 float angle = Mathf.Atan2(currentVelocity.y, currentVelocity.x) * Mathf.Rad2Deg;
                 _rb.MoveRotation(angle);
+            }
+        }
+
+        // Unity's collision callbacks — fired by Dynamic Rigidbody2D hitting BoxCollider2D walls.
+        // We use these to detect "kart hit a wall" so we can stop velocity (golf-feel: stop dead).
+        private void OnCollisionEnter2D(Collision2D collision)
+        {
+            // Stop the kart on wall impact (golf-feel: no bouncing, no sliding).
+            currentVelocity = Vector2.zero;
+            if (_rb != null) _rb.velocity = Vector2.zero;
+            isStopped = true;
+
+            Debug.Log($"[Kart] Collision with '{collision.gameObject.name}' — kart stopped (golf-feel).");
+        }
+
+        private void OnCollisionStay2D(Collision2D collision)
+        {
+            // If we're somehow still moving while touching a wall, zero out velocity.
+            if (!isStopped && currentVelocity.sqrMagnitude > 0.01f)
+            {
+                currentVelocity = Vector2.zero;
+                if (_rb != null) _rb.velocity = Vector2.zero;
+                isStopped = true;
             }
         }
 
