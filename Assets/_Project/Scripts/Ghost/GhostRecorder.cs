@@ -46,12 +46,33 @@ namespace QuickChecks.Ghost
 
         private void OnEnable()
         {
-            if (swipeEvent != null) swipeEvent.Register(OnSwipe);
+            TrySubscribe();
+        }
+
+        private void Start()
+        {
+            // Re-attempt subscription in case swipeEvent was set after OnEnable.
+            TrySubscribe();
         }
 
         private void OnDisable()
         {
-            if (swipeEvent != null) swipeEvent.Unregister(OnSwipe);
+            if (swipeEvent != null && _isSubscribed)
+            {
+                swipeEvent.Unregister(OnSwipe);
+                _isSubscribed = false;
+            }
+        }
+
+        private bool _isSubscribed = false;
+
+        private void TrySubscribe()
+        {
+            if (swipeEvent != null && !_isSubscribed)
+            {
+                swipeEvent.Register(OnSwipe);
+                _isSubscribed = true;
+            }
         }
 
         private void OnSwipe(SwipeData swipe)

@@ -188,7 +188,12 @@ namespace QuickChecks.Prototype
             var finishCollider = finishGo.AddComponent<BoxCollider2D>();
             finishCollider.isTrigger = true;
             finishCollider.size = new Vector2(0.5f, trackSize.y);
-            finishGo.tag = "FinishLine";
+            // Wrap in try/catch — TagManager.asset was deleted earlier and Unity regenerated
+            // it without our custom tags. The tag isn't used by prototype logic, so failure
+            // to assign it is non-blocking. Add the tag manually in Project Settings > Tags
+            // and Layers if you want it to stick.
+            try { finishGo.tag = "FinishLine"; }
+            catch (System.Exception) { /* Tag not defined — non-blocking. */ }
 
             // ----- Player kart with all components -----
             var kartGo = new GameObject("PlayerKart");
@@ -198,7 +203,8 @@ namespace QuickChecks.Prototype
             kartSpriteRenderer.sprite = CreateSquareSprite();
             kartSpriteRenderer.sortingOrder = 10;
             kartGo.transform.localScale = new Vector3(1.5f, 1.5f, 1);
-            kartGo.tag = "Kart";
+            try { kartGo.tag = "Kart"; }
+            catch (System.Exception) { /* Tag not defined — non-blocking. */ }
             int kartLayer = LayerMask.NameToLayer("Kart");
             if (kartLayer >= 0) kartGo.layer = kartLayer;
 

@@ -42,14 +42,44 @@ namespace QuickChecks.Racing
 
         private void OnEnable()
         {
-            if (swipeEvent != null)
-                swipeEvent.Register(OnSwipe);
+            // Note: subscription also happens in Start() because OnEnable fires
+            // immediately on AddComponent, before reflection-based wiring sets
+            // the swipeEvent field. Start() runs on the next frame, after all
+            // field assignment is complete, so it's the reliable subscription point.
+            TrySubscribe();
+        }
+
+        private void Start()
+        {
+            // Re-attempt subscription in case swipeEvent was set after OnEnable
+            // (common when wiring up via reflection in a bootstrapper).
+            TrySubscribe();
         }
 
         private void OnDisable()
         {
-            if (swipeEvent != null)
+            if (swipeEvent != null && _isSubscribed)
+            {
                 swipeEvent.Unregister(OnSwipe);
+                _isSubscribed = false;
+            }
+        }
+
+        private bool _isSubscribed = false;
+
+        private void TrySubscribe()
+        {
+            if (swipeEvent != null && !_isSubscribed)
+            {
+                swipeEvent.Register(OnSwipe);
+                _isSubscribed = true;
+                Debug.Log($"[Kart] Subscribed to swipeEvent on {gameObject.name}");
+            }
+            else if (swipeEvent == null)
+            {
+                Debug.LogWarning($"[Kart] TrySubscribe called but swipeEvent is null on {gameObject.name}. " +
+                                  "Will retry on next Start().");
+            }
         }
 
         private void OnSwipe(SwipeData swipe)
