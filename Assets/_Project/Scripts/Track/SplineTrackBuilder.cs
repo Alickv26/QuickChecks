@@ -95,8 +95,6 @@ namespace QuickChecks.Track
             BezierSpline.SampleBoundaries(points, halfWidth, boundarySegmentCount, closedLoop,
                 out var leftBoundary, out var rightBoundary);
 
-            // For each segment, create a quad (4 vertices) between left[i]/right[i] and left[i+1]/right[i+1]
-            // Use a single MeshRenderer + MeshFilter for the whole track surface (efficient)
             var meshFilter = trackGo.AddComponent<MeshFilter>();
             var meshRenderer = trackGo.AddComponent<MeshRenderer>();
 
@@ -104,29 +102,39 @@ namespace QuickChecks.Track
             int vertexCount = boundarySegmentCount * 2;
             var vertices = new Vector3[vertexCount];
             var uvs = new Vector2[vertexCount];
-            var triangles = new int[(boundarySegmentCount - 1) * 6];
+            // 2 triangles per segment, 3 vertices per triangle = 6 indices per segment
+            // For closed loop, we add one more segment to close the loop (last -> first)
+            int segmentCount = closedLoop ? boundarySegmentCount : boundarySegmentCount - 1;
+            var triangles = new int[segmentCount * 6];
 
+            // Place vertices at z=1 (in front of camera at z=-10).
+            // SpriteRenderer sortOrders handle 2D layering; mesh z is just to ensure visibility.
             for (int i = 0; i < boundarySegmentCount; i++)
             {
-                vertices[i * 2] = leftBoundary[i];
-                vertices[i * 2 + 1] = rightBoundary[i];
-                uvs[i * 2] = new Vector2(0, (float)i / (boundarySegmentCount - 1));
+                vertices[i * 2]     = new Vector3(leftBoundary[i].x,  leftBoundary[i].y,  1f);
+                vertices[i * 2 + 1] = new Vector3(rightBoundary[i].x, rightBoundary[i].y, 1f);
+                uvs[i * 2]     = new Vector2(0, (float)i / (boundarySegmentCount - 1));
                 uvs[i * 2 + 1] = new Vector2(1, (float)i / (boundarySegmentCount - 1));
             }
 
+            // Build triangles. Winding: counter-clockwise when viewed from -Z (camera side)
+            // so triangles face the camera. In Unity 2D, this means vertex order: left[i], right[i], left[i+1].
             int tri = 0;
-            for (int i = 0; i < boundarySegmentCount - 1; i++)
+            for (int i = 0; i < segmentCount; i++)
             {
-                int v0 = i * 2;
-                int v1 = i * 2 + 1;
-                int v2 = (i + 1) * 2;
-                int v3 = (i + 1) * 2 + 1;
+                int next = (i + 1) % boundarySegmentCount;
+                int v0 = i * 2;          // left[i]
+                int v1 = i * 2 + 1;        // right[i]
+                int v2 = next * 2;          // left[next]
+                int v3 = next * 2 + 1;      // right[next]
+                // Triangle 1: v0, v2, v1 (CCW from -Z)
                 triangles[tri++] = v0;
-                triangles[tri++] = v1;
                 triangles[tri++] = v2;
                 triangles[tri++] = v1;
+                // Triangle 2: v1, v2, v3
+                triangles[tri++] = v1;
+                triangles[tri++] = v2;
                 triangles[tri++] = v3;
-                triangles[tri++] = v2;
             }
 
             mesh.vertices = vertices;
@@ -136,11 +144,17 @@ namespace QuickChecks.Track
             mesh.RecalculateBounds();
             meshFilter.sharedMesh = mesh;
 
-            // Use a simple unlit color material (URP-compatible)
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default"));
+            // URP Unlit shader works for both URP and fallback to Sprites/Default for built-in pipeline.
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
+            if (shader == null) shader = Shader.Find("Sprites/Default");
+            var mat = new Material(shader);
             mat.color = trackColor;
             meshRenderer.sharedMaterial = mat;
             meshRenderer.sortingOrder = trackSortingOrder;
+
+            Debug.Log($"[SplineTrackBuilder] TrackSurface built: {vertexCount} vertices, " +
+                      $"{segmentCount} quads, color={trackColor}.");
         }
 
         private void BuildBoundaries(IReadOnlyList<Vector2> points, float halfWidth, bool closedLoop)
@@ -222,13 +236,18 @@ namespace QuickChecks.Track
                 checkpoint.index = i;
                 checkpoint.requiredCount = checkpointCount;
 
-                // Optional debug visualization
+                // Visible debug sprite — color cycles through hue so checkpoints are distinguishable.
+                // Index 0 = green, index 1 = yellow, index 2 = orange, etc.
                 var sr = go.AddComponent<SpriteRenderer>();
-                sr.color = new Color(1f, 1f, 1f, 0.15f);  // Very subtle white
+                float hue = (float)i / checkpointCount;
+                sr.color = Color.HSVToRGB(hue, 0.6f, 1f);  // Visible but not glaring
                 sr.sprite = CreateSquareSprite();
                 sr.drawMode = SpriteDrawMode.Sliced;
                 sr.size = new Vector2(0.5f, trackWidth);
-                sr.sortingOrder = -1;
+                sr.sortingOrder = 5;  // Above track surface
+
+                // Optional: add a TextMeshPro component to show index above the checkpoint.
+                // For prototype, the hue cycling + the [Checkpoint N] log is enough.
 
                 checkpoints.Add(checkpoint);
             }

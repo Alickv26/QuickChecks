@@ -183,6 +183,20 @@ namespace QuickChecks.Prototype
             _runtimeTrackDef = trackDef;
             _runtimeTrackData = trackData;
 
+            // Log checkpoint positions for debug — verify they're in spline order.
+            if (trackData.checkpoints != null)
+            {
+                var positions = new System.Text.StringBuilder();
+                positions.Append("[Prototype] Checkpoint positions: ");
+                for (int i = 0; i < trackData.checkpoints.Count; i++)
+                {
+                    var cp = trackData.checkpoints[i];
+                    if (i > 0) positions.Append(" -> ");
+                    positions.Append($"[{cp.index}]({cp.transform.position.x:F1},{cp.transform.position.y:F1})");
+                }
+                Debug.Log(positions.ToString());
+            }
+
             Debug.Log($"[Prototype] Spline track built. Spawn at {kartSpawnPos}, " +
                       $"{trackData.checkpoints.Count} checkpoints, par={trackDef.parSwipeCount}.");
 

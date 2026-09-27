@@ -16,7 +16,7 @@ namespace QuickChecks.Track
         public int requiredCount;
 
         [Tooltip("If true, this checkpoint is invisible (no debug sprite). Set false to see in editor.")]
-        public bool hideInGame = true;
+        public bool hideInGame = false;  // Default false: show checkpoints during prototype testing.
 
         private void Reset()
         {
@@ -36,6 +36,17 @@ namespace QuickChecks.Track
                 var sr = GetComponent<SpriteRenderer>();
                 if (sr != null) sr.enabled = false;
             }
+        }
+
+        private void OnTriggerEnter2D(Collider2D other)
+        {
+            // Visual feedback when a kart passes through — flash cyan briefly.
+            var sr = GetComponent<SpriteRenderer>();
+            if (sr != null)
+            {
+                sr.color = new Color(0.247f, 0.878f, 0.760f, 0.6f);  // Cyan flash
+            }
+            Debug.Log($"[Checkpoint {index}] Triggered by {other.gameObject.name}.");
         }
     }
 }
