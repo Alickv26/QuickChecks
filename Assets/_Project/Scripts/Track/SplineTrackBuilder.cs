@@ -80,7 +80,7 @@ namespace QuickChecks.Track
             };
 
             Debug.Log($"[SplineTrackBuilder] Built track '{trackDefinition.trackId}': " +
-                      $"{BezierSpline.SegmentCount(points.Length)} segments, " +
+                      $"{BezierSpline.SegmentCount(points.Length, closedLoop)} segments, " +
                       $"{checkpoints.Count} checkpoints, " +
                       $"{BezierSpline.ApproximateLength(points, closedLoop):F1} units long.");
             return data;

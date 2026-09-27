@@ -11,33 +11,52 @@ namespace QuickChecks.Track
     /// For continuity, the end of segment N equals the start of segment N+1
     /// (shared control point). This gives a smooth curve through all points.
     ///
-    /// TrackDefinition.splinePoints stores control points as a flat array:
-    ///   [seg0_p0, seg0_p1, seg0_p2, seg0_p3,  // first segment
-    ///    seg1_p1, seg1_p2, seg1_p3,           // next segment (p0 shared)
-    ///    seg2_p1, seg2_p2, seg2_p3,           // etc.
-    ///    ...]
+    /// TrackDefinition.splinePoints stores control points as a flat array.
+    /// For a CLOSED LOOP (which our tracks always are):
+    ///   - Segment 0: p0, p1, p2, p3   (4 points stored)
+    ///   - Segment 1: p1, p2, p3       (3 points, p0 = previous p3)
+    ///   - Segment 2: p1, p2, p3       (3 points)
+    ///   - Segment N-1 (last): p1, p2  (only 2 points, p3 = segment 0's p0)
     ///
-    /// For a closed loop, the last p3 must equal the first p0.
+    /// So total points for N segments in a closed loop = 4 + 3*(N-2) + 2 = 3N.
+    /// For example: 4 segments = 12 points, 6 segments = 18 points.
+    ///
+    /// For an OPEN spline (not closed):
+    ///   - Total = 3N + 1 (last segment stores its p3 explicitly).
     /// </summary>
     public static class BezierSpline
     {
         /// <summary>
-        /// Number of control points needed for N segments (closed loop).
-        /// First segment = 4 points, each subsequent = 3 points (p0 shared).
+        /// Number of control points needed for N segments.
+        /// CLOSED LOOP: 3N (last segment's p3 wraps to first segment's p0).
+        /// OPEN: 3N + 1 (last segment stores its p3 explicitly).
         /// </summary>
-        public static int ControlPointCount(int segmentCount)
+        public static int ControlPointCount(int segmentCount, bool closedLoop = true)
         {
             if (segmentCount <= 0) return 0;
-            return 4 + (segmentCount - 1) * 3;
+            return closedLoop ? 3 * segmentCount : 3 * segmentCount + 1;
         }
 
         /// <summary>
         /// Number of segments in a spline with the given control point count.
+        /// Assumes closed loop (3N points). For open spline (3N+1), use SegmentCount(count, false).
         /// </summary>
-        public static int SegmentCount(int controlPointCount)
+        public static int SegmentCount(int controlPointCount, bool closedLoop = true)
         {
-            if (controlPointCount < 4) return 0;
-            return 1 + (controlPointCount - 4) / 3;
+            if (closedLoop)
+            {
+                if (controlPointCount < 3) return 0;
+                // closed loop: 3N points, so N = points / 3. Must be divisible by 3.
+                if (controlPointCount % 3 != 0) return 0;
+                return controlPointCount / 3;
+            }
+            else
+            {
+                // open: 3N + 1 points, so N = (points - 1) / 3
+                if (controlPointCount < 4) return 0;
+                if ((controlPointCount - 1) % 3 != 0) return 0;
+                return (controlPointCount - 1) / 3;
+            }
         }
 
         /// <summary>
@@ -75,7 +94,7 @@ namespace QuickChecks.Track
         /// </summary>
         public static Vector2 EvaluateSpline(IReadOnlyList<Vector2> points, float t, bool closedLoop)
         {
-            int segCount = SegmentCount(points.Count);
+            int segCount = SegmentCount(points.Count, closedLoop);
             if (segCount == 0) return Vector2.zero;
 
             // Wrap t to [0, 1)
@@ -103,7 +122,7 @@ namespace QuickChecks.Track
         /// </summary>
         public static Vector2 EvaluateSplineTangent(IReadOnlyList<Vector2> points, float t, bool closedLoop)
         {
-            int segCount = SegmentCount(points.Count);
+            int segCount = SegmentCount(points.Count, closedLoop);
             if (segCount == 0) return Vector2.right;
 
             t = Mathf.Repeat(t, 1f);
@@ -140,7 +159,7 @@ namespace QuickChecks.Track
         /// </summary>
         public static float ApproximateLength(IReadOnlyList<Vector2> points, bool closedLoop, int samples = 50)
         {
-            int segCount = SegmentCount(points.Count);
+            int segCount = SegmentCount(points.Count, closedLoop);
             if (segCount == 0) return 0f;
 
             float total = 0f;
