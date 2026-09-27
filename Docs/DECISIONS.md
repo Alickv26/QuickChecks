@@ -1,6 +1,6 @@
 # Design Decisions — QuickChecks
 
-**Document version**: 2.0
+**Document version**: 3.0
 **Date**: 2026-09-27
 **Resolves**: Open questions in `Docs/MULTIPLAYER_REVISION.md` §"Open Questions" + deeper design questions from planning session
 
@@ -291,4 +291,167 @@ These affect scope and budget — need to decide before week 5 (audio implementa
 
 ---
 
-*End of decisions doc v2.0. For full multiplayer context, see `Docs/MULTIPLAYER_REVISION.md`. For prototype status, see `Docs/PROTOTYPE_README.md`.*
+## Decisions 14–22 (from v3.0 planning follow-up, new)
+
+All open follow-ups from v2.0 are now resolved.
+
+### Decision 14: Session length — Quick burst (1-3 minutes)
+
+**Decision**: Target session length is **1-3 minutes per race**. Game is designed for pick-up-and-play during queues, commutes, short breaks. No session-level meta-progression that requires longer sessions.
+
+**Why**: Matches the swipe-golf mechanic (each race is a discrete challenge), respects mobile player attention spans, aligns with daily-track retention hook (one race per day = ~2 min commitment).
+
+**Code impact**: Track lengths tuned so a par run takes ~60-90 seconds; max-swipe cap (40-80) keeps total race time bounded.
+
+---
+
+### Decision 15: Audio direction — Original composer
+
+**Decision**: Hire an **in-house synthwave composer** for an original soundtrack. Budget: $2,000-5,000 for 8-12 tracks (~$250-400 per track) + SFX library.
+
+**Why**: Original music gives the game a distinct identity (vs. generic Epidemic Sound library tracks). Synthwave matches the minimal-vector visual aesthetic. Composer can also do SFX design.
+
+**Trade-offs accepted**: Higher upfront cost than licensed library. Composer availability affects timeline (need to book by week 5 to ship by week 12).
+
+**Action item**: Begin composer search in week 2; sign contract by week 4; first track delivered by week 8.
+
+---
+
+### Decision 16: Paywall trigger — Track-select gate (hard wall)
+
+**Decision**: **Tracks 4-8 are grayed out in track select screen.** Tapping a grayed track opens the paywall modal ("Unlock all tracks for $4.99"). Free tracks (1-3) are always accessible; daily tracks always accessible (with limited leaderboard participation for free players).
+
+**Why**: Hard wall is unambiguous — players know exactly what they get for paying. No surprise prompts mid-game. Easy to implement (gate at UI level).
+
+**Code impact**:
+- `TrackDefinition.isFree` field (boolean) — tracks 1-3 = true, 4-8 = false
+- Track-select UI grays out locked tracks, intercepts tap to show paywall
+- `EntitlementManager.IsTrackUnlocked(trackId)` check
+- Paywall modal UI: shows price, features list, "Restore Purchases" button
+
+---
+
+### Decision 17: IAP price — $4.99
+
+**Decision**: **One-time IAP of $4.99** unlocks the full game (tracks 4-8, karts 4-8, full online ranked matches, full daily track leaderboard participation).
+
+**Why**: Sweet spot for premium mobile games. High enough to signal value (not "cheap"), low enough for impulse purchase. Comparable to similar indie games (Alto's Odyssey, Mini Motorways).
+
+**Trade-offs accepted**: Lower revenue per buyer than $9.99, but conversion rate should compensate. Regional pricing can adjust (Tier 2/3 countries get 30-50% discount).
+
+**Code impact**:
+- App Store Connect / Google Play Console IAP product: `unlock_full_game` @ $4.99 USD
+- Receipt validation server-side (Supabase Edge Function) to prevent piracy
+- Restore purchases flow using store APIs
+
+---
+
+### Decision 18: Daily track difficulty — Day-of-week rotation
+
+**Decision**: **Daily track difficulty rotates by day of week:**
+- **Monday**: Easy (★)
+- **Tuesday**: Easy-Medium (★½)
+- **Wednesday**: Medium (★★)
+- **Thursday**: Medium-Hard (★★½)
+- **Friday**: Hard (★★★)
+- **Saturday**: Expert (★★★★)
+- **Sunday**: Expert+ (★★★★★) — the weekend challenge
+
+**Why**: Predictable rhythm — players know what to expect. Weekend = harder challenges for players with more time. Weekday = accessible for quick commutes. Creates natural "I'll wait for the easier track on Monday" engagement loop.
+
+**Code impact**:
+- `DailyTrackGenerator` uses day-of-week to seed difficulty parameters
+- Difficulty-to-track-params mapping: obstacle density, track length, par target
+
+---
+
+### Decision 19: Missed dailies — Gone forever
+
+**Decision**: **Daily tracks disappear after 24 hours.** Players who miss a day cannot replay that day's track. Leaderboard finalizes at UTC midnight.
+
+**Why**: FOMO is a strong retention driver (Wordle, Mini Crosswords). Knowing the track "expires" creates urgency to play today, not tomorrow. Avoids backlog anxiety ("I have 30 missed dailies, why bother").
+
+**Trade-offs accepted**: Some players will be frustrated by missing a day. Mitigated by: 24-hour window is generous (not 1-hour), leaderboard is global so players see their friends' scores and can compare even if they missed.
+
+**Code impact**:
+- `DailyTrack` table has `track_date` (DATE) primary key
+- Supabase RLS: INSERT only allowed for today's date
+- Frontend: only today's track appears in UI; no archive
+
+---
+
+### Decision 20: Tutorial failure — Lower threshold
+
+**Decision**: **Tutorial uses a lower swipe threshold (300 px/s)** than the main game (1000 px/s). Threshold automatically restores to 1000 px/s when tutorial completes.
+
+**Why**: Some players (motor impairments, new to touchscreens) may struggle to hit 1000 px/s. Lowering in tutorial prevents tutorial-as-gatekeeper. Once they understand the *concept* of "fast swipe", they can practice the *speed* in real races where retries are cheap.
+
+**Trade-offs accepted**: Players who can't swipe fast in tutorial might also struggle in real races. Mitigated by: accessibility one-finger mode + the fact that 1000 px/s is achievable for ~95% of players per Apple's touch studies.
+
+**Code impact**:
+- `InputSettings.minSwipeVelocity` is overridable at runtime
+- `TutorialController` sets `inputSettings.minSwipeVelocity = 300` on start, restores to 1000 on completion
+
+---
+
+### Decision 21: Par targets — Designer-set
+
+**Decision**: **Par for each track is set by the designer during playtesting.** Designer records a "par run" on each track, then sets `TrackDefinition.parSwipeCount` based on that + 1-2 swipes of headroom.
+
+**Why**: Formula-based par (e.g., `20 + difficultyStars × 5`) is too rigid — track geometry matters more than difficulty stars. Designer-set par can account for tricky chicanes, long straights, power-up placement.
+
+**Process**: During playtesting (weeks 10-11), designer records best run per track; sets par = best_run_swipes + 1 (so 95% of players need to grind to hit par, but it's achievable).
+
+**Code impact**: None new — `TrackDefinition.parSwipeCount` already exists (committed). Just needs to be filled in during playtesting.
+
+---
+
+### Decision 22: Display names — Random word + number
+
+**Decision**: **Auto-generated display names follow the format `<Adjective><Animal>_<Number>`** (e.g., `SwiftFox_42`, `BraveTiger_17`, `CalmPanda_309`).
+
+**Why**: Word+number is memorable (vs. `Player_1234`), gives some personality (vs. numbers only), doesn't require player input (vs. player-chosen). Animal + adjective combinations are infinite (~100 adjectives × ~100 animals × 1000 numbers = 10M unique names).
+
+**Code impact**:
+- New `DisplayNameGenerator` with word lists (`adjectives.txt`, `animals.txt`)
+- Generate on first launch, store in PlayerPrefs + Supabase `players.display_name`
+- Player can edit display name once via Settings (to prevent abuse)
+
+---
+
+## Summary table (final)
+
+| # | Decision | Status |
+|---|----------|--------|
+| 1 | Max-swipe cap scaling (formula `30 + stars×10`) | Locked |
+| 2 | Online replay 7-day retention | Locked |
+| 3 | CPU AI hybrid (hand-authored line + noise) | Locked |
+| 4 | Pass-play kart dimming (40% alpha inactive) | Locked |
+| 5 | ELO per-track + global (online only, +25/-15) | Locked |
+| 6 | Monetization: freemium unlock | Locked |
+| 7 | Tutorial: forced 30-sec | Locked |
+| 8 | Solo depth: daily tracks | Locked |
+| 9 | Progression: linear unlock | Locked |
+| 10 | CPU symmetry: identical rules | Locked |
+| 11 | Online auth: anonymous only | Locked |
+| 12 | Localization: English only at launch | Locked |
+| 13 | Accessibility: full at launch | Locked |
+| 14 | Session length: 1-3 min quick burst | Locked |
+| 15 | Audio: original composer, $2-5K budget | Locked |
+| 16 | Paywall: track-select gate (hard wall) | Locked |
+| 17 | IAP price: $4.99 one-time | Locked |
+| 18 | Daily difficulty: day-of-week rotation | Locked |
+| 19 | Missed dailies: gone forever | Locked |
+| 20 | Tutorial failure: lower threshold (300 px/s) | Locked |
+| 21 | Par targets: designer-set during playtesting | Locked |
+| 22 | Display names: Adjective+Animal_Number | Locked |
+
+---
+
+## All open questions resolved
+
+All 22 design questions are now locked. Implementation can proceed without further design decisions until playtesting (weeks 10-11), when par tuning and balance passes happen.
+
+---
+
+*End of decisions doc v3.0. For full multiplayer context, see `Docs/MULTIPLAYER_REVISION.md`. For prototype status, see `Docs/PROTOTYPE_README.md`.*
