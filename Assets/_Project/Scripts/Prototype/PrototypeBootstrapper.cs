@@ -13,35 +13,35 @@ using QuickChecks.Audio;
 namespace QuickChecks.Prototype
 {
     /// <summary>
-    /// Week 1 prototype (polished): validates swipe feel + audio feedback + ghost replay
-    /// + turn-based CPU opponent in a single scene that builds itself at runtime.
+    /// Week 2 prototype: validates swipe feel on a real spline-based track
+    /// (Bezier curve with checkpoints, lap detection, finish line).
     ///
     /// Track layout:
-    ///   - Main arena 40x20 with 4 walls
-    ///   - 3 obstacles in the middle forcing direction variety (not just straight L→R)
-    ///   - Finish line on the right
+    ///   - Cubic Bezier spline forming a closed oval loop
+    ///   - 8 checkpoints placed along the spline
+    ///   - Finish line at the spline start (t=0)
+    ///   - Boundary colliders on both sides (golf-feel: stop dead on hit)
     ///
-    /// Features added in polish pass:
+    /// Features:
     ///   - SwipeFeedback: kart squash + particle burst on each swipe
     ///   - KartTrail: fading path behind kart (visualizes swipe efficiency)
     ///   - SwipeAudio: synthesized whoosh pitched by swipe velocity
     ///   - SoloGhostPlayer: records + replays best run alongside current attempt
-    ///   - Race results screen with par comparison
+    ///   - CheckpointTracker: lap progress + race completion detection
     /// </summary>
     public class PrototypeBootstrapper : MonoBehaviour
     {
-        [Header("Track Config")]
-        [SerializeField] private Vector2 trackSize = new Vector2(40, 20);
-        [SerializeField] private Vector3 kartSpawn = new Vector3(-15, 0, 0);
-        [SerializeField] private float finishLineX = 15f;
+        [Header("Track Config (spline-based)")]
+        [SerializeField] private Vector3 kartSpawn = new Vector3(-15, 0, 0); // Fallback if spline fails
+        [SerializeField] private float finishLineX = 15f; // Legacy, unused with spline
 
-        [Header("Obstacles (forces direction variety)")]
+        [Header("Obstacles (forces direction variety) — legacy rectangular track")]
         [SerializeField] private Vector2[] obstaclePositions =
         {
-            new Vector2(-5, 0),    // Center obstacle — must go around
-            new Vector2(0, 5),     // Upper barrier
-            new Vector2(0, -5),    // Lower barrier (creates chicane with above)
-            new Vector2(5, 0),     // Final center obstacle before finish
+            new Vector2(-5, 0),
+            new Vector2(0, 5),
+            new Vector2(0, -5),
+            new Vector2(5, 0),
         };
         [SerializeField] private Vector2[] obstacleSizes =
         {
@@ -79,6 +79,9 @@ namespace QuickChecks.Prototype
         private long _raceStartMs;
         private int _swipeCount;
         private bool _finished;
+        private Vector3 _runtimeKartSpawn;   // actual spawn position from spline (used in StartRace + ResetRace)
+        private Track.TrackDefinition _runtimeTrackDef;   // the actual track being raced
+        private Track.TrackRuntimeData _runtimeTrackData;  // built track elements (checkpoints, finish line)
 
         // Public accessors for HUD
         public int SwipeCount => _swipeCount;
@@ -162,65 +165,46 @@ namespace QuickChecks.Prototype
             _cameraRig = camGo.AddComponent<CameraRig>();
             SetPrivateField(_cameraRig, "inputSettings", inputSettings);
 
-            // ----- Track walls -----
+            // ----- Spline-based track (Week 2: real Bezier track, replaces rectangular arena) -----
+            // Build an oval test track using 4 cubic Bezier segments (16 control points).
+            // This is the same shape that will become Track 1: "First Lap" (★ difficulty).
             var trackGo = new GameObject("Track");
-            var wallColor = new Color(0.247f, 0.878f, 0.760f, 0.3f);
-            CreateWall(trackGo.transform, "Wall_Top",    new Vector2(0,  trackSize.y / 2), new Vector2(trackSize.x + 2, 1), wallColor);
-            CreateWall(trackGo.transform, "Wall_Bottom", new Vector2(0, -trackSize.y / 2), new Vector2(trackSize.x + 2, 1), wallColor);
-            CreateWall(trackGo.transform, "Wall_Left",   new Vector2(-trackSize.x / 2, 0), new Vector2(1, trackSize.y), wallColor);
-            CreateWall(trackGo.transform, "Wall_Right",  new Vector2( trackSize.x / 2, 0), new Vector2(1, trackSize.y), wallColor);
+            var trackDef = CreateTestTrackDefinition();
+            var splineBuilder = trackGo.AddComponent<Track.SplineTrackBuilder>();
+            var trackData = splineBuilder.Build(trackDef);
 
-            // ----- Obstacles (force direction variety) -----
-            var obstacleColor = new Color(0.247f, 0.878f, 0.760f, 0.5f);
-            for (int i = 0; i < obstaclePositions.Length; i++)
-            {
-                CreateWall(trackGo.transform, $"Obstacle_{i}", obstaclePositions[i], obstacleSizes[i], obstacleColor);
-            }
+            // Spawn position: at the start of the spline (t=0)
+            Vector2 spawnPos = Track.BezierSpline.EvaluateSpline(trackDef.splinePoints, 0f, trackDef.isClosedLoop);
+            // Offset slightly to the right of the finish line so we don't trigger it at spawn
+            Vector2 spawnTangent = Track.BezierSpline.EvaluateSplineTangent(trackDef.splinePoints, 0f, trackDef.isClosedLoop);
+            Vector3 kartSpawnPos = spawnPos + spawnTangent * 2f; // 2 units past the finish line
 
-            // ----- Finish line -----
-            var finishGo = new GameObject("FinishLine");
-            finishGo.transform.SetParent(trackGo.transform);
-            finishGo.transform.position = new Vector3(finishLineX, 0, 0);
-            finishGo.transform.localScale = Vector3.one; // Don't scale transform — collider.size is in local space.
+            _runtimeKartSpawn = kartSpawnPos;
+            _runtimeTrackDef = trackDef;
+            _runtimeTrackData = trackData;
 
-            var finishSpriteRenderer = finishGo.AddComponent<SpriteRenderer>();
-            finishSpriteRenderer.color = new Color(0.247f, 0.878f, 0.760f, 0.4f);
-            finishSpriteRenderer.sprite = CreateSquareSprite();
-            finishSpriteRenderer.drawMode = SpriteDrawMode.Sliced;
-            finishSpriteRenderer.size = new Vector2(0.5f, trackSize.y);
-
-            var finishCollider = finishGo.AddComponent<BoxCollider2D>();
-            finishCollider.isTrigger = true;
-            finishCollider.size = new Vector2(0.5f, trackSize.y);
-            // Wrap in try/catch — TagManager.asset was deleted earlier and Unity regenerated
-            // it without our custom tags. The tag isn't used by prototype logic, so failure
-            // to assign it is non-blocking. Add the tag manually in Project Settings > Tags
-            // and Layers if you want it to stick.
-            try { finishGo.tag = "FinishLine"; }
-            catch (System.Exception) { /* Tag not defined — non-blocking. */ }
+            Debug.Log($"[Prototype] Spline track built. Spawn at {kartSpawnPos}, " +
+                      $"{trackData.checkpoints.Count} checkpoints, par={trackDef.parSwipeCount}.");
 
             // ----- Player kart with all components -----
             var kartGo = new GameObject("PlayerKart");
-            kartGo.transform.position = kartSpawn;
-            kartGo.transform.localScale = Vector3.one; // Don't scale transform — collider + sprite use their own size.
+            kartGo.transform.position = kartSpawnPos;
+            kartGo.transform.localScale = Vector3.one;
 
             var kartSpriteRenderer = kartGo.AddComponent<SpriteRenderer>();
             kartSpriteRenderer.color = new Color(1f, 0.82f, 0.4f); // #FFD166 yellow
             kartSpriteRenderer.sprite = CreateSquareSprite();
             kartSpriteRenderer.sortingOrder = 10;
             kartSpriteRenderer.drawMode = SpriteDrawMode.Sliced;
-            kartSpriteRenderer.size = new Vector2(1.5f, 1.5f); // Visual size of the kart
+            kartSpriteRenderer.size = new Vector2(1.5f, 1.5f);
 
             try { kartGo.tag = "Kart"; }
             catch (System.Exception) { /* Tag not defined — non-blocking. */ }
             int kartLayer = LayerMask.NameToLayer("Kart");
             if (kartLayer >= 0) kartGo.layer = kartLayer;
 
-            // CRITICAL: Add a BoxCollider2D so the kart can actually collide with walls.
-            // Without this, OnCollisionEnter2D never fires (Dynamic body needs a collider
-            // to register collisions with other colliders).
             var kartCollider = kartGo.AddComponent<BoxCollider2D>();
-            kartCollider.size = new Vector2(1.5f, 1.5f); // Match the sprite size
+            kartCollider.size = new Vector2(1.5f, 1.5f);
 
             var kartRb = kartGo.AddComponent<Rigidbody2D>();
             _kart = kartGo.AddComponent<KartController>();
@@ -230,6 +214,26 @@ namespace QuickChecks.Prototype
             _swipeFeedback = kartGo.AddComponent<SwipeFeedback>();
             _swipeAudio = kartGo.AddComponent<SwipeAudio>();
             kartGo.AddComponent<AudioSource>(); // Required by SwipeAudio
+
+            // Checkpoint tracker — detects lap completion via checkpoint triggers + finish line.
+            var checkpointTracker = kartGo.AddComponent<CheckpointTracker>();
+
+            // Wire up checkpoint tracker with the built track's checkpoints + finish line.
+            if (_runtimeTrackData != null)
+            {
+                var checkpointArray = _runtimeTrackData.checkpoints.ToArray();
+                var finishCol = _runtimeTrackData.finishLine != null
+                    ? _runtimeTrackData.finishLine.GetComponent<Collider2D>()
+                    : null;
+                int laps = _runtimeTrackDef != null ? _runtimeTrackDef.lapCount : 1;
+                checkpointTracker.SetCheckpoints(checkpointArray, finishCol, laps);
+
+                // When the tracker reports race complete, finish the race.
+                checkpointTracker.OnRaceComplete += (totalCheckpoints) =>
+                {
+                    if (!_finished) FinishRace();
+                };
+            }
 
             // Wire up [SerializeField] private fields via reflection.
             SetPrivateField(_kart, "stats", kartStats);
@@ -421,19 +425,24 @@ namespace QuickChecks.Prototype
         {
             _raceStartMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             _swipeDetector.SetRaceStartTime(_raceStartMs);
-            _ghostRecorder.BeginRace("prototype_track", "kart_starter");
+
+            string trackId = _runtimeTrackDef != null ? _runtimeTrackDef.trackId : "prototype_track";
+            int par = _runtimeTrackDef != null ? _runtimeTrackDef.parSwipeCount : parSwipes;
+            _ghostRecorder.BeginRace(trackId, "kart_starter");
             swipeEvent.Register(OnSwipe);
             _finished = false;
             _swipeCount = 0;
             if (_kartTrail != null) _kartTrail.Clear();
 
             // Start ghost replay (if we have a best run recorded).
+            Vector3 spawn = _runtimeKartSpawn != Vector3.zero ? _runtimeKartSpawn : kartSpawn;
             if (_soloGhost != null)
             {
-                _soloGhost.OnRaceStart(_raceStartMs, kartSpawn);
+                _soloGhost.OnRaceStart(_raceStartMs, spawn);
             }
 
-            Debug.Log("[Prototype] Race started. Par = " + parSwipes + " swipes. Beat the ghost if there is one!");
+            Debug.Log($"[Prototype] Race started on track '{trackId}'. Par = {par} swipes. " +
+                      "Beat the ghost if there is one!");
         }
 
         private void OnSwipe(SwipeData swipe)
@@ -449,10 +458,9 @@ namespace QuickChecks.Prototype
 
         private void Update()
         {
-            if (_kart != null && !_finished && _kart.transform.position.x >= finishLineX)
-            {
-                FinishRace();
-            }
+            // Race completion is detected via CheckpointTracker (lap completion), not position.
+            // We also keep a fallback: if the kart crosses the finish line collider, that's
+            // handled by CheckpointTracker.OnTriggerEnter2D which fires OnRaceComplete.
 
             if (UnityEngine.Input.GetKeyDown(KeyCode.R))
             {
@@ -492,13 +500,73 @@ namespace QuickChecks.Prototype
         public void ResetRace()
         {
             if (swipeEvent != null) swipeEvent.Unregister(OnSwipe);
-            if (_kart != null) _kart.RespawnAt(kartSpawn);
+            Vector3 spawn = _runtimeKartSpawn != Vector3.zero ? _runtimeKartSpawn : kartSpawn;
+            if (_kart != null) _kart.RespawnAt(spawn);
             StartRace();
         }
 
         private void OnDisable()
         {
             if (swipeEvent != null) swipeEvent.Unregister(OnSwipe);
+        }
+
+        /// <summary>
+        /// Creates the Week 2 test track: an oval loop with 4 cubic Bezier segments.
+        /// This will become Track 1: "First Lap" (★ difficulty, par 8 swipes).
+        ///
+        /// Layout: 4 segments forming an oval ~30 units wide × 20 units tall.
+        /// Control point pattern for closed loop: [p0, p1, p2, p3, p1, p2, p3, p1, p2, p3, p1, p2, p3]
+        /// (16 points = 4 segments, since first segment has 4 and each subsequent has 3).
+        /// </summary>
+        private Track.TrackDefinition CreateTestTrackDefinition()
+        {
+            var def = ScriptableObject.CreateInstance<Track.TrackDefinition>();
+            def.trackId = "track_01_first_lap";
+            def.displayName = "First Lap";
+            def.difficultyStars = 1;
+            def.isClosedLoop = true;
+            def.trackWidth = 4f;
+            def.lapCount = 1;
+            def.defaultZoom = 14f;
+            def.parSwipeCount = 8;
+            def.isFree = true;
+            def.trackIndex = 0;
+
+            // 4-segment closed oval: control points arranged as 4 cubic Bezier segments.
+            // Each segment: p0 (start), p1 (handle 1), p2 (handle 2), p3 (end = next p0).
+            // Layout: 16 control points (first segment has 4, next 3 have 3 each = 4 + 3*3 = 13, but
+            // for closed loop last segment's p3 = first p0, so we store 4 + 3 + 3 + 3 = 13 points).
+            // Actually our BezierSpline.ControlPointCount(4) = 4 + 3*3 = 13. Let's verify: yes, 13.
+            //
+            // Oval shape: start at (-15, 0), curve up-right to (0, 10), down-right to (15, 0),
+            // down-left to (0, -10), up-left back to (-15, 0).
+            def.splinePoints = new Vector2[]
+            {
+                // Segment 1: (-15, 0) -> (0, 10)
+                new Vector2(-15, 0),    // p0
+                new Vector2(-15, 7),    // p1 (handle pulling up)
+                new Vector2(-7, 10),    // p2 (handle pulling right)
+                new Vector2(0, 10),     // p3 (also start of next segment)
+                // Segment 2: (0, 10) -> (15, 0)
+                new Vector2(7, 10),     // p1
+                new Vector2(15, 7),     // p2
+                new Vector2(15, 0),     // p3
+                // Segment 3: (15, 0) -> (0, -10)
+                new Vector2(15, -7),    // p1
+                new Vector2(7, -10),    // p2
+                new Vector2(0, -10),    // p3
+                // Segment 4: (0, -10) -> (-15, 0) [back to start, closed loop]
+                new Vector2(-7, -10),   // p1
+                new Vector2(-15, -7),   // p2
+                // p3 of segment 4 = p0 of segment 1 = (-15, 0) — handled by closedLoop flag
+            };
+
+            if (!def.Validate(out string error))
+            {
+                Debug.LogError($"[Prototype] Test track is invalid: {error}");
+            }
+
+            return def;
         }
 
         private static void SetPrivateField(object obj, string fieldName, object value)

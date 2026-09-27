@@ -18,14 +18,23 @@ namespace QuickChecks.Track
         public Sprite previewImage;
 
         [Header("Spline Path")]
-        [Tooltip("Bezier control points. Must have at least 4 points (1 segment).")]
+        [Tooltip("Bezier control points. Layout: [p0, p1, p2, p3, p1, p2, p3, p1, p2, p3, ...] " +
+                 "where the first segment uses 4 points (p0, p1, p2, p3) and each subsequent " +
+                 "segment uses 3 (p0 is shared with previous segment's p3).")]
         public Vector2[] splinePoints = new Vector2[0];
+
+        [Tooltip("If true, the track is a closed loop (last p3 = first p0). Required for lap racing.")]
+        public bool isClosedLoop = true;
 
         [Tooltip("Track width in world units.")]
         public float trackWidth = 4f;
 
         [Tooltip("Total number of laps required to finish.")]
         public int lapCount = 1;
+
+        [Header("Freemium Gating (Decision 16 — see DECISIONS.md)")]
+        [Tooltip("If true, this track is available in the free demo. If false, requires IAP unlock.")]
+        public bool isFree = false;
 
         [Header("Camera")]
         [Tooltip("Default ortho camera size when on this track.")]
@@ -66,28 +75,11 @@ namespace QuickChecks.Track
         }
 
         /// <summary>
-        /// Validates that the track is completable: spline forms a closed loop,
-        /// has reasonable segment count, all checkpoints reachable.
+        /// Validates that the track is completable. Delegates to TrackValidator.
         /// </summary>
         public bool Validate(out string error)
         {
-            if (splinePoints == null || splinePoints.Length < 4)
-            {
-                error = "Need at least 4 spline points (1 Bezier segment).";
-                return false;
-            }
-            if (trackWidth <= 0.5f)
-            {
-                error = "Track width must be > 0.5.";
-                return false;
-            }
-            if (lapCount < 1)
-            {
-                error = "Lap count must be >= 1.";
-                return false;
-            }
-            error = null;
-            return true;
+            return TrackValidator.Validate(this, out error);
         }
     }
 }
