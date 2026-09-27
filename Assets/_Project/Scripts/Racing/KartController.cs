@@ -54,7 +54,24 @@ namespace QuickChecks.Racing
 
         private void OnSwipe(SwipeData swipe)
         {
-            if (isOffTrack) return; // Kart must be respawned to move again
+            if (isOffTrack)
+            {
+                Debug.LogWarning("[Kart] Swipe received but kart is OFF_TRACK. Respawn needed.");
+                return;
+            }
+
+            if (stats == null)
+            {
+                Debug.LogError("[Kart] Swipe received but stats is null! " +
+                               "KartStats ScriptableObject not assigned. Check Inspector on " + gameObject.name);
+                return;
+            }
+
+            if (swipeEvent == null)
+            {
+                Debug.LogError("[Kart] swipeEvent is null! Cannot receive swipes.");
+                return;
+            }
 
             // Convert screen-space direction to world-space (top-down: just rotate).
             Vector2 worldDir = ScreenDirectionToWorld(swipe.direction);
@@ -65,11 +82,29 @@ namespace QuickChecks.Racing
 
             currentVelocity = worldDir * impulse;
             isStopped = false;
+
+            Debug.Log($"[Kart] Impulse applied: vel={currentVelocity}, mag={currentVelocity.magnitude:F0} " +
+                      $"(impulse={impulse:F0}, mult={stats.impulseMultiplier}, maxSpeed={stats.maxSpeed})");
         }
 
         private void FixedUpdate()
         {
             if (isStopped) return;
+
+            if (stats == null)
+            {
+                Debug.LogError("[Kart] stats is null in FixedUpdate — cannot apply friction. Stopping kart.");
+                isStopped = true;
+                currentVelocity = Vector2.zero;
+                return;
+            }
+
+            if (_rb == null)
+            {
+                Debug.LogError("[Kart] _rb is null in FixedUpdate — Rigidbody2D missing. Stopping kart.");
+                isStopped = true;
+                return;
+            }
 
             // Apply friction (per-second rate, scaled by fixed deltaTime).
             float friction = Mathf.Clamp01(stats.frictionPerSecond * Time.fixedDeltaTime);
@@ -90,7 +125,8 @@ namespace QuickChecks.Racing
 
             // Move the kart.
             Vector2 delta = currentVelocity * Time.fixedDeltaTime;
-            _rb.MovePosition(_rb.position + delta);
+            Vector2 newPos = _rb.position + delta;
+            _rb.MovePosition(newPos);
 
             // Rotate kart to face velocity direction (for sprite flip / visual).
             if (currentVelocity.sqrMagnitude > 1f)

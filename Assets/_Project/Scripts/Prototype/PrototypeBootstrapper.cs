@@ -230,6 +230,20 @@ namespace QuickChecks.Prototype
             // Camera follows the kart.
             SetPrivateField(_cameraRig, "target", kartGo.transform);
 
+            // Verify kart wiring worked (helps diagnose "swipe registers but kart doesn't move").
+            var kartStatsField = _kart.GetType().GetField("stats",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var kartSwipeField = _kart.GetType().GetField("swipeEvent",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var kartStatsRef = kartStatsField?.GetValue(_kart);
+            var kartSwipeRef = kartSwipeField?.GetValue(_kart);
+
+            Debug.Log($"[Prototype] Kart wiring verification:\n" +
+                      $"  kartStats (bootstrapper): {(kartStats != null ? "OK" : "NULL")}\n" +
+                      $"  swipeEvent (bootstrapper): {(swipeEvent != null ? "OK" : "NULL")}\n" +
+                      $"  _kart.stats (after reflection): {(kartStatsRef != null ? "OK" : "NULL — reflection failed")}\n" +
+                      $"  _kart.swipeEvent (after reflection): {(kartSwipeRef != null ? "OK" : "NULL — reflection failed")}");
+
             // ----- Solo ghost player (records + replays best run) -----
             var soloGhostGo = new GameObject("SoloGhostPlayer");
             _soloGhost = soloGhostGo.AddComponent<SoloGhostPlayer>();
