@@ -41,6 +41,13 @@ namespace QuickChecks.Editor
             var kartStats = EnsureKartStats(KART_STATS_PATH, "kart_starter", "Starter");
             var ghostKartStats = EnsureKartStats(GHOST_KART_STATS_PATH, "kart_ghost", "Ghost");
 
+            // CRITICAL: Force-update tuning values on existing assets.
+            // Without this, old asset files with stale values (e.g., maxImpulseMagnitude=1500
+            // from a previous build) will persist and the kart will move too fast.
+            ForceUpdateInputSettings(inputSettings);
+            ForceUpdateKartStats(kartStats, "kart_starter", "Starter");
+            ForceUpdateKartStats(ghostKartStats, "kart_ghost", "Ghost");
+
             // Abort if any asset failed to create — better than continuing with nulls.
             if (inputSettings == null || swipeEvent == null || ghostSwipeEvent == null ||
                 kartStats == null || ghostKartStats == null)
@@ -120,6 +127,47 @@ namespace QuickChecks.Editor
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
             return asset;
+        }
+
+        /// <summary>
+        /// Forces the InputSettings asset to have the current prototype tuning values,
+        /// even if the asset already exists with old values. Run after EnsureAsset.
+        /// </summary>
+        private static void ForceUpdateInputSettings(QuickChecks.Input.InputSettings settings)
+        {
+            if (settings == null) return;
+            settings.minSwipeVelocity = 1000f;
+            settings.maxSwipeDurationMs = 220f;
+            settings.minSwipeDistance = 50f;
+            settings.velocityToImpulseScale = 0.4f;
+            settings.maxImpulseMagnitude = 250f;
+            settings.minCameraZoom = 5f;
+            settings.maxCameraZoom = 20f;
+            settings.pinchSensitivity = 0.15f;
+            EditorUtility.SetDirty(settings);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[PrototypeSceneBuilder] Force-updated InputSettings with current tuning values.");
+        }
+
+        /// <summary>
+        /// Forces the KartStats asset to have the current prototype tuning values,
+        /// even if the asset already exists with old values.
+        /// </summary>
+        private static void ForceUpdateKartStats(QuickChecks.Racing.KartStats stats, string kartId, string displayName)
+        {
+            if (stats == null) return;
+            stats.kartId = kartId;
+            stats.displayName = displayName;
+            stats.impulseMultiplier = 1.1f;
+            stats.frictionPerSecond = 0.22f;
+            stats.stopThreshold = 8f;
+            stats.maxSpeed = 250f;
+            stats.boostMultiplier = 1.8f;
+            stats.boostDurationSec = 1.5f;
+            stats.unlockAfterTrackIndex = -1;
+            EditorUtility.SetDirty(stats);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[PrototypeSceneBuilder] Force-updated KartStats ({kartId}) with current tuning values.");
         }
 
         private static QuickChecks.Racing.KartStats EnsureKartStats(string path, string kartId, string displayName)
