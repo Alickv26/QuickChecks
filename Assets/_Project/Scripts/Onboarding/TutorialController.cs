@@ -7,6 +7,12 @@ using QuickChecks.Racing;
 using QuickChecks.Core;
 using QuickChecks.Ghost;
 
+// Type alias to resolve the QuickChecks.Camera namespace shadowing UnityEngine.Camera.
+// Our QuickChecks.Camera namespace (containing CameraRig) was shadowing the UnityEngine.Camera
+// type, causing CS0118 "Camera is a namespace but is used like a type" even when fully qualified.
+// The alias forces 'Camera' to always resolve to the UnityEngine type, not the namespace.
+using Camera = UnityEngine.Camera;
+
 namespace QuickChecks.Onboarding
 {
     /// <summary>
@@ -52,7 +58,7 @@ namespace QuickChecks.Onboarding
         private KartController _kart;
         private SwipeDetector _swipeDetector;
         private TMP_Text _instructionText;
-        private UnityEngine.Camera _camera;
+        private Camera _camera;  // Uses the 'using Camera = UnityEngine.Camera' alias above
         private GameObject _finishLine;
         private float _step3StartTime;
         private bool _slowDragAttempted = false;
@@ -80,7 +86,7 @@ namespace QuickChecks.Onboarding
         {
             // Camera
             var camGo = new GameObject("Main Camera");
-            _camera = camGo.AddComponent<UnityEngine.Camera>();
+            _camera = camGo.AddComponent<Camera>();  // Uses the alias
             _camera.orthographic = true;
             _camera.orthographicSize = 10;
             _camera.backgroundColor = backgroundColor;
