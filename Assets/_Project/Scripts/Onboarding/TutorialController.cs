@@ -52,7 +52,7 @@ namespace QuickChecks.Onboarding
         private KartController _kart;
         private SwipeDetector _swipeDetector;
         private TMP_Text _instructionText;
-        private Camera _camera;
+        private UnityEngine.Camera _camera;
         private GameObject _finishLine;
         private float _step3StartTime;
         private bool _slowDragAttempted = false;
@@ -80,7 +80,7 @@ namespace QuickChecks.Onboarding
         {
             // Camera
             var camGo = new GameObject("Main Camera");
-            _camera = camGo.AddComponent<Camera>();
+            _camera = camGo.AddComponent<UnityEngine.Camera>();
             _camera.orthographic = true;
             _camera.orthographicSize = 10;
             _camera.backgroundColor = backgroundColor;
