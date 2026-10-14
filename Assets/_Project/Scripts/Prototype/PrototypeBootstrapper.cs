@@ -231,7 +231,8 @@ namespace QuickChecks.Prototype
             _swipeFeedback = kartGo.AddComponent<SwipeFeedback>();
             _swipeAudio = kartGo.AddComponent<SwipeAudio>();
             kartGo.AddComponent<AudioSource>(); // Required by SwipeAudio
-            kartGo.AddComponent<PowerUpSystem>(); // Required for power-up pickups (Week 5)
+            var powerUpSystem = kartGo.AddComponent<PowerUpSystem>(); // Required for power-up pickups (Week 5)
+            SetPrivateField(powerUpSystem, "kart", _kart); // Wire up kart reference via reflection
 
             // Checkpoint tracker — detects lap completion via checkpoint triggers + finish line.
             var checkpointTracker = kartGo.AddComponent<CheckpointTracker>();
@@ -307,7 +308,9 @@ namespace QuickChecks.Prototype
             SetPrivateField(_soloGhost, "playerRecorder", _ghostRecorder);
             SetPrivateField(_soloGhost, "playerSwipeEvent", swipeEvent);
             SetPrivateField(_soloGhost, "ghostSwipeEvent", ghostSwipeEvent);
-            SetPrivateField(_soloGhost, "trackId", "prototype_track");
+            // Use the actual track's ID (e.g., "track_01_first_lap") so ghost save/load keys match.
+            string ghostTrackId = _runtimeTrackDef != null ? _runtimeTrackDef.trackId : "prototype_track";
+            SetPrivateField(_soloGhost, "trackId", ghostTrackId);
 
             // ----- HUD canvas -----
             var canvasGo = new GameObject("HUD");

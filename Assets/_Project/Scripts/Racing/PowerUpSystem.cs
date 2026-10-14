@@ -35,17 +35,31 @@ namespace QuickChecks.Racing
                 _effectTimer -= Time.deltaTime;
                 _effectElapsed += Time.deltaTime;
 
-                if (_activePowerUp != null)
+                if (_activePowerUp != null && kart != null)
                 {
-                    _activePowerUp.OnUpdate(kart, _effectElapsed);
+                    try
+                    {
+                        _activePowerUp.OnUpdate(kart, _effectElapsed);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[PowerUpSystem] OnUpdate threw: {ex.Message}");
+                    }
                 }
 
                 if (_effectTimer <= 0f)
                 {
                     // Effect expired — call cleanup
-                    if (_activePowerUp != null)
+                    if (_activePowerUp != null && kart != null)
                     {
-                        _activePowerUp.OnExpire(kart);
+                        try
+                        {
+                            _activePowerUp.OnExpire(kart);
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Debug.LogError($"[PowerUpSystem] OnExpire threw: {ex.Message}");
+                        }
                         Debug.Log($"[PowerUpSystem] Effect '{_activePowerUp.powerUpId}' expired on {kart.gameObject.name}.");
                     }
                     _activePowerUp = null;

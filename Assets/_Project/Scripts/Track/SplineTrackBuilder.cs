@@ -69,6 +69,9 @@ namespace QuickChecks.Track
             // Build checkpoints
             var checkpoints = BuildCheckpoints(points, halfWidth, closedLoop, trackDefinition);
 
+            // Build direction arrows (Week 6 polish — make track direction obvious)
+            BuildDirectionArrows(points, halfWidth, closedLoop);
+
             // Build finish line
             var finishLine = BuildFinishLine(points, halfWidth, closedLoop);
 
@@ -319,6 +322,95 @@ namespace QuickChecks.Track
             {
                 Debug.LogWarning("[SplineTrackBuilder] Failed to create finish line label: " + ex.Message);
             }
+        }
+
+        /// <summary>
+        /// Places direction arrows along the track centerline at regular intervals.
+        /// Arrows point in the direction of travel (along the spline tangent).
+        /// Helps players see which way the track goes, especially on closed loops.
+        /// </summary>
+        private void BuildDirectionArrows(IReadOnlyList<Vector2> points, float halfWidth, bool closedLoop)
+        {
+            var container = new GameObject("DirectionArrows");
+            container.transform.SetParent(transform, false);
+
+            int arrowCount = 8;  // 8 arrows evenly spaced around the track
+            int placed = 0;
+
+            for (int i = 0; i < arrowCount; i++)
+            {
+                float t = (float)i / arrowCount;
+                Vector2 center = BezierSpline.EvaluateSpline(points, t, closedLoop);
+                Vector2 tangent = BezierSpline.EvaluateSplineTangent(points, t, closedLoop);
+                float angle = Mathf.Atan2(tangent.y, tangent.x) * Mathf.Rad2Deg;
+
+                var go = new GameObject($"Arrow_{i}");
+                go.transform.SetParent(container.transform, false);
+                go.transform.position = new Vector3(center.x, center.y, 0.5f);  // slightly in front of track surface
+                go.transform.rotation = Quaternion.Euler(0, 0, angle);
+                go.transform.localScale = Vector3.one;
+
+                // Visual: triangle pointing right (will be rotated to match tangent)
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.color = new Color(0.247f, 0.878f, 0.760f, 0.5f);  // cyan, 50% alpha (subtle)
+                sr.sprite = CreateTriangleSprite();
+                sr.drawMode = SpriteDrawMode.Sliced;
+                sr.size = new Vector2(1f, 1f);
+                sr.sortingOrder = 3;  // Above track surface (0), below checkpoints (5)
+
+                placed++;
+            }
+
+            Debug.Log($"[SplineTrackBuilder] Placed {placed} direction arrows.");
+        }
+
+        private Sprite _cachedTriangleSprite;
+        private Sprite CreateTriangleSprite()
+        {
+            if (_cachedTriangleSprite == null)
+            {
+                // Create a simple right-pointing triangle texture
+                const int size = 64;
+                var texture = new Texture2D(size, size);
+                var pixels = new Color32[size * size];
+                // Default: transparent
+                var transparent = new Color32(0, 0, 0, 0);
+                var white = new Color32(255, 255, 255, 255);
+                for (int i = 0; i < pixels.Length; i++) pixels[i] = transparent;
+
+                // Draw a right-pointing triangle: apex at right, base at left
+                for (int y = 0; y < size; y++)
+                {
+                    for (int x = 0; x < size; x++)
+                    {
+                        // Triangle vertices: (8, 8), (8, 55), (55, 32) — apex at right
+                        float dy1 = y - 8;
+                        float dy2 = y - 55;
+                        float dx = x - 8;
+                        float apexDy = y - 32;
+
+                        // Inside triangle if: x >= 8 AND between the two slanted edges
+                        if (x >= 8 && x <= 55)
+                        {
+                            // Left edge: y = 8 to apex y = 32, slope = (32-8)/(55-8) = 0.51
+                            // Right edge: y = 55 to apex y = 32, slope = (32-55)/(55-8) = -0.49
+                            float progress = (x - 8f) / (55f - 8f);  // 0 at left, 1 at apex
+                            float topY = 8f + (32f - 8f) * progress;
+                            float botY = 55f + (32f - 55f) * progress;
+                            if (y >= topY && y <= botY)
+                            {
+                                pixels[y * size + x] = white;
+                            }
+                        }
+                    }
+                }
+                texture.SetPixels32(pixels);
+                texture.Apply();
+                texture.filterMode = FilterMode.Point;
+                _cachedTriangleSprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+                _cachedTriangleSprite.name = "DirectionArrowTriangle";
+            }
+            return _cachedTriangleSprite;
         }
 
         private void BuildPowerUpPickups(IReadOnlyList<Vector2> points, float halfWidth, bool closedLoop, TrackDefinition trackDefinition)

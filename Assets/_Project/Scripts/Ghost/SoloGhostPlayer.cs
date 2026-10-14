@@ -72,7 +72,7 @@ namespace QuickChecks.Ghost
                 _ghostPlayer = _ghostKartInstance.AddComponent<GhostPlayer>();
             }
 
-            // Wire ghost player's swipe event to its kart.
+            // Wire ghost player's swipe event (output) to its kart.
             var ghostKart = _ghostKartInstance.GetComponent<Racing.KartController>();
             if (ghostKart != null)
             {
@@ -83,9 +83,15 @@ namespace QuickChecks.Ghost
                 field?.SetValue(ghostKart, ghostSwipeEvent);
             }
 
+            // Wire ghost player's playerSwipeEvent (input — listens to player's swipes for
+            // synchronized follow-along mode). This is what makes the ghost swipe 1:1 after the player.
+            SetPrivateField(_ghostPlayer, "playerSwipeEvent", playerSwipeEvent);
+            SetPrivateField(_ghostPlayer, "ghostSwipeEvent", ghostSwipeEvent);
+
             _ghostPlayer.StartPlayback(_bestGhost, startMs);
             Debug.Log($"[SoloGhost] Replaying best run: {_bestGhost.swipeCount} swipes, " +
-                      $"{_bestGhost.finishTimeMs / 1000f:F2}s, {_bestGhost.swipeEvents.Count} events.");
+                      $"{_bestGhost.finishTimeMs / 1000f:F2}s, {_bestGhost.swipeEvents.Count} events. " +
+                      "Ghost will swipe 0.3s after each of your swipes (synchronized mode).");
         }
 
         private GameObject CreateGhostKartGameObject(Vector3 position)
