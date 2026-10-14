@@ -109,10 +109,23 @@ namespace QuickChecks.Racing
         {
             if (RaceComplete) return;
 
+            // Ignore finish line crosses that happen before any checkpoints were passed.
+            // This happens at spawn (kart spawns near the finish line and immediately
+            // triggers its collider). Without this check, the log fills with
+            // "finish line crossed but checkpoints not all passed" spam.
+            if (totalCheckpointsPassed == 0 && !_allCheckpointsPassedThisLap)
+            {
+                Debug.Log("[CheckpointTracker] Finish line crossed at spawn (0 checkpoints passed) — ignoring. " +
+                          "Lap will count once you pass all checkpoints and cross the finish line.");
+                return;
+            }
+
             // Lap completes only if all checkpoints were passed in order this lap
             if (!_allCheckpointsPassedThisLap)
             {
-                Debug.Log("[CheckpointTracker] Finish line crossed but checkpoints not all passed — lap not counted.");
+                Debug.Log($"[CheckpointTracker] Finish line crossed but only {nextCheckpointIndex}/" +
+                          $"{_checkpoints?.Length ?? 0} checkpoints passed — lap not counted. " +
+                          "Pass all checkpoints in order, then cross the finish line.");
                 return;
             }
 

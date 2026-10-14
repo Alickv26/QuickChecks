@@ -59,18 +59,17 @@ namespace QuickChecks.Racing
 
         private void OnEnable()
         {
-            // Note: subscription also happens in Start() because OnEnable fires
-            // immediately on AddComponent, before reflection-based wiring sets
-            // the swipeEvent field. Start() runs on the next frame, after all
-            // field assignment is complete, so it's the reliable subscription point.
-            TrySubscribe();
+            // OnEnable fires immediately on AddComponent, before reflection-based wiring
+            // sets the swipeEvent field. Don't warn here — Start() will retry and warn
+            // if swipeEvent is STILL null at that point (which would indicate a real problem).
+            TrySubscribe(silent: true);
         }
 
         private void Start()
         {
-            // Re-attempt subscription in case swipeEvent was set after OnEnable
-            // (common when wiring up via reflection in a bootstrapper).
-            TrySubscribe();
+            // Re-attempt subscription (this is the reliable point — after all reflection
+            // field assignment in the bootstrapper has completed).
+            TrySubscribe(silent: false);
         }
 
         private void OnDisable()
@@ -84,7 +83,7 @@ namespace QuickChecks.Racing
 
         private bool _isSubscribed = false;
 
-        private void TrySubscribe()
+        private void TrySubscribe(bool silent = false)
         {
             if (swipeEvent != null && !_isSubscribed)
             {
@@ -92,10 +91,10 @@ namespace QuickChecks.Racing
                 _isSubscribed = true;
                 Debug.Log($"[Kart] Subscribed to swipeEvent on {gameObject.name}");
             }
-            else if (swipeEvent == null)
+            else if (swipeEvent == null && !silent)
             {
-                Debug.LogWarning($"[Kart] TrySubscribe called but swipeEvent is null on {gameObject.name}. " +
-                                  "Will retry on next Start().");
+                Debug.LogWarning($"[Kart] TrySubscribe called but swipeEvent is still null on {gameObject.name} " +
+                                  "in Start(). Field was not wired via reflection. Check the bootstrapper.");
             }
         }
 

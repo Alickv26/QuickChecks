@@ -181,10 +181,12 @@ namespace QuickChecks.Prototype
             Vector2 spawnPos = Track.BezierSpline.EvaluateSpline(trackDef.splinePoints, 0f, trackDef.isClosedLoop);
             // Offset slightly to the right of the finish line so we don't trigger it at spawn
             Vector2 spawnTangent = Track.BezierSpline.EvaluateSplineTangent(trackDef.splinePoints, 0f, trackDef.isClosedLoop);
-            // Spawn position: ON the start/finish line (t=0 of the spline).
-            // Previously spawned 2 units past the finish line — moved kart to start ON the line
-            // so the player can see where the race starts + ends.
-            Vector3 kartSpawnPos = spawnPos;
+            // Spawn position: slightly past the finish line (1 unit in direction of travel).
+            // Spawning exactly ON the finish line triggers its collider immediately, which
+            // causes CheckpointTracker to reject the lap ("finish line crossed but checkpoints
+            // not all passed"). 1 unit forward keeps the kart visually on the line but
+            // past the collider trigger zone.
+            Vector3 kartSpawnPos = spawnPos + spawnTangent * 1f;
 
             _runtimeKartSpawn = kartSpawnPos;
             _runtimeTrackDef = trackDef;
