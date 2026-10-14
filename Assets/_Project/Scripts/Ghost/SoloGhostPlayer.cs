@@ -28,8 +28,10 @@ namespace QuickChecks.Ghost
         [SerializeField] private string trackId = "prototype_track";
         [SerializeField] private GameObject ghostKartPrefab;
         [Tooltip("Offset from player's spawn position where the ghost kart appears. " +
-                 "Default: 2 units to the right so the ghost is visible next to the player, not overlapping.")]
-        [SerializeField] private Vector3 ghostSpawnOffset = new Vector3(3, 0, 0);
+                 "Default (0, 0, 0) = same position as player. The ghost uses a separate swipeEvent " +
+                 "so it drives its own kart independently — no collision with player since ghost " +
+                 "has isTrigger collider. Keeping ghost at same spawn point ensures it's ON the track.")]
+        [SerializeField] private Vector3 ghostSpawnOffset = new Vector3(0, 0, 0);
 
         private GhostData _bestGhost;
         private GhostPlayer _ghostPlayer;

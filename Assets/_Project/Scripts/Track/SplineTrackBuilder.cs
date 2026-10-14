@@ -220,8 +220,13 @@ namespace QuickChecks.Track
 
             for (int i = 0; i < checkpointCount; i++)
             {
-                // Skip checkpoint 0 (that's the finish line)
-                float t = (float)(i + 1) / checkpointCount;
+                // Place checkpoints evenly between t=0 and t=1, EXCLUDING both endpoints.
+                // t=0 is the finish line (handled separately).
+                // t=1 wraps to t=0 on closed loops (same position as finish line).
+                // So we use: t = (i + 1) / (checkpointCount + 1)
+                // For 8 checkpoints: t = 1/9, 2/9, 3/9, 4/9, 5/9, 6/9, 7/9, 8/9
+                // This avoids placing a checkpoint at the finish line position.
+                float t = (float)(i + 1) / (checkpointCount + 1);
                 Vector2 center = BezierSpline.EvaluateSpline(points, t, closedLoop);
                 Vector2 tangent = BezierSpline.EvaluateSplineTangent(points, t, closedLoop);
                 Vector2 normal = new Vector2(-tangent.y, tangent.x);
