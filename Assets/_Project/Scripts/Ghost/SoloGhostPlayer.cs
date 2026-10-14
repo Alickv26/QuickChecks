@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using UnityEngine;
 using QuickChecks.Input;
 using Newtonsoft.Json;
@@ -8,38 +7,30 @@ using Newtonsoft.Json;
 namespace QuickChecks.Ghost
 {
     /// <summary>
-    /// In solo practice mode, records the player's best run for the current track
-    /// and replays it as a ghost kart alongside the player's next attempt.
+    /// Records the player's best run and replays it as a ghost.
     ///
-    /// Storage: PlayerPrefs JSON (simple, persistent across sessions for prototype).
-    /// For v1 production, swap to Supabase for cross-device sync.
+    /// POSITION-BASED REPLAY: The ghost follows the EXACT recorded path by
+    /// setting transform.position from recorded position samples. No physics
+    /// needed — the ghost is a kinematic trigger that just follows the path.
     ///
-    /// Flow:
-    ///   1. Player finishes a race -> GhostRecorder produces GhostData
-    ///   2. This component compares to stored best, persists if better (fewer swipes)
-    ///   3. Next race, this component spawns a ghost kart and replays best-run swipes
-    ///   4. Ghost kart uses a separate SwipeEventSO so it doesn't drive the player's kart
+    /// SYNCHRONIZED MODE: When the player swipes, the ghost advances its
+    /// position by ~1 second of recorded movement. This creates the
+    /// turn-taking feel: player swipes → ghost moves → player swipes → ghost moves.
     /// </summary>
     public class SoloGhostPlayer : MonoBehaviour
     {
         [SerializeField] private GhostRecorder playerRecorder;
         [SerializeField] private Core.GameEventSO<SwipeData> playerSwipeEvent;
-        [SerializeField] private Core.GameEventSO<SwipeData> ghostSwipeEvent; // separate event for ghost kart
         [SerializeField] private string trackId = "prototype_track";
-        [SerializeField] private GameObject ghostKartPrefab;
-        [Tooltip("Offset from player's spawn position where the ghost kart appears. " +
-                 "Default (0, 0, 0) = same position as player. The ghost uses a separate swipeEvent " +
-                 "so it drives its own kart independently — no collision with player since ghost " +
-                 "has isTrigger collider. Keeping ghost at same spawn point ensures it's ON the track.")]
         [SerializeField] private Vector3 ghostSpawnOffset = new Vector3(0, 0, 0);
 
         private GhostData _bestGhost;
         private GhostPlayer _ghostPlayer;
         private GameObject _ghostKartInstance;
-        private long _raceStartMs;
 
         public GhostData BestGhost => _bestGhost;
         public bool HasBestRun => _bestGhost != null;
+        public GhostPlayer GhostPlayer => _ghostPlayer;
 
         private void Awake()
         {
@@ -48,185 +39,78 @@ namespace QuickChecks.Ghost
 
         public void OnRaceStart(long startMs, Vector3 playerSpawn)
         {
-            _raceStartMs = startMs;
-
             if (_bestGhost == null)
             {
                 Debug.Log("[SoloGhost] No best run yet — racing without ghost.");
                 return;
             }
 
-            if (_bestGhost.swipeEvents == null || _bestGhost.swipeEvents.Count == 0)
+            if (_bestGhost.positionSamples == null || _bestGhost.positionSamples.Count == 0)
             {
-                Debug.LogWarning("[SoloGhost] Best ghost has 0 swipe events — not spawning ghost. " +
-                                 "Saved data may be corrupt (JsonUtility can't serialize List<struct>).");
+                Debug.LogWarning("[SoloGhost] Best ghost has 0 position samples — not spawning ghost. " +
+                                 "Old ghost data may not have position samples (pre-position-replay era).");
                 return;
             }
 
-            // Create ghost kart at runtime (no prefab needed).
-            // Same structure as the player kart in PrototypeBootstrapper.
+            // Destroy old ghost if exists
             if (_ghostKartInstance != null) Destroy(_ghostKartInstance);
+
+            // Create ghost kart — simple visual only, NO physics, NO KartController
             Vector3 ghostSpawnPos = playerSpawn + ghostSpawnOffset;
             _ghostKartInstance = CreateGhostKartGameObject(ghostSpawnPos);
             _ghostKartInstance.name = "GhostKart";
-            _ghostKartInstance.SetActive(true);  // Ensure it's active
+            _ghostKartInstance.SetActive(true);
 
-            Debug.Log($"[SoloGhost] Ghost kart spawned at {ghostSpawnPos} " +
-                      $"(player spawn: {playerSpawn}, offset: {ghostSpawnOffset}). " +
-                      $"Active: {_ghostKartInstance.activeInHierarchy}, " +
-                      $"SpriteRenderer enabled: {_ghostKartInstance.GetComponent<SpriteRenderer>()?.enabled}");
+            Debug.Log($"[SoloGhost] Ghost kart spawned at {ghostSpawnPos}. " +
+                      $"Position samples: {_bestGhost.positionSamples.Count}, " +
+                      $"Swipes: {_bestGhost.swipeCount}.");
 
-            // Add GhostPlayer component if not already present.
-            _ghostPlayer = _ghostKartInstance.GetComponent<GhostPlayer>();
-            if (_ghostPlayer == null)
-            {
-                _ghostPlayer = _ghostKartInstance.AddComponent<GhostPlayer>();
-            }
+            // Add GhostPlayer component
+            _ghostPlayer = _ghostKartInstance.AddComponent<GhostPlayer>();
+            SetField(_ghostPlayer, "ghostKart", _ghostKartInstance.transform);
 
-            // Wire ghost player's swipe event (output) to its kart.
-            var ghostKart = _ghostKartInstance.GetComponent<Racing.KartController>();
-            if (ghostKart != null)
-            {
-                // Use the public SetSwipeEvent method instead of reflection.
-                // This immediately subscribes to the ghostSwipeEvent, avoiding the
-                // OnEnable/Start race condition where the field is set after OnEnable fires.
-                ghostKart.SetSwipeEvent(ghostSwipeEvent);
-                Debug.Log($"[SoloGhost] Ghost kart's swipeEvent set via SetSwipeEvent() — should now receive ghost swipes.");
-            }
-            else
-            {
-                Debug.LogError("[SoloGhost] GhostKart has no KartController component — can't wire swipe event!");
-            }
-
-            // Wire ghost player's playerSwipeEvent (input — listens to player's swipes for
-            // synchronized follow-along mode). This is what makes the ghost swipe 1:1 after the player.
-            SetField(_ghostPlayer, "playerSwipeEvent", playerSwipeEvent);
-            SetField(_ghostPlayer, "ghostSwipeEvent", ghostSwipeEvent);
-
-            // Wire the ghost kart into the camera follow controller so the camera
-            // follows the ghost when it's moving.
+            // Wire the ghost into the camera follow controller
             var cameraFollow = FindObjectOfType<QuickChecks.Camera.CameraFollowController>();
             if (cameraFollow != null)
             {
-                cameraFollow.SetGhostKart(ghostKart);
+                cameraFollow.SetGhostPlayer(_ghostPlayer);
+            }
+
+            // Subscribe to player swipe events for synchronized playback
+            if (playerSwipeEvent != null)
+            {
+                playerSwipeEvent.Register(OnPlayerSwipe);
+                Debug.Log("[SoloGhost] Subscribed to playerSwipeEvent — ghost will advance on each player swipe.");
             }
 
             _ghostPlayer.StartPlayback(_bestGhost, startMs);
-            Debug.Log($"[SoloGhost] Replaying best run: {_bestGhost.swipeCount} swipes, " +
-                      $"{_bestGhost.finishTimeMs / 1000f:F2}s, {_bestGhost.swipeEvents.Count} events. " +
-                      "Ghost will swipe immediately after each of your swipes (synchronized mode).");
-
-            // CRITICAL: Ignore collision between ghost kart and ALL other karts (player, CPU, etc.)
-            // Ghost collides with walls (so it follows the recorded path) but passes through
-            // other karts (so they don't block each other during turn-taking).
-            var ghostCollider = _ghostKartInstance.GetComponent<Collider2D>();
-            if (ghostCollider != null)
-            {
-                var allKarts = FindObjectsOfType<Racing.KartController>();
-                foreach (var kart in allKarts)
-                {
-                    if (kart.gameObject == _ghostKartInstance) continue;  // skip self
-                    var otherCollider = kart.GetComponent<Collider2D>();
-                    if (otherCollider != null)
-                    {
-                        UnityEngine.Physics2D.IgnoreCollision(ghostCollider, otherCollider, true);
-                        Debug.Log($"[SoloGhost] Ignoring collision between GhostKart and '{kart.gameObject.name}'.");
-                    }
-                }
-            }
+            Debug.Log($"[SoloGhost] Ghost playback started. {_bestGhost.positionSamples.Count} position samples. " +
+                      "Ghost will advance ~1 second of movement per player swipe.");
         }
 
-        /// <summary>
-        /// Reflection helper to set private [SerializeField] fields.
-        /// Used because the GhostPlayer's swipeEvent fields are private with [SerializeField]
-        /// for cleanliness — we wire them at runtime via reflection instead of making them public.
-        /// </summary>
-        private static void SetField(object obj, string fieldName, object value)
+        private void OnPlayerSwipe(SwipeData swipe)
         {
-            if (obj == null || string.IsNullOrEmpty(fieldName)) return;
-            var type = obj.GetType();
-            var field = type.GetField(fieldName,
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-            if (field != null)
+            if (_ghostPlayer != null && _ghostPlayer.IsPlaying)
             {
-                field.SetValue(obj, value);
+                _ghostPlayer.OnPlayerSwipe();
             }
-            else
-            {
-                Debug.LogWarning($"[SoloGhostPlayer] Field '{fieldName}' not found on {type.Name}.");
-            }
-        }
-
-        private GameObject CreateGhostKartGameObject(Vector3 position)
-        {
-            var go = new GameObject("GhostKart");
-            go.transform.position = position;
-            go.transform.localScale = Vector3.one;
-
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.color = new Color(0.482f, 0.541f, 0.541f, 0.5f);  // muted gray-blue, 50% alpha
-            sr.sprite = CreateGhostSprite();
-            sr.drawMode = SpriteDrawMode.Sliced;
-            sr.size = new Vector2(1.5f, 1.5f);
-            sr.sortingOrder = 8;
-
-            var col = go.AddComponent<BoxCollider2D>();
-            col.size = new Vector2(1.5f, 1.5f);
-            col.isTrigger = false;  // Ghost DOES collide with walls — follows same path as recorded
-
-            var rb = go.AddComponent<Rigidbody2D>();
-            rb.gravityScale = 0;
-            // DYNAMIC so _rb.velocity = currentVelocity actually moves the kart.
-            rb.bodyType = RigidbodyType2D.Dynamic;
-            rb.constraints = RigidbodyConstraints2D.FreezeRotation;
-            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-            rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
-
-            var kart = go.AddComponent<Racing.KartController>();
-            // Ghost KartStats: same as player but slightly different friction for visibility
-            var stats = ScriptableObject.CreateInstance<Racing.KartStats>();
-            stats.kartId = "kart_ghost";
-            stats.displayName = "Ghost";
-            stats.impulseMultiplier = 1.1f;
-            stats.frictionPerSecond = 0.22f;
-            stats.stopThreshold = 8f;
-            stats.maxSpeed = 250f;
-
-            // Wire stats via reflection
-            var type = kart.GetType();
-            var statsField = type.GetField("stats",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            statsField?.SetValue(kart, stats);
-
-            // Add a KartTrail to the ghost so the player can see the ghost's path.
-            // The trail is colored differently (faded gray-blue) to distinguish from player's trail.
-            var trail = go.AddComponent<Racing.KartTrail>();
-            SetField(trail, "kart", kart);
-
-            // Disable player input on the ghost kart (no SwipeDetector — ghost is driven by GhostPlayer)
-            return go;
-        }
-
-        private Sprite _cachedGhostSprite;
-        private Sprite CreateGhostSprite()
-        {
-            if (_cachedGhostSprite == null)
-            {
-                const int size = 64;
-                var texture = new Texture2D(size, size);
-                var pixels = texture.GetPixels();
-                for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
-                texture.SetPixels(pixels);
-                texture.Apply();
-                texture.filterMode = FilterMode.Point;
-                _cachedGhostSprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
-            }
-            return _cachedGhostSprite;
         }
 
         public void OnRaceFinish(int swipes, long finishMs)
         {
-            // Compare to best. Lower swipes wins; tiebreaker = faster time.
+            // Unsubscribe from player swipe events
+            if (playerSwipeEvent != null)
+            {
+                playerSwipeEvent.Unregister(OnPlayerSwipe);
+            }
+
+            // Stop ghost playback
+            if (_ghostPlayer != null)
+            {
+                _ghostPlayer.StopPlayback();
+            }
+
+            // Check if this is a new best (fewer swipes, or same swipes + faster time)
             bool isBetter = _bestGhost == null
                 || swipes < _bestGhost.swipeCount
                 || (swipes == _bestGhost.swipeCount && finishMs < _bestGhost.finishTimeMs);
@@ -238,8 +122,8 @@ namespace QuickChecks.Ghost
                 {
                     _bestGhost = newBest;
                     SaveBestGhost();
-                    Debug.Log($"[SoloGhost] NEW BEST! {swipes} swipes in {finishMs / 1000f:F2}s" +
-                              (swipes < (_bestGhost?.swipeCount ?? int.MaxValue) ? " 🏆" : ""));
+                    Debug.Log($"[SoloGhost] NEW BEST! {swipes} swipes in {finishMs / 1000f:F2}s. " +
+                              $"{_bestGhost.positionSamples.Count} position samples saved.");
                 }
             }
             else
@@ -265,17 +149,21 @@ namespace QuickChecks.Ghost
             {
                 try
                 {
-                    // Use Newtonsoft.Json (handles List<struct> properly, unlike JsonUtility).
                     _bestGhost = JsonConvert.DeserializeObject<GhostData>(json);
-                    if (_bestGhost != null && (_bestGhost.swipeEvents == null || _bestGhost.swipeEvents.Count == 0))
+                    if (_bestGhost != null)
                     {
-                        Debug.LogWarning("[SoloGhost] Loaded ghost had no swipe events — discarding.");
-                        _bestGhost = null;
-                    }
-                    else if (_bestGhost != null)
-                    {
-                        Debug.Log($"[SoloGhost] Loaded best run: {_bestGhost.swipeCount} swipes, " +
-                                  $"{_bestGhost.swipeEvents.Count} events, {_bestGhost.finishTimeMs / 1000f:F2}s.");
+                        int posCount = _bestGhost.positionSamples?.Count ?? 0;
+                        int swipeCount = _bestGhost.swipeEvents?.Count ?? 0;
+                        if (posCount == 0 && swipeCount == 0)
+                        {
+                            Debug.LogWarning("[SoloGhost] Loaded ghost has 0 samples — discarding.");
+                            _bestGhost = null;
+                        }
+                        else
+                        {
+                            Debug.Log($"[SoloGhost] Loaded best run: {_bestGhost.swipeCount} swipes, " +
+                                      $"{posCount} position samples, {_bestGhost.finishTimeMs / 1000f:F2}s.");
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -292,6 +180,70 @@ namespace QuickChecks.Ghost
             string json = JsonConvert.SerializeObject(_bestGhost);
             PlayerPrefs.SetString(GetPrefsKey(), json);
             PlayerPrefs.Save();
+        }
+
+        private GameObject CreateGhostKartGameObject(Vector3 position)
+        {
+            var go = new GameObject("GhostKart");
+            go.transform.position = position;
+            go.transform.localScale = Vector3.one;
+
+            // Visual sprite — muted gray-blue, semi-transparent
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.color = new Color(0.482f, 0.541f, 0.541f, 0.6f);
+            sr.sprite = CreateGhostSprite();
+            sr.drawMode = SpriteDrawMode.Sliced;
+            sr.size = new Vector2(1.5f, 1.5f);
+            sr.sortingOrder = 8;
+
+            // Trigger collider — ghost doesn't physically interact with anything
+            var col = go.AddComponent<BoxCollider2D>();
+            col.size = new Vector2(1.5f, 1.5f);
+            col.isTrigger = true;
+
+            // Kinematic Rigidbody2D — no gravity, no physics forces, just follows transform.position
+            var rb = go.AddComponent<Rigidbody2D>();
+            rb.gravityScale = 0;
+            rb.bodyType = RigidbodyType2D.Kinematic;
+            rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+
+            // Add KartTrail for visual path
+            // (No KartController needed — ghost just follows recorded positions)
+
+            return go;
+        }
+
+        private Sprite _cachedGhostSprite;
+        private Sprite CreateGhostSprite()
+        {
+            if (_cachedGhostSprite == null)
+            {
+                const int size = 64;
+                var texture = new Texture2D(size, size);
+                var pixels = texture.GetPixels();
+                for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
+                texture.SetPixels(pixels);
+                texture.Apply();
+                texture.filterMode = FilterMode.Point;
+                _cachedGhostSprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+            }
+            return _cachedGhostSprite;
+        }
+
+        private static void SetField(object obj, string fieldName, object value)
+        {
+            if (obj == null || string.IsNullOrEmpty(fieldName)) return;
+            var type = obj.GetType();
+            var field = type.GetField(fieldName,
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            if (field != null)
+            {
+                field.SetValue(obj, value);
+            }
+            else
+            {
+                Debug.LogWarning($"[SoloGhostPlayer] Field '{fieldName}' not found on {type.Name}.");
+            }
         }
     }
 }

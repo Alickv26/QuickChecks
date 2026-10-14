@@ -1,153 +1,169 @@
 using UnityEngine;
-using QuickChecks.Input;
-using QuickChecks.Core;
 
 namespace QuickChecks.Ghost
 {
     /// <summary>
-    /// Replays a recorded ghost. In SYNCHRONIZED mode (default), the ghost does
-    /// its next recorded swipe immediately when the player swipes — creating a
-    /// turn-taking feel where both karts move together.
+    /// Replays a recorded ghost by setting its transform.position directly from
+    /// recorded position samples. This guarantees the ghost follows the EXACT
+    /// same path as the original run — same turns, same wall stops, same everything.
     ///
-    /// The ghost mirrors the player's previous best run, swipe for swipe.
-    /// When the player swipes, the ghost immediately swipes in the direction
-    /// it recorded during its best lap. This makes it feel like racing against
-    /// yourself — the ghost follows the exact line you took on your best run.
+    /// The ghost is a Kinematic body with isTrigger collider, so it has NO physics
+    /// interactions — it doesn't collide with walls or other karts. It just follows
+    /// the recorded path like a hologram.
+    ///
+    /// In SYNCHRONIZED mode (default), the ghost advances its position samples
+    /// when the player swipes — creating the turn-taking feel.
     /// </summary>
     public class GhostPlayer : MonoBehaviour
     {
         public enum PlaybackMode
         {
-            Synchronized,  // Ghost swipes immediately when player swipes (turn-taking)
-            RealTime       // Ghost swipes at recorded timestamps (parallel race)
+            Synchronized,  // Ghost advances when player swipes (turn-taking)
+            RealTime        // Ghost plays at original timestamps (parallel race)
         }
 
-        [SerializeField] private GameEventSO<SwipeData> ghostSwipeEvent;  // event to raise for ghost kart
-        [SerializeField] private GameEventSO<SwipeData> playerSwipeEvent; // event to listen to (player's swipes)
         [SerializeField] private Transform ghostKart;
-
-        [Header("Playback")]
-        [Tooltip("Synchronized = ghost swipes immediately when player swipes (turn-taking feel). " +
-                 "RealTime = ghost swipes at original timestamps (parallel race).")]
         [SerializeField] private PlaybackMode mode = PlaybackMode.Synchronized;
 
+        // Number of position samples to advance per player swipe.
+        // At 20Hz recording (50ms/sample), 1 second = 20 samples.
+        // We advance enough samples to cover ~1 second of ghost movement per player swipe.
+        [SerializeField] private int samplesPerSwipe = 20;
+
         private GhostData _data;
-        private int _nextEventIndex = 0;
-        private long _playbackStartUnixMs;
+        private int _currentSampleIndex = 0;
         private bool _isPlaying = false;
-        private bool _pendingSwipe = false;  // simple flag instead of timer
+        private long _playbackStartUnixMs;
+
+        // For RealTime mode
+        private bool _advancePending = false;
 
         public bool IsPlaying => _isPlaying;
-        public int EventsReplayed => _nextEventIndex;
-        public int TotalEvents => _data?.swipeEvents?.Count ?? 0;
+        public int CurrentSampleIndex => _currentSampleIndex;
+        public int TotalSamples => _data?.positionSamples?.Count ?? 0;
+        public Vector3 CurrentPosition => ghostKart != null ? ghostKart.position : Vector3.zero;
+
+        // For camera follow: track if ghost is "moving" (position changed this frame)
+        private Vector3 _lastPosition;
+        public bool IsMoving { get; private set; }
 
         public void StartPlayback(GhostData data, long startUnixMs)
         {
             _data = data;
-            _nextEventIndex = 0;
+            _currentSampleIndex = 0;
             _playbackStartUnixMs = startUnixMs;
             _isPlaying = true;
-            _pendingSwipe = false;
+            _advancePending = false;
+            _lastPosition = ghostKart != null ? ghostKart.position : Vector3.zero;
+            IsMoving = false;
 
-            if (mode == PlaybackMode.Synchronized)
+            if (_data != null && _data.positionSamples != null && _data.positionSamples.Count > 0)
             {
-                if (playerSwipeEvent != null)
+                // Set initial position
+                ApplySample(0);
+
+                if (mode == PlaybackMode.Synchronized)
                 {
-                    playerSwipeEvent.Register(OnPlayerSwipe);
-                    Debug.Log($"[GhostPlayer] Synchronized playback started. Will replay {TotalEvents} events. " +
-                              "Ghost will swipe immediately when player swipes.");
+                    Debug.Log($"[GhostPlayer] Synchronized playback started. {TotalSamples} position samples. " +
+                              $"Ghost advances {samplesPerSwipe} samples per player swipe.");
                 }
                 else
                 {
-                    Debug.LogWarning("[GhostPlayer] Synchronized mode but no playerSwipeEvent assigned — ghost won't move.");
+                    Debug.Log($"[GhostPlayer] Real-time playback started. {TotalSamples} position samples.");
                 }
             }
-            else if (mode == PlaybackMode.RealTime)
+            else
             {
-                Debug.Log($"[GhostPlayer] Real-time playback started. Will replay {TotalEvents} events at recorded timestamps.");
+                Debug.LogWarning("[GhostPlayer] No position samples to replay!");
+                _isPlaying = false;
             }
         }
 
         public void StopPlayback()
         {
             _isPlaying = false;
-            if (mode == PlaybackMode.Synchronized && playerSwipeEvent != null)
-            {
-                playerSwipeEvent.Unregister(OnPlayerSwipe);
-            }
         }
 
-        private void OnPlayerSwipe(SwipeData playerSwipe)
+        /// <summary>
+        /// Called when the player swipes (in Synchronized mode).
+        /// Advances the ghost by samplesPerSwipe position samples.
+        /// </summary>
+        public void OnPlayerSwipe()
         {
             if (!_isPlaying || _data == null) return;
-            if (_nextEventIndex >= _data.swipeEvents.Count) return;
-
-            // Set the pending flag — Update() will emit the ghost swipe on the next frame.
-            // Using a flag instead of a timer avoids the bug where syncDelaySec=0
-            // caused the timer check (> 0f) to never fire.
-            _pendingSwipe = true;
+            _advancePending = true;
         }
 
         private void Update()
         {
             if (!_isPlaying || _data == null) return;
 
-            // Handle pending synchronized swipe — emit on next frame after player swiped
-            if (_pendingSwipe)
+            if (mode == PlaybackMode.Synchronized)
             {
-                EmitNextSwipe();
-                _pendingSwipe = false;
-            }
-
-            // Real-time mode: emit any events whose timestamp has passed
-            if (mode == PlaybackMode.RealTime)
-            {
-                long elapsed = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _playbackStartUnixMs;
-                while (_nextEventIndex < _data.swipeEvents.Count)
+                // Advance ghost position when player swipes
+                if (_advancePending)
                 {
-                    var entry = _data.swipeEvents[_nextEventIndex];
-                    if (entry.t > elapsed) break;
-                    EmitNextSwipe();
+                    AdvanceGhost(samplesPerSwipe);
+                    _advancePending = false;
+                }
+            }
+            else if (mode == PlaybackMode.RealTime)
+            {
+                // Advance based on elapsed time
+                long elapsed = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _playbackStartUnixMs;
+
+                // Find the sample closest to the current elapsed time
+                while (_currentSampleIndex < TotalSamples &&
+                       _data.positionSamples[_currentSampleIndex].t <= elapsed)
+                {
+                    _currentSampleIndex++;
+                }
+
+                if (_currentSampleIndex > 0 && _currentSampleIndex < TotalSamples)
+                {
+                    ApplySample(_currentSampleIndex);
                 }
             }
 
-            if (_nextEventIndex >= _data.swipeEvents.Count)
+            // Check if ghost is moving (position changed)
+            if (ghostKart != null)
+            {
+                float delta = Vector3.Distance(ghostKart.position, _lastPosition);
+                IsMoving = delta > 0.1f;
+                _lastPosition = ghostKart.position;
+            }
+
+            // Check if playback is complete
+            if (_currentSampleIndex >= TotalSamples)
             {
                 _isPlaying = false;
-                Debug.Log($"[GhostPlayer] Playback complete. Replayed {EventsReplayed} events.");
-                if (mode == PlaybackMode.Synchronized && playerSwipeEvent != null)
-                {
-                    playerSwipeEvent.Unregister(OnPlayerSwipe);
-                }
+                IsMoving = false;
+                Debug.Log($"[GhostPlayer] Playback complete. Reached sample {_currentSampleIndex}/{TotalSamples}.");
             }
         }
 
-        private void EmitNextSwipe()
+        private void AdvanceGhost(int sampleCount)
         {
-            if (_data == null || _nextEventIndex >= _data.swipeEvents.Count) return;
+            int targetIndex = Mathf.Min(_currentSampleIndex + sampleCount, TotalSamples - 1);
 
-            var entry = _data.swipeEvents[_nextEventIndex];
-            var swipe = new SwipeData
-            {
-                timestampMs = entry.t,
-                screenPosition = new Vector2(entry.x, entry.y),
-                direction = new Vector2(entry.dx, entry.dy),
-                magnitude = entry.mag,
-                rawVelocityPxS = entry.mag
-            };
+            // Smoothly interpolate to the target sample over a few frames
+            // For now, just jump to it — the 50ms intervals are small enough to look smooth
+            _currentSampleIndex = targetIndex;
+            ApplySample(_currentSampleIndex);
 
-            if (ghostSwipeEvent != null)
-            {
-                ghostSwipeEvent.Raise(swipe);
-                Debug.Log($"[GhostPlayer] Emitted ghost swipe {EventsReplayed + 1}/{TotalEvents}: " +
-                          $"dir=({entry.dx:F2}, {entry.dy:F2}), mag={entry.mag:F0}");
-            }
-            else
-            {
-                Debug.LogWarning("[GhostPlayer] ghostSwipeEvent is null — can't emit swipe.");
-            }
+            Debug.Log($"[GhostPlayer] Advanced to sample {_currentSampleIndex}/{TotalSamples} " +
+                      $"-> pos ({_data.positionSamples[_currentSampleIndex].x:F1}, " +
+                      $"{_data.positionSamples[_currentSampleIndex].y:F1})");
+        }
 
-            _nextEventIndex++;
+        private void ApplySample(int index)
+        {
+            if (_data == null || _data.positionSamples == null || index < 0 || index >= TotalSamples) return;
+            if (ghostKart == null) return;
+
+            var sample = _data.positionSamples[index];
+            ghostKart.position = new Vector3(sample.x, sample.y, 0);
+            ghostKart.rotation = Quaternion.Euler(0, 0, sample.rot);
         }
 
         private void OnDisable()

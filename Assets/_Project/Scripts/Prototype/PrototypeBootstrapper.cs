@@ -274,6 +274,7 @@ namespace QuickChecks.Prototype
             SetPrivateField(_swipeDetector, "swipeEvent", swipeEvent);
 
             SetPrivateField(_ghostRecorder, "swipeEvent", swipeEvent);
+            SetPrivateField(_ghostRecorder, "kartTransform", kartGo.transform);
 
             SetPrivateField(_kartTrail, "kart", _kart);
 

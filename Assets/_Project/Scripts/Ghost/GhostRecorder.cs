@@ -5,34 +5,34 @@ using QuickChecks.Input;
 namespace QuickChecks.Ghost
 {
     /// <summary>
-    /// Records every valid swipe during a race into a GhostData object.
-    /// Attached to the player kart. On race finish, hands off the GhostData
-    /// to GhostRepository for upload to Supabase.
+    /// Records every swipe AND position sample during a race.
+    /// Position samples are taken every 50ms for exact ghost replay.
     /// </summary>
     public class GhostRecorder : MonoBehaviour
     {
         [SerializeField] private Core.GameEventSO<SwipeData> swipeEvent;
-        [SerializeField] private string trackId;
-        [SerializeField] private string kartId;
+        [SerializeField] private Transform kartTransform;
 
         private GhostData _data;
         private long _raceStartUnixMs;
         private bool _isRecording;
+        private float _lastSampleTime;
+        private const float SAMPLE_INTERVAL = 0.05f; // 50ms = 20Hz
 
         public GhostData CurrentData => _data;
 
         public void BeginRace(string track, string kart)
         {
-            trackId = track;
-            kartId = kart;
             _data = new GhostData
             {
                 trackId = track,
                 kartId = kart,
-                swipeEvents = new List<GhostData.SwipeEventEntry>(64)
+                swipeEvents = new List<GhostData.SwipeEventEntry>(64),
+                positionSamples = new List<GhostData.PositionSample>(400) // ~20s of racing at 20Hz
             };
             _raceStartUnixMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             _isRecording = true;
+            _lastSampleTime = 0f;
         }
 
         public GhostData EndRace(long finishTimeMs)
@@ -51,7 +51,6 @@ namespace QuickChecks.Ghost
 
         private void Start()
         {
-            // Re-attempt subscription in case swipeEvent was set after OnEnable.
             TrySubscribe();
         }
 
@@ -82,12 +81,29 @@ namespace QuickChecks.Ghost
             _data.swipeEvents.Add(new GhostData.SwipeEventEntry
             {
                 t = swipe.timestampMs,
-                x = swipe.screenPosition.x,
-                y = swipe.screenPosition.y,
                 dx = swipe.direction.x,
                 dy = swipe.direction.y,
                 mag = swipe.magnitude
             });
+        }
+
+        private void FixedUpdate()
+        {
+            if (!_isRecording || _data == null || kartTransform == null) return;
+
+            // Sample position at regular intervals
+            if (Time.time - _lastSampleTime >= SAMPLE_INTERVAL)
+            {
+                _lastSampleTime = Time.time;
+                long t = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _raceStartUnixMs;
+                _data.positionSamples.Add(new GhostData.PositionSample
+                {
+                    t = t,
+                    x = kartTransform.position.x,
+                    y = kartTransform.position.y,
+                    rot = kartTransform.eulerAngles.z
+                });
+            }
         }
 
         public void RecordPowerUpCollected(string powerUpId)

@@ -5,15 +5,17 @@ using Newtonsoft.Json;
 namespace QuickChecks.Ghost
 {
     /// <summary>
-    /// JSON-serializable recording of a finished race. Captures every swipe
-    /// event so it can be replayed deterministically on any device.
+    /// JSON-serializable recording of a finished race.
     ///
-    /// Updated for turn-based model: swipeCount is now a first-class field,
-    /// since the global leaderboard ranks by fewest swipes (not fastest time).
+    /// TWO replay systems:
+    /// 1. Swipe events (for leaderboard ranking — swipe count is the primary metric)
+    /// 2. Position samples (for ghost replay — guarantees exact path reproduction)
     ///
-    /// Target size: 5-8 KB per race.
-    /// Serialized with Newtonsoft.Json (handles List&lt;struct&gt; properly,
-    /// unlike Unity's built-in JsonUtility).
+    /// The position-based replay is the authoritative ghost playback method.
+    /// It records the kart's position + rotation every 50ms during the race,
+    /// then replays them by setting transform.position directly.
+    /// This guarantees the ghost follows the EXACT same path, including wall stops,
+    /// regardless of physics differences.
     /// </summary>
     [Serializable]
     [JsonObject]
@@ -22,28 +24,41 @@ namespace QuickChecks.Ghost
         [JsonProperty] public string trackId;
         [JsonProperty] public string kartId;
 
-        // Primary ranking field (lower = better). Tiebreaker = finishTimeMs.
         [JsonProperty] public int swipeCount;
-
-        // Secondary ranking field. Lower = better. Used when swipeCount ties.
         [JsonProperty] public long finishTimeMs;
-
-        // Mode the race was played in (solo, vs_cpu_easy, vs_cpu_hard, pass_play, online).
         [JsonProperty] public string mode;
 
-        [JsonProperty] public List<string> powerUpsCollected = new();
+        // Swipe events — used for analytics + leaderboard validation
         [JsonProperty] public List<SwipeEventEntry> swipeEvents = new();
+
+        // Position samples — used for ghost replay (authoritative path)
+        // Sampled at 50ms intervals during the race
+        [JsonProperty] public List<PositionSample> positionSamples = new();
+
+        [JsonProperty] public List<string> powerUpsCollected = new();
 
         [Serializable]
         [JsonObject]
         public struct SwipeEventEntry
         {
-            [JsonProperty] public long t;          // ms since race start
-            [JsonProperty] public float x;         // screen position (normalized 0-1)
-            [JsonProperty] public float y;
-            [JsonProperty] public float dx;        // normalized direction
+            [JsonProperty] public long t;
+            [JsonProperty] public float dx;
             [JsonProperty] public float dy;
-            [JsonProperty] public float mag;       // impulse magnitude
+            [JsonProperty] public float mag;
+        }
+
+        /// <summary>
+        /// A position sample recorded during the race.
+        /// Replayed by setting transform.position directly — no physics needed.
+        /// </summary>
+        [Serializable]
+        [JsonObject]
+        public struct PositionSample
+        {
+            [JsonProperty] public long t;       // ms since race start
+            [JsonProperty] public float x;       // world X
+            [JsonProperty] public float y;       // world Y
+            [JsonProperty] public float rot;     // Z rotation in degrees
         }
     }
 }

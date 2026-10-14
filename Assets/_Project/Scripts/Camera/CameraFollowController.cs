@@ -1,74 +1,72 @@
 using UnityEngine;
-using QuickChecks.Racing;
+using QuickChecks.Ghost;
 
 namespace QuickChecks.Camera
 {
     /// <summary>
     /// Controls which kart the camera follows. In turn-based ghost racing,
-    /// the camera should follow whoever is currently moving:
-    /// - If the ghost kart is moving (velocity > threshold), follow the ghost
+    /// the camera follows whoever is currently moving:
+    /// - If the ghost is moving (position changing), follow the ghost
     /// - Otherwise, follow the player kart
     ///
-    /// This creates the turn-taking visual feel: player swipes, camera follows player;
-    /// ghost swipes, camera pans to follow ghost; ghost stops, camera returns to player.
+    /// Uses GhostPlayer.IsMoving to detect ghost movement (position-based, not velocity-based).
     /// </summary>
     public class CameraFollowController : MonoBehaviour
     {
         [SerializeField] private CameraRig cameraRig;
-        [SerializeField] private KartController playerKart;
-        [SerializeField] private KartController ghostKart;
+        [SerializeField] private Racing.KartController playerKart;
+        [SerializeField] private GhostPlayer ghostPlayer;
 
-        [Tooltip("Velocity threshold above which a kart is considered 'moving'.")]
-        [SerializeField] private float movingThreshold = 15f;
+        [Tooltip("How long to keep following the ghost after it stops moving (seconds).")]
+        [SerializeField] private float ghostFollowLingerSec = 0.5f;
 
-        [Tooltip("How quickly the camera switches targets (0 = instant, 1 = very slow).")]
-        [Range(0f, 1f)] [SerializeField] private float switchSmoothing = 0.05f;
-
-        private Transform _currentTarget;
         private bool _followingGhost = false;
+        private float _ghostStopTimer = 0f;
 
         private void Update()
         {
             if (cameraRig == null || playerKart == null) return;
 
-            // Determine which kart to follow
-            bool ghostMoving = ghostKart != null && ghostKart.Velocity.magnitude > movingThreshold && !ghostKart.IsStopped;
-            bool playerMoving = playerKart.Velocity.magnitude > movingThreshold && !playerKart.IsStopped;
+            bool ghostMoving = ghostPlayer != null && ghostPlayer.IsMoving;
 
-            // Follow ghost if it's moving; otherwise follow player
-            if (ghostMoving && !_followingGhost)
+            if (ghostMoving)
             {
-                _followingGhost = true;
-                cameraRig.target = ghostKart.transform;
-                Debug.Log("[CameraFollow] Switched to follow GHOST (moving).");
+                _ghostStopTimer = ghostFollowLingerSec;
+                if (!_followingGhost && ghostPlayer.ghostKart != null)
+                {
+                    _followingGhost = true;
+                    cameraRig.target = ghostPlayer.ghostKart;
+                    Debug.Log("[CameraFollow] Switched to follow GHOST (moving).");
+                }
             }
-            else if (!ghostMoving && _followingGhost)
+            else
             {
-                _followingGhost = false;
-                cameraRig.target = playerKart.transform;
-                Debug.Log("[CameraFollow] Switched to follow PLAYER.");
+                if (_ghostStopTimer > 0f)
+                {
+                    _ghostStopTimer -= Time.deltaTime;
+                }
+                else if (_followingGhost)
+                {
+                    _followingGhost = false;
+                    cameraRig.target = playerKart.transform;
+                    Debug.Log("[CameraFollow] Switched to follow PLAYER.");
+                }
             }
         }
 
-        /// <summary>
-        /// Sets the ghost kart reference (called by SoloGhostPlayer when ghost spawns).
-        /// </summary>
-        public void SetGhostKart(KartController ghost)
-        {
-            ghostKart = ghost;
-            Debug.Log($"[CameraFollow] Ghost kart assigned: {(ghost != null ? ghost.gameObject.name : "null")}");
-        }
-
-        /// <summary>
-        /// Sets the player kart reference (called by PrototypeBootstrapper).
-        /// </summary>
-        public void SetPlayerKart(KartController player)
+        public void SetPlayerKart(Racing.KartController player)
         {
             playerKart = player;
             if (cameraRig != null && player != null)
             {
                 cameraRig.target = player.transform;
             }
+        }
+
+        public void SetGhostPlayer(GhostPlayer ghost)
+        {
+            ghostPlayer = ghost;
+            Debug.Log($"[CameraFollow] Ghost player assigned: {(ghost != null ? "OK" : "null")}");
         }
     }
 }
