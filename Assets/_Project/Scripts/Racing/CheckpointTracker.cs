@@ -27,6 +27,9 @@ namespace QuickChecks.Racing
         private Collider2D _finishLineCollider;
         private bool _allCheckpointsPassedThisLap = false;
 
+        // In lenient mode, tracks which checkpoint indices have been passed this lap.
+        private System.Collections.Generic.HashSet<int> _passedCheckpoints = new();
+
         public int CurrentLap => currentLap;
         public int TotalLaps => totalLaps;
         public int NextCheckpointIndex => nextCheckpointIndex;
@@ -60,6 +63,7 @@ namespace QuickChecks.Racing
             currentLap = 0;
             totalCheckpointsPassed = 0;
             _allCheckpointsPassedThisLap = false;
+            _passedCheckpoints.Clear();
         }
 
         private void OnTriggerEnter2D(Collider2D other)
@@ -79,12 +83,37 @@ namespace QuickChecks.Racing
             }
         }
 
+        [Header("Lenient Mode (Prototype)")]
+        [Tooltip("If true, checkpoints can be passed in ANY order. " +
+                 "Only requirement: all checkpoints must be passed before crossing the finish line. " +
+                 "Set false for competitive modes where order matters.")]
+        [SerializeField] private bool lenientOrder = true;
+
         private void HandleCheckpointPassed(Checkpoint checkpoint)
         {
-            // Only count if it's the expected next checkpoint in order
+            if (lenientOrder)
+            {
+                // Lenient mode: accept any checkpoint, track which ones have been passed.
+                // Just need ALL of them passed before finish line cross.
+                if (!_passedCheckpoints.Contains(checkpoint.index))
+                {
+                    _passedCheckpoints.Add(checkpoint.index);
+                    totalCheckpointsPassed = _passedCheckpoints.Count;
+                    Debug.Log($"[CheckpointTracker] Checkpoint {checkpoint.index} passed " +
+                              $"({totalCheckpointsPassed}/{_checkpoints?.Length ?? 0} total).");
+
+                    if (_checkpoints != null && totalCheckpointsPassed >= _checkpoints.Length)
+                    {
+                        _allCheckpointsPassedThisLap = true;
+                        Debug.Log("[CheckpointTracker] All checkpoints passed! Cross finish line to complete lap.");
+                    }
+                }
+                return;
+            }
+
+            // Strict mode: checkpoints must be passed in order (0, 1, 2, ...)
             if (checkpoint.index != nextCheckpointIndex)
             {
-                // Out of order — ignore (or could penalize player for skipping)
                 Debug.Log($"[CheckpointTracker] Out-of-order checkpoint {checkpoint.index} " +
                           $"(expected {nextCheckpointIndex}) — ignored.");
                 return;
@@ -96,7 +125,7 @@ namespace QuickChecks.Racing
             if (_checkpoints != null && nextCheckpointIndex >= _checkpoints.Length)
             {
                 _allCheckpointsPassedThisLap = true;
-                Debug.Log($"[CheckpointTracker] All checkpoints passed! Cross finish line to complete lap.");
+                Debug.Log("[CheckpointTracker] All checkpoints passed! Cross finish line to complete lap.");
             }
             else
             {
@@ -137,6 +166,7 @@ namespace QuickChecks.Racing
             // Reset for next lap
             nextCheckpointIndex = 0;
             _allCheckpointsPassedThisLap = false;
+            _passedCheckpoints.Clear();
 
             if (currentLap >= totalLaps)
             {

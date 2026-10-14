@@ -247,6 +247,8 @@ namespace QuickChecks.Track
                 checkpoint.index = i;
                 checkpoint.requiredCount = checkpointCount;
 
+                Debug.Log($"[SplineTrackBuilder] Checkpoint {i} at t={t:F3} -> world pos ({center.x:F1}, {center.y:F1})");
+
                 // Visible debug sprite — color cycles through hue so checkpoints are distinguishable.
                 // Index 0 = green, index 1 = yellow, index 2 = orange, etc.
                 var sr = go.AddComponent<SpriteRenderer>();
