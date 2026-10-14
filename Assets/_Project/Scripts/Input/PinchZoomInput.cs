@@ -62,15 +62,23 @@ namespace QuickChecks.Input
 
                     if (!_isPinching)
                     {
-                        // Pinch started
+                        // Pinch started — record initial distance, no zoom change this frame.
                         _lastPinchDistance = currentDistance;
                         _isPinching = true;
                     }
                     else if (currentDistance > minPinchDistance)
                     {
-                        // Compute pinch delta: positive = fingers moving apart (zoom out)
-                        float delta = currentDistance - _lastPinchDistance;
-                        ApplyZoomDelta(delta * pinchSensitivity * 10f);
+                        // Compute pinch delta in screen pixels.
+                        // Positive delta = fingers moving apart = zoom OUT (ortho size increases).
+                        // Negative delta = fingers moving together = zoom IN (ortho size decreases).
+                        float deltaPixels = currentDistance - _lastPinchDistance;
+
+                        // Scale to a sensible ortho-size delta:
+                        // - On a 1080p screen, full pinch out (200px change) = ~2 ortho size units change.
+                        // - pinchSensitivity default 0.015 gives ~3 ortho size units per 200px pinch.
+                        float zoomDelta = deltaPixels * pinchSensitivity;
+
+                        ApplyZoomDelta(zoomDelta);
                         _lastPinchDistance = currentDistance;
                     }
                 }
@@ -87,8 +95,9 @@ namespace QuickChecks.Input
             float scroll = UnityEngine.Input.GetAxis("Mouse ScrollWheel");
             if (Mathf.Abs(scroll) > 0.001f)
             {
-                // Positive scroll = zoom in (smaller ortho size)
-                ApplyZoomDelta(-scroll * mouseWheelSensitivity * 50f);
+                // Positive scroll = wheel up = zoom IN (ortho size decreases).
+                // Multiply by a larger factor since scroll delta is small (~0.1 per click).
+                ApplyZoomDelta(-scroll * mouseWheelSensitivity);
             }
 #endif
         }

@@ -272,20 +272,53 @@ namespace QuickChecks.Track
             go.transform.localScale = Vector3.one;
 
             var col = go.AddComponent<BoxCollider2D>();
-            col.size = new Vector2(0.5f, trackWidth);
+            col.size = new Vector2(0.8f, trackWidth);  // Thicker (0.8 vs 0.5) for visibility
             col.isTrigger = true;
 
             try { go.tag = "FinishLine"; }
             catch (System.Exception) { /* tag not defined */ }
 
+            // Visual: bright cyan-green, more opaque than before (was 0.4 alpha — easy to miss)
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.color = finishLineColor;
+            sr.color = new Color(0.247f, 0.878f, 0.760f, 0.9f);  // Bright cyan-green, 90% alpha
             sr.sprite = CreateSquareSprite();
             sr.drawMode = SpriteDrawMode.Sliced;
-            sr.size = new Vector2(0.5f, trackWidth);
+            sr.size = new Vector2(0.8f, trackWidth);
             sr.sortingOrder = finishLineSortingOrder;
 
+            // Add "START / FINISH" text label next to the line for clarity
+            CreateFinishLineLabel(go, center, tangent);
+
             return go;
+        }
+
+        private void CreateFinishLineLabel(GameObject parent, Vector2 center, Vector2 tangent)
+        {
+            var labelGo = new GameObject("FinishLineLabel");
+            labelGo.transform.SetParent(parent.transform, false);
+
+            // Position the label just past the finish line in the direction of travel
+            Vector2 labelOffset = tangent.normalized * 3f;
+            labelGo.transform.position = new Vector3(center.x + labelOffset.x, center.y + labelOffset.y, -0.5f);
+
+            // Rotate label to face along the tangent direction
+            float angle = Mathf.Atan2(tangent.y, tangent.x) * Mathf.Rad2Deg;
+            labelGo.transform.rotation = Quaternion.Euler(0, 0, angle);
+
+            // Try TextMeshPro (3D world-space text), fall back gracefully
+            try
+            {
+                var text = labelGo.AddComponent<TMPro.TextMeshPro>();
+                text.text = "START / FINISH";
+                text.fontSize = 4;
+                text.alignment = TMPro.TextAlignmentOptions.Center;
+                text.color = new Color(0.247f, 0.878f, 0.760f, 1f);  // bright cyan
+                text.sortingOrder = 10;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[SplineTrackBuilder] Failed to create finish line label: " + ex.Message);
+            }
         }
 
         private void BuildPowerUpPickups(IReadOnlyList<Vector2> points, float halfWidth, bool closedLoop, TrackDefinition trackDefinition)

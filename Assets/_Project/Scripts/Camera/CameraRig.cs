@@ -60,17 +60,28 @@ namespace QuickChecks.Camera
 
         /// <summary>
         /// Called by PinchZoomInput when user pinches. Player override takes precedence.
+        /// zoomDelta is already a scaled value (delta distance × sensitivity) from PinchZoomInput.
+        /// We just clamp the resulting target zoom — no additional scaling here.
         /// </summary>
         public void ApplyPinchZoom(float zoomDelta)
         {
             if (inputSettings == null) return;
+
+            // zoomDelta is positive when fingers move apart (zoom out, increase ortho size).
+            // zoomDelta is negative when fingers move together (zoom in, decrease ortho size).
             _targetZoom = Mathf.Clamp(
-                _targetZoom - zoomDelta * inputSettings.pinchSensitivity * 50f,
+                _targetZoom + zoomDelta,
                 inputSettings.minCameraZoom,
                 inputSettings.maxCameraZoom
             );
-            // Player override lasts 2 seconds.
+
+            // Player pinch takes precedence over auto-zoom for 2 seconds.
             _hintOverrideExpireTime = Time.time + 2f;
+
+            // Snap current zoom partially toward target (prevents "stuck" feeling if pinch ends abruptly).
+            // Without this, _currentZoom lerps slowly toward _targetZoom while the player has
+            // already released the pinch, making it feel like zoom is "stuck".
+            _currentZoom = Mathf.Lerp(_currentZoom, _targetZoom, 0.5f);
         }
 
         /// <summary>

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using QuickChecks.Input;
+using Newtonsoft.Json;
 
 namespace QuickChecks.Ghost
 {
@@ -44,25 +46,24 @@ namespace QuickChecks.Ghost
         {
             _raceStartMs = startMs;
 
-            if (_bestGhost == null || ghostKartPrefab == null)
+            if (_bestGhost == null)
             {
                 Debug.Log("[SoloGhost] No best run yet — racing without ghost.");
                 return;
             }
 
-            // Spawn ghost kart at the same position as the player (offset slightly).
-            if (_ghostKartInstance != null) Destroy(_ghostKartInstance);
-            _ghostKartInstance = Instantiate(ghostKartPrefab, playerSpawn + ghostSpawnOffset, Quaternion.identity);
-            _ghostKartInstance.name = "GhostKart";
-
-            // Dim the ghost kart's color so it doesn't confuse with player.
-            var renderer = _ghostKartInstance.GetComponent<SpriteRenderer>();
-            if (renderer != null)
+            if (_bestGhost.swipeEvents == null || _bestGhost.swipeEvents.Count == 0)
             {
-                var c = renderer.color;
-                c.a = 0.5f;
-                renderer.color = c;
+                Debug.LogWarning("[SoloGhost] Best ghost has 0 swipe events — not spawning ghost. " +
+                                 "Saved data may be corrupt (JsonUtility can't serialize List<struct>).");
+                return;
             }
+
+            // Create ghost kart at runtime (no prefab needed).
+            // Same structure as the player kart in PrototypeBootstrapper.
+            if (_ghostKartInstance != null) Destroy(_ghostKartInstance);
+            _ghostKartInstance = CreateGhostKartGameObject(playerSpawn + ghostSpawnOffset);
+            _ghostKartInstance.name = "GhostKart";
 
             // Add GhostPlayer component if not already present.
             _ghostPlayer = _ghostKartInstance.GetComponent<GhostPlayer>();
@@ -83,7 +84,67 @@ namespace QuickChecks.Ghost
             }
 
             _ghostPlayer.StartPlayback(_bestGhost, startMs);
-            Debug.Log($"[SoloGhost] Replaying best run: {_bestGhost.swipeCount} swipes, {_bestGhost.finishTimeMs / 1000f:F2}s");
+            Debug.Log($"[SoloGhost] Replaying best run: {_bestGhost.swipeCount} swipes, " +
+                      $"{_bestGhost.finishTimeMs / 1000f:F2}s, {_bestGhost.swipeEvents.Count} events.");
+        }
+
+        private GameObject CreateGhostKartGameObject(Vector3 position)
+        {
+            var go = new GameObject("GhostKart");
+            go.transform.position = position;
+            go.transform.localScale = Vector3.one;
+
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.color = new Color(0.482f, 0.541f, 0.541f, 0.5f);  // muted gray-blue, 50% alpha
+            sr.sprite = CreateGhostSprite();
+            sr.drawMode = SpriteDrawMode.Sliced;
+            sr.size = new Vector2(1.5f, 1.5f);
+            sr.sortingOrder = 8;
+
+            var col = go.AddComponent<BoxCollider2D>();
+            col.size = new Vector2(1.5f, 1.5f);
+            col.isTrigger = true;  // Ghost doesn't collide with walls
+
+            var rb = go.AddComponent<Rigidbody2D>();
+            rb.gravityScale = 0;
+            rb.bodyType = RigidbodyType2D.Kinematic;  // Ghost drives itself, no physics needed
+            rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+
+            var kart = go.AddComponent<Racing.KartController>();
+            // Ghost KartStats: same as player but slightly different friction for visibility
+            var stats = ScriptableObject.CreateInstance<Racing.KartStats>();
+            stats.kartId = "kart_ghost";
+            stats.displayName = "Ghost";
+            stats.impulseMultiplier = 1.1f;
+            stats.frictionPerSecond = 0.22f;
+            stats.stopThreshold = 8f;
+            stats.maxSpeed = 250f;
+
+            // Wire stats via reflection
+            var type = kart.GetType();
+            var statsField = type.GetField("stats",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            statsField?.SetValue(kart, stats);
+
+            // Disable player input on the ghost kart (no SwipeDetector — ghost is driven by GhostPlayer)
+            return go;
+        }
+
+        private Sprite _cachedGhostSprite;
+        private Sprite CreateGhostSprite()
+        {
+            if (_cachedGhostSprite == null)
+            {
+                const int size = 64;
+                var texture = new Texture2D(size, size);
+                var pixels = texture.GetPixels();
+                for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
+                texture.SetPixels(pixels);
+                texture.Apply();
+                texture.filterMode = FilterMode.Point;
+                _cachedGhostSprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+            }
+            return _cachedGhostSprite;
         }
 
         public void OnRaceFinish(int swipes, long finishMs)
@@ -127,14 +188,17 @@ namespace QuickChecks.Ghost
             {
                 try
                 {
-                    _bestGhost = JsonUtility.FromJson<GhostData>(json);
-                    // JsonUtility doesn't deserialize List<SwipeEventEntry> from raw struct JSON.
-                    // For prototype, store swipeEvents count + replay from a sub-string.
-                    // If swipeEvents count is 0, the save is corrupt — wipe it.
+                    // Use Newtonsoft.Json (handles List<struct> properly, unlike JsonUtility).
+                    _bestGhost = JsonConvert.DeserializeObject<GhostData>(json);
                     if (_bestGhost != null && (_bestGhost.swipeEvents == null || _bestGhost.swipeEvents.Count == 0))
                     {
                         Debug.LogWarning("[SoloGhost] Loaded ghost had no swipe events — discarding.");
                         _bestGhost = null;
+                    }
+                    else if (_bestGhost != null)
+                    {
+                        Debug.Log($"[SoloGhost] Loaded best run: {_bestGhost.swipeCount} swipes, " +
+                                  $"{_bestGhost.swipeEvents.Count} events, {_bestGhost.finishTimeMs / 1000f:F2}s.");
                     }
                 }
                 catch (Exception ex)
@@ -148,7 +212,7 @@ namespace QuickChecks.Ghost
         private void SaveBestGhost()
         {
             if (_bestGhost == null) return;
-            string json = JsonUtility.ToJson(_bestGhost);
+            string json = JsonConvert.SerializeObject(_bestGhost);
             PlayerPrefs.SetString(GetPrefsKey(), json);
             PlayerPrefs.Save();
         }
