@@ -103,6 +103,14 @@ namespace QuickChecks.Ghost
             SetField(_ghostPlayer, "playerSwipeEvent", playerSwipeEvent);
             SetField(_ghostPlayer, "ghostSwipeEvent", ghostSwipeEvent);
 
+            // Wire the ghost kart into the camera follow controller so the camera
+            // follows the ghost when it's moving.
+            var cameraFollow = FindObjectOfType<QuickChecks.Camera.CameraFollowController>();
+            if (cameraFollow != null)
+            {
+                cameraFollow.SetGhostKart(ghostKart);
+            }
+
             _ghostPlayer.StartPlayback(_bestGhost, startMs);
             Debug.Log($"[SoloGhost] Replaying best run: {_bestGhost.swipeCount} swipes, " +
                       $"{_bestGhost.finishTimeMs / 1000f:F2}s, {_bestGhost.swipeEvents.Count} events. " +
@@ -145,13 +153,11 @@ namespace QuickChecks.Ghost
 
             var col = go.AddComponent<BoxCollider2D>();
             col.size = new Vector2(1.5f, 1.5f);
-            col.isTrigger = true;  // Ghost doesn't collide with walls (passes through)
+            col.isTrigger = false;  // Ghost DOES collide with walls — follows same path as recorded
 
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0;
-            // DYNAMIC (not Kinematic) so _rb.velocity = currentVelocity actually moves the kart.
-            // Kinematic bodies ignore velocity — they only move via MovePosition().
-            // Since KartController.FixedUpdate sets _rb.velocity, we need Dynamic.
+            // DYNAMIC so _rb.velocity = currentVelocity actually moves the kart.
             rb.bodyType = RigidbodyType2D.Dynamic;
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
             rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;

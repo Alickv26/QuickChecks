@@ -74,6 +74,7 @@ namespace QuickChecks.Prototype
         private SwipeFeedback _swipeFeedback;
         private SwipeAudio _swipeAudio;
         private SoloGhostPlayer _soloGhost;
+        private QuickChecks.Camera.CameraFollowController _cameraFollowController;
 
         // Race state
         private long _raceStartMs;
@@ -168,6 +169,10 @@ namespace QuickChecks.Prototype
 
             // Pinch-to-zoom + mouse-wheel zoom input handler (Week 3-4: camera polish).
             camGo.AddComponent<QuickChecks.Input.PinchZoomInput>();
+
+            // Camera follow controller — switches between player + ghost based on who's moving.
+            _cameraFollowController = camGo.AddComponent<QuickChecks.Camera.CameraFollowController>();
+            SetPrivateField(_cameraFollowController, "cameraRig", _cameraRig);
 
             // ----- Spline-based track (Week 2: real Bezier track, replaces rectangular arena) -----
             // Build an oval test track using 4 cubic Bezier segments (16 control points).
@@ -279,6 +284,11 @@ namespace QuickChecks.Prototype
 
             // Camera follows the kart.
             SetPrivateField(_cameraRig, "target", kartGo.transform);
+            // Also wire the camera follow controller with the player kart.
+            if (_cameraFollowController != null)
+            {
+                _cameraFollowController.SetPlayerKart(_kart);
+            }
 
             // Verify kart wiring worked (helps diagnose "swipe registers but kart doesn't move").
             var kartStatsField = _kart.GetType().GetField("stats",
