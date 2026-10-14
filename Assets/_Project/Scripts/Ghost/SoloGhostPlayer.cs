@@ -85,13 +85,34 @@ namespace QuickChecks.Ghost
 
             // Wire ghost player's playerSwipeEvent (input — listens to player's swipes for
             // synchronized follow-along mode). This is what makes the ghost swipe 1:1 after the player.
-            SetPrivateField(_ghostPlayer, "playerSwipeEvent", playerSwipeEvent);
-            SetPrivateField(_ghostPlayer, "ghostSwipeEvent", ghostSwipeEvent);
+            SetField(_ghostPlayer, "playerSwipeEvent", playerSwipeEvent);
+            SetField(_ghostPlayer, "ghostSwipeEvent", ghostSwipeEvent);
 
             _ghostPlayer.StartPlayback(_bestGhost, startMs);
             Debug.Log($"[SoloGhost] Replaying best run: {_bestGhost.swipeCount} swipes, " +
                       $"{_bestGhost.finishTimeMs / 1000f:F2}s, {_bestGhost.swipeEvents.Count} events. " +
                       "Ghost will swipe 0.3s after each of your swipes (synchronized mode).");
+        }
+
+        /// <summary>
+        /// Reflection helper to set private [SerializeField] fields.
+        /// Used because the GhostPlayer's swipeEvent fields are private with [SerializeField]
+        /// for cleanliness — we wire them at runtime via reflection instead of making them public.
+        /// </summary>
+        private static void SetField(object obj, string fieldName, object value)
+        {
+            if (obj == null || string.IsNullOrEmpty(fieldName)) return;
+            var type = obj.GetType();
+            var field = type.GetField(fieldName,
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            if (field != null)
+            {
+                field.SetValue(obj, value);
+            }
+            else
+            {
+                Debug.LogWarning($"[SoloGhostPlayer] Field '{fieldName}' not found on {type.Name}.");
+            }
         }
 
         private GameObject CreateGhostKartGameObject(Vector3 position)
