@@ -145,12 +145,17 @@ namespace QuickChecks.Ghost
 
             var col = go.AddComponent<BoxCollider2D>();
             col.size = new Vector2(1.5f, 1.5f);
-            col.isTrigger = true;  // Ghost doesn't collide with walls
+            col.isTrigger = true;  // Ghost doesn't collide with walls (passes through)
 
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0;
-            rb.bodyType = RigidbodyType2D.Kinematic;  // Ghost drives itself, no physics needed
+            // DYNAMIC (not Kinematic) so _rb.velocity = currentVelocity actually moves the kart.
+            // Kinematic bodies ignore velocity — they only move via MovePosition().
+            // Since KartController.FixedUpdate sets _rb.velocity, we need Dynamic.
+            rb.bodyType = RigidbodyType2D.Dynamic;
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
 
             var kart = go.AddComponent<Racing.KartController>();
             // Ghost KartStats: same as player but slightly different friction for visibility

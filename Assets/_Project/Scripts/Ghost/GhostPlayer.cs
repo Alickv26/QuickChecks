@@ -5,25 +5,21 @@ using QuickChecks.Core;
 namespace QuickChecks.Ghost
 {
     /// <summary>
-    /// Replays a recorded ghost. Supports two playback modes:
+    /// Replays a recorded ghost. In SYNCHRONIZED mode (default), the ghost does
+    /// its next recorded swipe immediately when the player swipes — creating a
+    /// turn-taking feel where both karts move together.
     ///
-    /// 1. SYNCHRONIZED (default for prototype): Ghost does its next recorded swipe
-    ///    immediately after the player swipes. This creates a "follow-along" feel
-    ///    where the ghost mirrors the player's swipe count.
-    ///
-    /// 2. REAL_TIME: Ghost plays swipes at their original timestamps (independent
-    ///    of player). Used for online multiplayer where each player races in
-    ///    parallel and you want to see the opponent's actual timing.
-    ///
-    /// Subscribes to the player's swipeEvent (in SYNCHRONIZED mode) to detect
-    /// when the player swipes, then advances the ghost by one swipe.
+    /// The ghost mirrors the player's previous best run, swipe for swipe.
+    /// When the player swipes, the ghost immediately swipes in the direction
+    /// it recorded during its best lap. This makes it feel like racing against
+    /// yourself — the ghost follows the exact line you took on your best run.
     /// </summary>
     public class GhostPlayer : MonoBehaviour
     {
         public enum PlaybackMode
         {
-            Synchronized,  // Ghost swipes after player swipes (follow-along)
-            RealTime       // Ghost swipes at recorded timestamps
+            Synchronized,  // Ghost swipes immediately when player swipes (turn-taking)
+            RealTime       // Ghost swipes at recorded timestamps (parallel race)
         }
 
         [SerializeField] private GameEventSO<SwipeData> ghostSwipeEvent;  // event to raise for ghost kart
@@ -31,20 +27,15 @@ namespace QuickChecks.Ghost
         [SerializeField] private Transform ghostKart;
 
         [Header("Playback")]
-        [Tooltip("Synchronized = ghost swipes after player swipes. " +
-                 "RealTime = ghost swipes at original timestamps.")]
+        [Tooltip("Synchronized = ghost swipes immediately when player swipes (turn-taking feel). " +
+                 "RealTime = ghost swipes at original timestamps (parallel race).")]
         [SerializeField] private PlaybackMode mode = PlaybackMode.Synchronized;
-
-        [Tooltip("Delay (seconds) between player's swipe and ghost's response swipe. " +
-                 "0 = immediate (ghost swipes same frame), 0.3 = small lag for visual clarity. " +
-                 "Default 0 = immediate sync, ghost swipes right after player.")]
-        [SerializeField] private float syncDelaySec = 0f;
 
         private GhostData _data;
         private int _nextEventIndex = 0;
         private long _playbackStartUnixMs;
         private bool _isPlaying = false;
-        private float _pendingSwipeTimer = -1f;  // > 0 means a delayed ghost swipe is pending
+        private bool _pendingSwipe = false;  // simple flag instead of timer
 
         public bool IsPlaying => _isPlaying;
         public int EventsReplayed => _nextEventIndex;
@@ -56,20 +47,24 @@ namespace QuickChecks.Ghost
             _nextEventIndex = 0;
             _playbackStartUnixMs = startUnixMs;
             _isPlaying = true;
-            _pendingSwipeTimer = -1f;
+            _pendingSwipe = false;
 
-            if (mode == PlaybackMode.Synchronized && playerSwipeEvent != null)
+            if (mode == PlaybackMode.Synchronized)
             {
-                playerSwipeEvent.Register(OnPlayerSwipe);
-                Debug.Log($"[GhostPlayer] Synchronized playback started. Will replay {TotalEvents} events after player swipes.");
+                if (playerSwipeEvent != null)
+                {
+                    playerSwipeEvent.Register(OnPlayerSwipe);
+                    Debug.Log($"[GhostPlayer] Synchronized playback started. Will replay {TotalEvents} events. " +
+                              "Ghost will swipe immediately when player swipes.");
+                }
+                else
+                {
+                    Debug.LogWarning("[GhostPlayer] Synchronized mode but no playerSwipeEvent assigned — ghost won't move.");
+                }
             }
             else if (mode == PlaybackMode.RealTime)
             {
                 Debug.Log($"[GhostPlayer] Real-time playback started. Will replay {TotalEvents} events at recorded timestamps.");
-            }
-            else
-            {
-                Debug.LogWarning("[GhostPlayer] Synchronized mode but no playerSwipeEvent assigned — ghost won't move.");
             }
         }
 
@@ -87,24 +82,21 @@ namespace QuickChecks.Ghost
             if (!_isPlaying || _data == null) return;
             if (_nextEventIndex >= _data.swipeEvents.Count) return;
 
-            // Schedule the ghost's next swipe after the sync delay.
-            // This creates a "follow-along" feel — player swipes, then ghost swipes.
-            _pendingSwipeTimer = syncDelaySec;
+            // Set the pending flag — Update() will emit the ghost swipe on the next frame.
+            // Using a flag instead of a timer avoids the bug where syncDelaySec=0
+            // caused the timer check (> 0f) to never fire.
+            _pendingSwipe = true;
         }
 
         private void Update()
         {
             if (!_isPlaying || _data == null) return;
 
-            // Handle pending synchronized swipe
-            if (_pendingSwipeTimer > 0f)
+            // Handle pending synchronized swipe — emit on next frame after player swiped
+            if (_pendingSwipe)
             {
-                _pendingSwipeTimer -= Time.deltaTime;
-                if (_pendingSwipeTimer <= 0f)
-                {
-                    EmitNextSwipe();
-                    _pendingSwipeTimer = -1f;
-                }
+                EmitNextSwipe();
+                _pendingSwipe = false;
             }
 
             // Real-time mode: emit any events whose timestamp has passed
