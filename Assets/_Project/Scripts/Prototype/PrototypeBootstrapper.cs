@@ -371,6 +371,110 @@ namespace QuickChecks.Prototype
             else if (statusTextComponent is Text legacy)
                 SetPrivateField(_hud, "statusTextLegacy", legacy);
 
+            // ----- Lap notification text (centered, big, temporary) -----
+            var lapNotifGo = new GameObject("LapNotification");
+            lapNotifGo.transform.SetParent(canvasGo.transform, false);
+            TMP_Text lapNotifTMP = null;
+            Text lapNotifLegacy = null;
+            try
+            {
+                lapNotifTMP = lapNotifGo.AddComponent<TextMeshProUGUI>();
+                lapNotifTMP.fontSize = 64;
+                lapNotifTMP.alignment = TextAlignmentOptions.Center;
+                lapNotifTMP.color = new Color(0.247f, 0.878f, 0.760f, 1f);  // bright cyan
+                lapNotifTMP.text = "";
+            }
+            catch
+            {
+                lapNotifLegacy = lapNotifGo.AddComponent<Text>();
+                lapNotifLegacy.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                lapNotifLegacy.fontSize = 48;
+                lapNotifLegacy.alignment = TextAnchor.MiddleCenter;
+                lapNotifLegacy.color = new Color(0.247f, 0.878f, 0.760f, 1f);
+                lapNotifLegacy.text = "";
+            }
+            var lapNotifRect = lapNotifGo.GetComponent<RectTransform>();
+            lapNotifRect.anchorMin = new Vector2(0.5f, 0.5f);
+            lapNotifRect.anchorMax = new Vector2(0.5f, 0.5f);
+            lapNotifRect.pivot = new Vector2(0.5f, 0.5f);
+            lapNotifRect.anchoredPosition = new Vector2(0, 200);
+            lapNotifRect.sizeDelta = new Vector2(800, 200);
+            if (lapNotifTMP != null) SetPrivateField(_hud, "lapNotificationTMP", lapNotifTMP);
+            else if (lapNotifLegacy != null) SetPrivateField(_hud, "lapNotificationLegacy", lapNotifLegacy);
+
+            // ----- Power-up indicator (top-right) -----
+            var powerUpGo = new GameObject("PowerUpText");
+            powerUpGo.transform.SetParent(canvasGo.transform, false);
+            TMP_Text powerUpTMP = null;
+            Text powerUpLegacy = null;
+            try
+            {
+                powerUpTMP = powerUpGo.AddComponent<TextMeshProUGUI>();
+                powerUpTMP.fontSize = 32;
+                powerUpTMP.alignment = TextAlignmentOptions.TopRight;
+                powerUpTMP.color = new Color(1f, 0.82f, 0.4f, 1f);  // yellow
+                powerUpTMP.text = "";
+            }
+            catch
+            {
+                powerUpLegacy = powerUpGo.AddComponent<Text>();
+                powerUpLegacy.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                powerUpLegacy.fontSize = 24;
+                powerUpLegacy.alignment = TextAnchor.UpperRight;
+                powerUpLegacy.color = new Color(1f, 0.82f, 0.4f, 1f);
+                powerUpLegacy.text = "";
+            }
+            var powerUpRect = powerUpGo.GetComponent<RectTransform>();
+            powerUpRect.anchorMin = new Vector2(1, 1);
+            powerUpRect.anchorMax = new Vector2(1, 1);
+            powerUpRect.pivot = new Vector2(1, 1);
+            powerUpRect.anchoredPosition = new Vector2(-40, -40);
+            powerUpRect.sizeDelta = new Vector2(500, 300);
+            if (powerUpTMP != null) SetPrivateField(_hud, "powerUpTextTMP", powerUpTMP);
+            else if (powerUpLegacy != null) SetPrivateField(_hud, "powerUpTextLegacy", powerUpLegacy);
+
+            // ----- Reset button (bottom-right, mobile-friendly) -----
+            var resetBtnGo = new GameObject("ResetButton");
+            resetBtnGo.transform.SetParent(canvasGo.transform, false);
+            var resetBtn = resetBtnGo.AddComponent<Button>();
+            var resetBtnImg = resetBtnGo.AddComponent<Image>();
+            resetBtnImg.color = new Color(0.247f, 0.878f, 0.760f, 0.8f);  // cyan
+            var resetBtnRect = resetBtnGo.GetComponent<RectTransform>();
+            resetBtnRect.anchorMin = new Vector2(1, 0);
+            resetBtnRect.anchorMax = new Vector2(1, 0);
+            resetBtnRect.pivot = new Vector2(1, 0);
+            resetBtnRect.anchoredPosition = new Vector2(-40, 40);
+            resetBtnRect.sizeDelta = new Vector2(200, 80);
+
+            var resetLabelGo = new GameObject("Label");
+            resetLabelGo.transform.SetParent(resetBtnGo.transform, false);
+            TMP_Text resetLabelTMP = null;
+            try
+            {
+                resetLabelTMP = resetLabelGo.AddComponent<TextMeshProUGUI>();
+                resetLabelTMP.text = "RESET";
+                resetLabelTMP.fontSize = 36;
+                resetLabelTMP.alignment = TextAlignmentOptions.Center;
+                resetLabelTMP.color = new Color(0.055f, 0.078f, 0.078f);  // dark
+            }
+            catch
+            {
+                var resetLabelLegacy = resetLabelGo.AddComponent<Text>();
+                resetLabelLegacy.text = "RESET";
+                resetLabelLegacy.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                resetLabelLegacy.fontSize = 28;
+                resetLabelLegacy.alignment = TextAnchor.MiddleCenter;
+                resetLabelLegacy.color = new Color(0.055f, 0.078f, 0.078f);
+            }
+            var resetLabelRect = resetLabelGo.GetComponent<RectTransform>();
+            resetLabelRect.anchorMin = Vector2.zero;
+            resetLabelRect.anchorMax = Vector2.one;
+            resetLabelRect.pivot = new Vector2(0.5f, 0.5f);
+            resetLabelRect.offsetMin = Vector2.zero;
+            resetLabelRect.offsetMax = Vector2.zero;
+
+            SetPrivateField(_hud, "resetButton", resetBtn);
+
             // ----- Hint text -----
             var hintGo = new GameObject("HintText");
             hintGo.transform.SetParent(canvasGo.transform, false);
@@ -551,6 +655,14 @@ namespace QuickChecks.Prototype
             if (swipeEvent != null) swipeEvent.Unregister(OnSwipe);
             Vector3 spawn = _runtimeKartSpawn != Vector3.zero ? _runtimeKartSpawn : kartSpawn;
             if (_kart != null) _kart.RespawnAt(spawn);
+
+            // Reset zoom to default (mobile users can't press R, and pinch-zoom state
+            // needs to reset on race restart so the camera doesn't stay zoomed in).
+            if (_cameraRig != null && _runtimeTrackDef != null)
+            {
+                _cameraRig.ResetToDefault(_runtimeTrackDef.defaultZoom);
+            }
+
             StartRace();
         }
 

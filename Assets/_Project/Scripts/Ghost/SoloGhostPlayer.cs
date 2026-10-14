@@ -153,6 +153,11 @@ namespace QuickChecks.Ghost
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             statsField?.SetValue(kart, stats);
 
+            // Add a KartTrail to the ghost so the player can see the ghost's path.
+            // The trail is colored differently (faded gray-blue) to distinguish from player's trail.
+            var trail = go.AddComponent<Racing.KartTrail>();
+            SetField(trail, "kart", kart);
+
             // Disable player input on the ghost kart (no SwipeDetector — ghost is driven by GhostPlayer)
             return go;
         }

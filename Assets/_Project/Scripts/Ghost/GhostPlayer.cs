@@ -36,8 +36,9 @@ namespace QuickChecks.Ghost
         [SerializeField] private PlaybackMode mode = PlaybackMode.Synchronized;
 
         [Tooltip("Delay (seconds) between player's swipe and ghost's response swipe. " +
-                 "0 = immediate, 0.3 = small lag for visual clarity.")]
-        [SerializeField] private float syncDelaySec = 0.3f;
+                 "0 = immediate (ghost swipes same frame), 0.3 = small lag for visual clarity. " +
+                 "Default 0 = immediate sync, ghost swipes right after player.")]
+        [SerializeField] private float syncDelaySec = 0f;
 
         private GhostData _data;
         private int _nextEventIndex = 0;
