@@ -42,6 +42,7 @@ namespace QuickChecks.Ghost
         public int CurrentSampleIndex => _currentSampleIndex;
         public int TotalSamples => _data?.positionSamples?.Count ?? 0;
         public Vector3 CurrentPosition => ghostKart != null ? ghostKart.position : Vector3.zero;
+        public Transform GhostKartTransform => ghostKart;
 
         // For camera follow: track if ghost is "moving" (position changed this frame)
         private Vector3 _lastPosition;

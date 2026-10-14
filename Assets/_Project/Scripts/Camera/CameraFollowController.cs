@@ -32,10 +32,10 @@ namespace QuickChecks.Camera
             if (ghostMoving)
             {
                 _ghostStopTimer = ghostFollowLingerSec;
-                if (!_followingGhost && ghostPlayer.ghostKart != null)
+                if (!_followingGhost && ghostPlayer.GhostKartTransform != null)
                 {
                     _followingGhost = true;
-                    cameraRig.target = ghostPlayer.ghostKart;
+                    cameraRig.target = ghostPlayer.GhostKartTransform;
                     Debug.Log("[CameraFollow] Switched to follow GHOST (moving).");
                 }
             }
