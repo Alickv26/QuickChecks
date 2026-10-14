@@ -262,7 +262,8 @@ namespace QuickChecks.Prototype
 
             // Wire up [SerializeField] private fields via reflection.
             SetPrivateField(_kart, "stats", kartStats);
-            SetPrivateField(_kart, "swipeEvent", swipeEvent);
+            // Use the public SetSwipeEvent method to immediately subscribe (avoids race condition)
+            _kart.SetSwipeEvent(swipeEvent);
 
             SetPrivateField(_swipeDetector, "settings", inputSettings);
             SetPrivateField(_swipeDetector, "swipeEvent", swipeEvent);
@@ -668,6 +669,15 @@ namespace QuickChecks.Prototype
             if (swipeEvent != null) swipeEvent.Unregister(OnSwipe);
             Vector3 spawn = _runtimeKartSpawn != Vector3.zero ? _runtimeKartSpawn : kartSpawn;
             if (_kart != null) _kart.RespawnAt(spawn);
+
+            // Reset checkpoint visuals (color back to original hue-cycled state).
+            if (_runtimeTrackData?.checkpoints != null)
+            {
+                foreach (var cp in _runtimeTrackData.checkpoints)
+                {
+                    cp?.ResetVisual();
+                }
+            }
 
             // Reset zoom to default (mobile users can't press R, and pinch-zoom state
             // needs to reset on race restart so the camera doesn't stay zoomed in).

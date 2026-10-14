@@ -5,9 +5,17 @@ namespace QuickChecks.Input
 {
     /// <summary>
     /// Handles multi-touch pinch-to-zoom gestures and forwards them to CameraRig.
-    /// Also supports mouse-wheel zoom for editor testing (no pinch on desktop).
+    /// Also supports mouse-wheel zoom for editor testing.
     ///
-    /// Attach to the same GameObject as CameraRig (or any object that can reach the rig).
+    /// Implementation notes:
+    /// - Uses a state machine: Idle -> Pinching -> Idle
+    /// - On pinch START: record initial distance, no zoom change
+    /// - On pinch MOVE: compute delta from PREVIOUS frame's distance, apply zoom
+    /// - On pinch END: stop (don't keep zooming)
+    /// - Deadzone: ignore tiny pinch movements (< 5px) to prevent jitter
+    /// - Clamps final zoom to InputSettings.minCameraZoom / maxCameraZoom
+    ///
+    /// Attach to the same GameObject as CameraRig.
     /// </summary>
     [RequireComponent(typeof(CameraRig))]
     public class PinchZoomInput : MonoBehaviour
@@ -16,23 +24,18 @@ namespace QuickChecks.Input
         [Tooltip("Minimum distance (px) between two touches to be considered a pinch.")]
         [SerializeField] private float minPinchDistance = 50f;
 
-        [Tooltip("Multiplier applied to pinch delta. Higher = more zoom per pinch gesture.")]
-        [SerializeField] private float pinchSensitivity = 0.015f;
+        [Tooltip("Pinch movements smaller than this (px) are ignored to prevent jitter.")]
+        [SerializeField] private float pinchDeadzone = 5f;
+
+        [Tooltip("Multiplier applied to pinch delta. Higher = more zoom per pinch gesture. " +
+                 "Default 0.02 = ~2 ortho size units per 100px of pinch movement.")]
+        [SerializeField] private float pinchSensitivity = 0.02f;
 
         [Header("Mouse Wheel (Editor Fallback)")]
         [Tooltip("Multiplier applied to mouse scroll wheel delta.")]
-        [SerializeField] private float mouseWheelSensitivity = 1.5f;
-
-        [Header("Smoothing")]
-        [Tooltip("If true, zoom changes are smoothed over multiple frames.")]
-        [SerializeField] private bool smoothZoom = true;
-
-        [Tooltip("Smoothing factor: 0 = no follow, 1 = instant snap, 0.15 = smooth.")]
-        [Range(0f, 1f)] [SerializeField] private float smoothingFactor = 0.15f;
+        [SerializeField] private float mouseWheelSensitivity = 2f;
 
         private CameraRig _cameraRig;
-
-        // Pinch state
         private float _lastPinchDistance;
         private bool _isPinching = false;
 
@@ -49,41 +52,54 @@ namespace QuickChecks.Input
 
         private void HandleTouchPinch()
         {
-            if (UnityEngine.Input.touchCount == 2)
+            // Need exactly 2 touches for a pinch
+            if (UnityEngine.Input.touchCount != 2)
             {
-                Touch t0 = UnityEngine.Input.GetTouch(0);
-                Touch t1 = UnityEngine.Input.GetTouch(1);
-
-                // Both touches must be in Moved or Stationary phase
-                if (t0.phase == TouchPhase.Moved || t0.phase == TouchPhase.Stationary ||
-                    t1.phase == TouchPhase.Moved || t1.phase == TouchPhase.Stationary)
-                {
-                    float currentDistance = Vector2.Distance(t0.position, t1.position);
-
-                    if (!_isPinching)
-                    {
-                        // Pinch started — record initial distance, no zoom change this frame.
-                        _lastPinchDistance = currentDistance;
-                        _isPinching = true;
-                    }
-                    else if (currentDistance > minPinchDistance)
-                    {
-                        // Compute pinch delta in screen pixels.
-                        // Positive delta = fingers moving apart = zoom OUT (ortho size increases).
-                        // Negative delta = fingers moving together = zoom IN (ortho size decreases).
-                        float deltaPixels = currentDistance - _lastPinchDistance;
-
-                        // Scale to a sensible ortho-size delta:
-                        // - On a 1080p screen, full pinch out (200px change) = ~2 ortho size units change.
-                        // - pinchSensitivity default 0.015 gives ~3 ortho size units per 200px pinch.
-                        float zoomDelta = deltaPixels * pinchSensitivity;
-
-                        ApplyZoomDelta(zoomDelta);
-                        _lastPinchDistance = currentDistance;
-                    }
-                }
+                _isPinching = false;
+                return;
             }
-            else
+
+            Touch t0 = UnityEngine.Input.GetTouch(0);
+            Touch t1 = UnityEngine.Input.GetTouch(1);
+
+            float currentDistance = Vector2.Distance(t0.position, t1.position);
+
+            // Not enough distance yet — wait
+            if (currentDistance < minPinchDistance)
+            {
+                _isPinching = false;
+                return;
+            }
+
+            // If either touch just began, this is the START of a pinch
+            if (t0.phase == TouchPhase.Began || t1.phase == TouchPhase.Began || !_isPinching)
+            {
+                _lastPinchDistance = currentDistance;
+                _isPinching = true;
+                return;  // No zoom change on the first frame
+            }
+
+            // Pinch in progress — compute delta from last frame
+            if (t0.phase == TouchPhase.Moved || t1.phase == TouchPhase.Moved)
+            {
+                float delta = currentDistance - _lastPinchDistance;
+
+                // Apply deadzone — ignore tiny movements
+                if (Mathf.Abs(delta) < pinchDeadzone)
+                {
+                    return;  // Don't update _lastPinchDistance, wait for bigger movement
+                }
+
+                // delta > 0: fingers moving apart (zoom OUT, increase ortho size)
+                // delta < 0: fingers moving together (zoom IN, decrease ortho size)
+                float zoomDelta = delta * pinchSensitivity;
+                ApplyZoomDelta(zoomDelta);
+
+                // Update last distance for next frame's delta computation
+                _lastPinchDistance = currentDistance;
+            }
+            else if (t0.phase == TouchPhase.Ended || t1.phase == TouchPhase.Ended ||
+                     t0.phase == TouchPhase.Canceled || t1.phase == TouchPhase.Canceled)
             {
                 _isPinching = false;
             }
@@ -95,8 +111,7 @@ namespace QuickChecks.Input
             float scroll = UnityEngine.Input.GetAxis("Mouse ScrollWheel");
             if (Mathf.Abs(scroll) > 0.001f)
             {
-                // Positive scroll = wheel up = zoom IN (ortho size decreases).
-                // Multiply by a larger factor since scroll delta is small (~0.1 per click).
+                // Positive scroll = wheel up = zoom IN (ortho size decreases)
                 ApplyZoomDelta(-scroll * mouseWheelSensitivity);
             }
 #endif
@@ -104,7 +119,11 @@ namespace QuickChecks.Input
 
         private void ApplyZoomDelta(float zoomDelta)
         {
-            if (_cameraRig == null) return;
+            if (_cameraRig == null)
+            {
+                _cameraRig = GetComponent<CameraRig>();
+                if (_cameraRig == null) return;
+            }
             _cameraRig.ApplyPinchZoom(zoomDelta);
         }
     }

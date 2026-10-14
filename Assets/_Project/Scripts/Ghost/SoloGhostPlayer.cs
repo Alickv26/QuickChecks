@@ -87,11 +87,15 @@ namespace QuickChecks.Ghost
             var ghostKart = _ghostKartInstance.GetComponent<Racing.KartController>();
             if (ghostKart != null)
             {
-                // Use reflection to set the private swipeEvent field on the ghost kart.
-                var type = ghostKart.GetType();
-                var field = type.GetField("swipeEvent",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                field?.SetValue(ghostKart, ghostSwipeEvent);
+                // Use the public SetSwipeEvent method instead of reflection.
+                // This immediately subscribes to the ghostSwipeEvent, avoiding the
+                // OnEnable/Start race condition where the field is set after OnEnable fires.
+                ghostKart.SetSwipeEvent(ghostSwipeEvent);
+                Debug.Log($"[SoloGhost] Ghost kart's swipeEvent set via SetSwipeEvent() — should now receive ghost swipes.");
+            }
+            else
+            {
+                Debug.LogError("[SoloGhost] GhostKart has no KartController component — can't wire swipe event!");
             }
 
             // Wire ghost player's playerSwipeEvent (input — listens to player's swipes for

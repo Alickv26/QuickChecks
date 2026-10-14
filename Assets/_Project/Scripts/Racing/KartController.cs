@@ -17,6 +17,26 @@ namespace QuickChecks.Racing
         [SerializeField] private KartStats stats;
         [SerializeField] private Core.GameEventSO<SwipeData> swipeEvent;
 
+        /// <summary>
+        /// Public setter for swipeEvent — used by SoloGhostPlayer to assign the ghost
+        /// kart's swipe event at runtime. Triggers immediate subscription if the
+        /// component is already enabled (skips the OnEnable race condition).
+        /// </summary>
+        public void SetSwipeEvent(Core.GameEventSO<SwipeData> newSwipeEvent)
+        {
+            // Unsubscribe from old event if we were subscribed
+            if (swipeEvent != null && _isSubscribed)
+            {
+                swipeEvent.Unregister(OnSwipe);
+                _isSubscribed = false;
+            }
+
+            swipeEvent = newSwipeEvent;
+
+            // Immediately try to subscribe to the new event
+            TrySubscribe(silent: true);
+        }
+
         [Header("State (debug)")]
         [SerializeField] private Vector2 currentVelocity;
         [SerializeField] private bool isStopped = true;
