@@ -240,7 +240,11 @@ namespace QuickChecks.Track
                 go.transform.localScale = Vector3.one;
 
                 var col = go.AddComponent<BoxCollider2D>();
-                col.size = new Vector2(0.5f, trackWidth);  // Thin in tangent direction, full track width perpendicular
+                // CRITICAL: collider must be thick enough in the tangent direction that the kart
+                // can't tunnel through it between physics steps.
+                // At max speed 250 u/s and 50Hz physics (0.02s per step), the kart moves 5 units/step.
+                // So the collider must be AT LEAST 5 units thick. Using 6 for safety margin.
+                col.size = new Vector2(6f, trackWidth);  // 6 units thick in travel direction, full track width perpendicular
                 col.isTrigger = true;
 
                 var checkpoint = go.AddComponent<Checkpoint>();
@@ -256,7 +260,7 @@ namespace QuickChecks.Track
                 sr.color = Color.HSVToRGB(hue, 0.6f, 1f);  // Visible but not glaring
                 sr.sprite = CreateSquareSprite();
                 sr.drawMode = SpriteDrawMode.Sliced;
-                sr.size = new Vector2(0.5f, trackWidth);
+                sr.size = new Vector2(6f, trackWidth);  // Match collider size
                 sr.sortingOrder = 5;  // Above track surface
 
                 // Optional: add a TextMeshPro component to show index above the checkpoint.
@@ -282,7 +286,7 @@ namespace QuickChecks.Track
             go.transform.localScale = Vector3.one;
 
             var col = go.AddComponent<BoxCollider2D>();
-            col.size = new Vector2(0.8f, trackWidth);  // Thicker (0.8 vs 0.5) for visibility
+            col.size = new Vector2(6f, trackWidth);  // Thick enough to prevent tunneling at max speed
             col.isTrigger = true;
 
             try { go.tag = "FinishLine"; }
@@ -293,7 +297,7 @@ namespace QuickChecks.Track
             sr.color = new Color(0.247f, 0.878f, 0.760f, 0.9f);  // Bright cyan-green, 90% alpha
             sr.sprite = CreateSquareSprite();
             sr.drawMode = SpriteDrawMode.Sliced;
-            sr.size = new Vector2(0.8f, trackWidth);
+            sr.size = new Vector2(2f, trackWidth);  // Visual is thinner than collider for aesthetics
             sr.sortingOrder = finishLineSortingOrder;
 
             // Add "START / FINISH" text label next to the line for clarity
