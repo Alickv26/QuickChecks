@@ -329,6 +329,8 @@ namespace QuickChecks.Prototype
             // Use the actual track's ID (e.g., "track_01_first_lap") so ghost save/load keys match.
             string ghostTrackId = _runtimeTrackDef != null ? _runtimeTrackDef.trackId : "prototype_track";
             SetPrivateField(_soloGhost, "trackId", ghostTrackId);
+            // Wire playerKart reference for turn-taking detection (ghost advances when player stops).
+            SetPrivateField(_soloGhost, "playerKart", _kart);
 
             // ----- HUD canvas -----
             var canvasGo = new GameObject("HUD");

@@ -3,75 +3,61 @@ using UnityEngine;
 namespace QuickChecks.Ghost
 {
     /// <summary>
-    /// Replays a recorded ghost by setting its transform.position directly from
-    /// recorded position samples. This guarantees the ghost follows the EXACT
-    /// same path as the original run — same turns, same wall stops, same everything.
+    /// Replays a recorded ghost by setting its transform.position from recorded
+    /// position samples. Guarantees the ghost follows the EXACT same path.
     ///
-    /// The ghost is a Kinematic body with isTrigger collider, so it has NO physics
-    /// interactions — it doesn't collide with walls or other karts. It just follows
-    /// the recorded path like a hologram.
+    /// TURN-TAKING SEQUENCE:
+    /// 1. Player swipes → player moves → camera follows player
+    /// 2. Player stops → camera pans to ghost
+    /// 3. Ghost advances ~1 second of recorded path (smooth interpolation) → camera follows ghost
+    /// 4. Ghost stops → camera pans back to player
+    /// 5. Repeat
     ///
-    /// In SYNCHRONIZED mode (default), the ghost advances its position samples
-    /// when the player swipes — creating the turn-taking feel.
+    /// The ghost advance is triggered by the PLAYER STOPPING, not by the player
+    /// swiping. This ensures the camera and movements are in sync.
     /// </summary>
     public class GhostPlayer : MonoBehaviour
     {
-        public enum PlaybackMode
-        {
-            Synchronized,  // Ghost advances when player swipes (turn-taking)
-            RealTime        // Ghost plays at original timestamps (parallel race)
-        }
-
         [SerializeField] private Transform ghostKart;
-        [SerializeField] private PlaybackMode mode = PlaybackMode.Synchronized;
 
-        // Number of position samples to advance per player swipe.
-        // At 20Hz recording (50ms/sample), 1 second = 20 samples.
-        // We advance enough samples to cover ~1 second of ghost movement per player swipe.
-        [SerializeField] private int samplesPerSwipe = 20;
+        [Tooltip("Number of position samples to advance per turn (~1 second at 20Hz recording = 20 samples).")]
+        [SerializeField] private int samplesPerTurn = 20;
+
+        [Tooltip("Time (seconds) over which to interpolate the ghost movement. " +
+                 "1.0 = smooth movement over 1 second. 0 = instant jump.")]
+        [SerializeField] private float turnDurationSec = 1.0f;
 
         private GhostData _data;
         private int _currentSampleIndex = 0;
+        private int _targetSampleIndex = 0;
         private bool _isPlaying = false;
-        private long _playbackStartUnixMs;
-
-        // For RealTime mode
-        private bool _advancePending = false;
+        private bool _isAdvancing = false;
+        private float _advanceTimer = 0f;
+        private Vector3 _advanceStartPos;
+        private Vector3 _advanceEndPos;
+        private Quaternion _advanceStartRot;
+        private Quaternion _advanceEndRot;
 
         public bool IsPlaying => _isPlaying;
+        public bool IsAdvancing => _isAdvancing;
         public int CurrentSampleIndex => _currentSampleIndex;
         public int TotalSamples => _data?.positionSamples?.Count ?? 0;
-        public Vector3 CurrentPosition => ghostKart != null ? ghostKart.position : Vector3.zero;
         public Transform GhostKartTransform => ghostKart;
-
-        // For camera follow: track if ghost is "moving" (position changed this frame)
-        private Vector3 _lastPosition;
-        public bool IsMoving { get; private set; }
+        public bool IsMoving => _isAdvancing;
 
         public void StartPlayback(GhostData data, long startUnixMs)
         {
             _data = data;
             _currentSampleIndex = 0;
-            _playbackStartUnixMs = startUnixMs;
+            _targetSampleIndex = 0;
             _isPlaying = true;
-            _advancePending = false;
-            _lastPosition = ghostKart != null ? ghostKart.position : Vector3.zero;
-            IsMoving = false;
+            _isAdvancing = false;
 
             if (_data != null && _data.positionSamples != null && _data.positionSamples.Count > 0)
             {
-                // Set initial position
                 ApplySample(0);
-
-                if (mode == PlaybackMode.Synchronized)
-                {
-                    Debug.Log($"[GhostPlayer] Synchronized playback started. {TotalSamples} position samples. " +
-                              $"Ghost advances {samplesPerSwipe} samples per player swipe.");
-                }
-                else
-                {
-                    Debug.Log($"[GhostPlayer] Real-time playback started. {TotalSamples} position samples.");
-                }
+                Debug.Log($"[GhostPlayer] Playback started. {TotalSamples} position samples. " +
+                          $"Will advance {samplesPerTurn} samples per turn over {turnDurationSec}s.");
             }
             else
             {
@@ -83,78 +69,64 @@ namespace QuickChecks.Ghost
         public void StopPlayback()
         {
             _isPlaying = false;
+            _isAdvancing = false;
         }
 
         /// <summary>
-        /// Called when the player swipes (in Synchronized mode).
-        /// Advances the ghost by samplesPerSwipe position samples.
+        /// Called when the player has STOPPED moving (not when they swipe).
+        /// Advances the ghost by ~1 second of recorded movement, smoothly interpolated.
         /// </summary>
-        public void OnPlayerSwipe()
+        public void AdvanceGhost()
         {
             if (!_isPlaying || _data == null) return;
-            _advancePending = true;
+            if (_isAdvancing) return;  // Already advancing, ignore
+            if (_currentSampleIndex >= TotalSamples - 1) return;  // Reached end
+
+            _targetSampleIndex = Mathf.Min(_currentSampleIndex + samplesPerTurn, TotalSamples - 1);
+            _advanceTimer = 0f;
+            _isAdvancing = true;
+
+            _advanceStartPos = ghostKart.position;
+            _advanceStartRot = ghostKart.rotation;
+            _advanceEndPos = GetSamplePosition(_targetSampleIndex);
+            _advanceEndRot = GetSampleRotation(_targetSampleIndex);
+
+            Debug.Log($"[GhostPlayer] Advancing from sample {_currentSampleIndex} to {_targetSampleIndex}/{TotalSamples} " +
+                      $"over {turnDurationSec}s. Pos: {_advanceStartPos} -> {_advanceEndPos}");
         }
 
         private void Update()
         {
             if (!_isPlaying || _data == null) return;
 
-            if (mode == PlaybackMode.Synchronized)
+            if (_isAdvancing)
             {
-                // Advance ghost position when player swipes
-                if (_advancePending)
-                {
-                    AdvanceGhost(samplesPerSwipe);
-                    _advancePending = false;
-                }
-            }
-            else if (mode == PlaybackMode.RealTime)
-            {
-                // Advance based on elapsed time
-                long elapsed = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _playbackStartUnixMs;
+                _advanceTimer += Time.deltaTime;
+                float t = Mathf.Clamp01(_advanceTimer / turnDurationSec);
 
-                // Find the sample closest to the current elapsed time
-                while (_currentSampleIndex < TotalSamples &&
-                       _data.positionSamples[_currentSampleIndex].t <= elapsed)
+                // Smooth interpolation (ease-in-out)
+                float smoothT = t * t * (3f - 2f * t);  // smoothstep
+
+                // Interpolate position + rotation
+                if (ghostKart != null)
                 {
-                    _currentSampleIndex++;
+                    ghostKart.position = Vector3.Lerp(_advanceStartPos, _advanceEndPos, smoothT);
+                    ghostKart.rotation = Quaternion.Slerp(_advanceStartRot, _advanceEndRot, smoothT);
                 }
 
-                if (_currentSampleIndex > 0 && _currentSampleIndex < TotalSamples)
+                if (t >= 1f)
                 {
-                    ApplySample(_currentSampleIndex);
+                    _isAdvancing = false;
+                    _currentSampleIndex = _targetSampleIndex;
+                    Debug.Log($"[GhostPlayer] Reached sample {_currentSampleIndex}/{TotalSamples}.");
+
+                    if (_currentSampleIndex >= TotalSamples - 1)
+                    {
+                        _isPlaying = false;
+                        Debug.Log("[GhostPlayer] Playback complete — ghost reached end of recording.");
+                    }
                 }
             }
-
-            // Check if ghost is moving (position changed)
-            if (ghostKart != null)
-            {
-                float delta = Vector3.Distance(ghostKart.position, _lastPosition);
-                IsMoving = delta > 0.1f;
-                _lastPosition = ghostKart.position;
-            }
-
-            // Check if playback is complete
-            if (_currentSampleIndex >= TotalSamples)
-            {
-                _isPlaying = false;
-                IsMoving = false;
-                Debug.Log($"[GhostPlayer] Playback complete. Reached sample {_currentSampleIndex}/{TotalSamples}.");
-            }
-        }
-
-        private void AdvanceGhost(int sampleCount)
-        {
-            int targetIndex = Mathf.Min(_currentSampleIndex + sampleCount, TotalSamples - 1);
-
-            // Smoothly interpolate to the target sample over a few frames
-            // For now, just jump to it — the 50ms intervals are small enough to look smooth
-            _currentSampleIndex = targetIndex;
-            ApplySample(_currentSampleIndex);
-
-            Debug.Log($"[GhostPlayer] Advanced to sample {_currentSampleIndex}/{TotalSamples} " +
-                      $"-> pos ({_data.positionSamples[_currentSampleIndex].x:F1}, " +
-                      $"{_data.positionSamples[_currentSampleIndex].y:F1})");
         }
 
         private void ApplySample(int index)
@@ -165,6 +137,20 @@ namespace QuickChecks.Ghost
             var sample = _data.positionSamples[index];
             ghostKart.position = new Vector3(sample.x, sample.y, 0);
             ghostKart.rotation = Quaternion.Euler(0, 0, sample.rot);
+        }
+
+        private Vector3 GetSamplePosition(int index)
+        {
+            if (_data == null || index < 0 || index >= TotalSamples) return Vector3.zero;
+            var s = _data.positionSamples[index];
+            return new Vector3(s.x, s.y, 0);
+        }
+
+        private Quaternion GetSampleRotation(int index)
+        {
+            if (_data == null || index < 0 || index >= TotalSamples) return Quaternion.identity;
+            var s = _data.positionSamples[index];
+            return Quaternion.Euler(0, 0, s.rot);
         }
 
         private void OnDisable()

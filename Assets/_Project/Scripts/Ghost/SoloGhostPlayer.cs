@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 using QuickChecks.Input;
 using Newtonsoft.Json;
@@ -9,24 +8,36 @@ namespace QuickChecks.Ghost
     /// <summary>
     /// Records the player's best run and replays it as a ghost.
     ///
-    /// POSITION-BASED REPLAY: The ghost follows the EXACT recorded path by
-    /// setting transform.position from recorded position samples. No physics
-    /// needed — the ghost is a kinematic trigger that just follows the path.
+    /// TURN-TAKING LOGIC:
+    /// 1. Player swipes → player moves
+    /// 2. Player stops (velocity < threshold) → trigger ghost advance
+    /// 3. Ghost advances ~1 second of recorded path (smooth interpolation)
+    /// 4. Ghost stops → wait for next player swipe
     ///
-    /// SYNCHRONIZED MODE: When the player swipes, the ghost advances its
-    /// position by ~1 second of recorded movement. This creates the
-    /// turn-taking feel: player swipes → ghost moves → player swipes → ghost moves.
+    /// The ghost is triggered by the PLAYER STOPPING, not by swiping.
+    /// This ensures the camera can follow the player during their move,
+    /// then switch to the ghost for its move, in proper turn-taking sequence.
     /// </summary>
     public class SoloGhostPlayer : MonoBehaviour
     {
         [SerializeField] private GhostRecorder playerRecorder;
-        [SerializeField] private Core.GameEventSO<SwipeData> playerSwipeEvent;
         [SerializeField] private string trackId = "prototype_track";
         [SerializeField] private Vector3 ghostSpawnOffset = new Vector3(0, 0, 0);
+        [SerializeField] private Racing.KartController playerKart;
+
+        [Tooltip("Velocity below which the kart is considered 'stopped'.")]
+        [SerializeField] private float stoppedThreshold = 10f;
+
+        [Tooltip("Delay (seconds) after player stops before ghost starts moving. " +
+                 "Gives camera time to pan from player to ghost.")]
+        [SerializeField] private float ghostStartDelay = 0.5f;
 
         private GhostData _bestGhost;
         private GhostPlayer _ghostPlayer;
         private GameObject _ghostKartInstance;
+        private bool _playerWasMoving = false;
+        private float _ghostStartTimer = 0f;
+        private bool _waitingToStartGhost = false;
 
         public GhostData BestGhost => _bestGhost;
         public bool HasBestRun => _bestGhost != null;
@@ -47,23 +58,18 @@ namespace QuickChecks.Ghost
 
             if (_bestGhost.positionSamples == null || _bestGhost.positionSamples.Count == 0)
             {
-                Debug.LogWarning("[SoloGhost] Best ghost has 0 position samples — not spawning ghost. " +
-                                 "Old ghost data may not have position samples (pre-position-replay era).");
+                Debug.LogWarning("[SoloGhost] Best ghost has 0 position samples — not spawning ghost.");
                 return;
             }
 
             // Destroy old ghost if exists
             if (_ghostKartInstance != null) Destroy(_ghostKartInstance);
 
-            // Create ghost kart — simple visual only, NO physics, NO KartController
+            // Create ghost kart — simple visual only, NO physics
             Vector3 ghostSpawnPos = playerSpawn + ghostSpawnOffset;
             _ghostKartInstance = CreateGhostKartGameObject(ghostSpawnPos);
             _ghostKartInstance.name = "GhostKart";
             _ghostKartInstance.SetActive(true);
-
-            Debug.Log($"[SoloGhost] Ghost kart spawned at {ghostSpawnPos}. " +
-                      $"Position samples: {_bestGhost.positionSamples.Count}, " +
-                      $"Swipes: {_bestGhost.swipeCount}.");
 
             // Add GhostPlayer component
             _ghostPlayer = _ghostKartInstance.AddComponent<GhostPlayer>();
@@ -76,34 +82,56 @@ namespace QuickChecks.Ghost
                 cameraFollow.SetGhostPlayer(_ghostPlayer);
             }
 
-            // Subscribe to player swipe events for synchronized playback
-            if (playerSwipeEvent != null)
-            {
-                playerSwipeEvent.Register(OnPlayerSwipe);
-                Debug.Log("[SoloGhost] Subscribed to playerSwipeEvent — ghost will advance on each player swipe.");
-            }
-
             _ghostPlayer.StartPlayback(_bestGhost, startMs);
-            Debug.Log($"[SoloGhost] Ghost playback started. {_bestGhost.positionSamples.Count} position samples. " +
-                      "Ghost will advance ~1 second of movement per player swipe.");
+
+            // Reset turn-taking state
+            _playerWasMoving = false;
+            _waitingToStartGhost = false;
+            _ghostStartTimer = 0f;
+
+            Debug.Log($"[SoloGhost] Ghost spawned with {_bestGhost.positionSamples.Count} position samples. " +
+                      "Ghost will advance when you STOP moving (turn-taking mode).");
         }
 
-        private void OnPlayerSwipe(SwipeData swipe)
+        private void Update()
         {
-            if (_ghostPlayer != null && _ghostPlayer.IsPlaying)
+            if (_ghostPlayer == null || playerKart == null) return;
+            if (!_ghostPlayer.IsPlaying) return;
+
+            // Detect player movement state transitions
+            bool playerMoving = playerKart.Velocity.magnitude > stoppedThreshold;
+
+            // Player was moving but now stopped → trigger ghost advance after delay
+            if (_playerWasMoving && !playerMoving && !_waitingToStartGhost && !_ghostPlayer.IsAdvancing)
             {
-                _ghostPlayer.OnPlayerSwipe();
+                _waitingToStartGhost = true;
+                _ghostStartTimer = ghostStartDelay;
+                Debug.Log($"[SoloGhost] Player stopped. Ghost will start in {ghostStartDelay}s (camera pan time).");
+            }
+
+            // Player started moving again → cancel pending ghost advance
+            if (playerMoving && _waitingToStartGhost)
+            {
+                _waitingToStartGhost = false;
+                Debug.Log("[SoloGhost] Player moved again — cancelled pending ghost advance.");
+            }
+
+            _playerWasMoving = playerMoving;
+
+            // Countdown to ghost start
+            if (_waitingToStartGhost)
+            {
+                _ghostStartTimer -= Time.deltaTime;
+                if (_ghostStartTimer <= 0f)
+                {
+                    _waitingToStartGhost = false;
+                    _ghostPlayer.AdvanceGhost();
+                }
             }
         }
 
         public void OnRaceFinish(int swipes, long finishMs)
         {
-            // Unsubscribe from player swipe events
-            if (playerSwipeEvent != null)
-            {
-                playerSwipeEvent.Unregister(OnPlayerSwipe);
-            }
-
             // Stop ghost playback
             if (_ghostPlayer != null)
             {
@@ -153,10 +181,9 @@ namespace QuickChecks.Ghost
                     if (_bestGhost != null)
                     {
                         int posCount = _bestGhost.positionSamples?.Count ?? 0;
-                        int swipeCount = _bestGhost.swipeEvents?.Count ?? 0;
-                        if (posCount == 0 && swipeCount == 0)
+                        if (posCount == 0)
                         {
-                            Debug.LogWarning("[SoloGhost] Loaded ghost has 0 samples — discarding.");
+                            Debug.LogWarning("[SoloGhost] Loaded ghost has 0 position samples — discarding.");
                             _bestGhost = null;
                         }
                         else
@@ -188,7 +215,6 @@ namespace QuickChecks.Ghost
             go.transform.position = position;
             go.transform.localScale = Vector3.one;
 
-            // Visual sprite — muted gray-blue, semi-transparent
             var sr = go.AddComponent<SpriteRenderer>();
             sr.color = new Color(0.482f, 0.541f, 0.541f, 0.6f);
             sr.sprite = CreateGhostSprite();
@@ -196,19 +222,14 @@ namespace QuickChecks.Ghost
             sr.size = new Vector2(1.5f, 1.5f);
             sr.sortingOrder = 8;
 
-            // Trigger collider — ghost doesn't physically interact with anything
             var col = go.AddComponent<BoxCollider2D>();
             col.size = new Vector2(1.5f, 1.5f);
             col.isTrigger = true;
 
-            // Kinematic Rigidbody2D — no gravity, no physics forces, just follows transform.position
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0;
             rb.bodyType = RigidbodyType2D.Kinematic;
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
-
-            // Add KartTrail for visual path
-            // (No KartController needed — ghost just follows recorded positions)
 
             return go;
         }
@@ -239,10 +260,6 @@ namespace QuickChecks.Ghost
             if (field != null)
             {
                 field.SetValue(obj, value);
-            }
-            else
-            {
-                Debug.LogWarning($"[SoloGhostPlayer] Field '{fieldName}' not found on {type.Name}.");
             }
         }
     }
