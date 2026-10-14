@@ -114,7 +114,26 @@ namespace QuickChecks.Ghost
             _ghostPlayer.StartPlayback(_bestGhost, startMs);
             Debug.Log($"[SoloGhost] Replaying best run: {_bestGhost.swipeCount} swipes, " +
                       $"{_bestGhost.finishTimeMs / 1000f:F2}s, {_bestGhost.swipeEvents.Count} events. " +
-                      "Ghost will swipe 0.3s after each of your swipes (synchronized mode).");
+                      "Ghost will swipe immediately after each of your swipes (synchronized mode).");
+
+            // CRITICAL: Ignore collision between ghost kart and ALL other karts (player, CPU, etc.)
+            // Ghost collides with walls (so it follows the recorded path) but passes through
+            // other karts (so they don't block each other during turn-taking).
+            var ghostCollider = _ghostKartInstance.GetComponent<Collider2D>();
+            if (ghostCollider != null)
+            {
+                var allKarts = FindObjectsOfType<Racing.KartController>();
+                foreach (var kart in allKarts)
+                {
+                    if (kart.gameObject == _ghostKartInstance) continue;  // skip self
+                    var otherCollider = kart.GetComponent<Collider2D>();
+                    if (otherCollider != null)
+                    {
+                        UnityEngine.Physics2D.IgnoreCollision(ghostCollider, otherCollider, true);
+                        Debug.Log($"[SoloGhost] Ignoring collision between GhostKart and '{kart.gameObject.name}'.");
+                    }
+                }
+            }
         }
 
         /// <summary>
