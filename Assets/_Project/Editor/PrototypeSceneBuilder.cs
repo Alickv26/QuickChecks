@@ -98,14 +98,25 @@ namespace QuickChecks.Editor
                 "OK"
             );
 
-            // Auto-open the scene for the user.
-            EditorSceneManager.OpenScene(SCENE_PATH);
-            Selection.activeGameObject = go;
+            // Save the scene (this persists the in-memory scene to disk).
+            EditorSceneManager.SaveScene(scene, SCENE_PATH);
 
-            // Frame the scene view on the new GameObject (Frame is an instance method).
-            if (SceneView.lastActiveSceneView != null)
+            // Re-open the saved scene from disk so the in-memory objects match what's on disk.
+            // (Without this, the 'go' reference is stale after OpenScene destroys the in-memory scene.)
+            EditorSceneManager.OpenScene(SCENE_PATH);
+
+            // Find the PrototypeBootstrapper in the freshly-loaded scene.
+            var bootstrapperInScene = Object.FindObjectOfType<PrototypeBootstrapper>();
+            if (bootstrapperInScene != null)
             {
-                SceneView.lastActiveSceneView.Frame(new Bounds(go.transform.position, Vector3.one * 30), false);
+                Selection.activeGameObject = bootstrapperInScene.gameObject;
+
+                // Frame the scene view on the bootstrapper's position.
+                if (SceneView.lastActiveSceneView != null)
+                {
+                    var bounds = new Bounds(bootstrapperInScene.transform.position, Vector3.one * 30);
+                    SceneView.lastActiveSceneView.Frame(bounds, false);
+                }
             }
         }
 

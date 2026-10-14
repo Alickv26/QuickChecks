@@ -92,6 +92,7 @@ namespace QuickChecks.Prototype
         public SoloGhostPlayer SoloGhost => _soloGhost;
 
         public event Action<int, long> OnRaceFinished;
+        public event Action<int, long, bool> OnGhostUpdated;  // (swipes, timeMs, isNewBest)
 
         private void Awake()
         {
@@ -180,7 +181,10 @@ namespace QuickChecks.Prototype
             Vector2 spawnPos = Track.BezierSpline.EvaluateSpline(trackDef.splinePoints, 0f, trackDef.isClosedLoop);
             // Offset slightly to the right of the finish line so we don't trigger it at spawn
             Vector2 spawnTangent = Track.BezierSpline.EvaluateSplineTangent(trackDef.splinePoints, 0f, trackDef.isClosedLoop);
-            Vector3 kartSpawnPos = spawnPos + spawnTangent * 2f; // 2 units past the finish line
+            // Spawn position: ON the start/finish line (t=0 of the spline).
+            // Previously spawned 2 units past the finish line — moved kart to start ON the line
+            // so the player can see where the race starts + ends.
+            Vector3 kartSpawnPos = spawnPos;
 
             _runtimeKartSpawn = kartSpawnPos;
             _runtimeTrackDef = trackDef;
@@ -632,19 +636,26 @@ namespace QuickChecks.Prototype
             _finished = true;
             long finishMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _raceStartMs;
 
+            // Track whether this is a new best BEFORE updating (so we can notify).
+            int previousBestSwipes = _soloGhost?.BestGhost?.swipeCount ?? int.MaxValue;
+            bool isNewBest = _swipeCount < previousBestSwipes ||
+                             (_swipeCount == previousBestSwipes && finishMs < (_soloGhost?.BestGhost?.finishTimeMs ?? long.MaxValue));
+
             // Solo ghost: compare + save if better.
             _soloGhost?.OnRaceFinish(_swipeCount, finishMs);
 
             swipeEvent.Unregister(OnSwipe);
             OnRaceFinished?.Invoke(_swipeCount, finishMs);
 
+            // Notify listeners (HUD) whether this was a new best.
+            OnGhostUpdated?.Invoke(_swipeCount, finishMs, isNewBest);
+
             int bestSwipes = _soloGhost?.BestGhost?.swipeCount ?? _swipeCount;
             long bestTime = _soloGhost?.BestGhost?.finishTimeMs ?? finishMs;
 
-            int delta = _swipeCount - bestSwipes;
-            string deltaStr = delta <= 0
-                ? $"<color=#3FE0C2>NEW BEST! (-{Math.Abs(delta)} swipes)</color>"
-                : $"+{delta} swipes vs best";
+            string deltaStr = isNewBest
+                ? $"NEW FASTEST LAP! ({_swipeCount} swipes, {finishMs / 1000f:F2}s)"
+                : $"+{_swipeCount - bestSwipes} swipes vs best ({bestSwipes})";
 
             Debug.Log($"[Prototype] Race finished! Swipes: {_swipeCount} (par {parSwipes}), " +
                       $"Time: {finishMs / 1000f:F2}s. {deltaStr}");

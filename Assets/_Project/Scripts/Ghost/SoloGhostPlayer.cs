@@ -27,7 +27,9 @@ namespace QuickChecks.Ghost
         [SerializeField] private Core.GameEventSO<SwipeData> ghostSwipeEvent; // separate event for ghost kart
         [SerializeField] private string trackId = "prototype_track";
         [SerializeField] private GameObject ghostKartPrefab;
-        [SerializeField] private Vector3 ghostSpawnOffset = new Vector3(0, 2, 0);
+        [Tooltip("Offset from player's spawn position where the ghost kart appears. " +
+                 "Default: 2 units to the right so the ghost is visible next to the player, not overlapping.")]
+        [SerializeField] private Vector3 ghostSpawnOffset = new Vector3(3, 0, 0);
 
         private GhostData _bestGhost;
         private GhostPlayer _ghostPlayer;
@@ -62,8 +64,15 @@ namespace QuickChecks.Ghost
             // Create ghost kart at runtime (no prefab needed).
             // Same structure as the player kart in PrototypeBootstrapper.
             if (_ghostKartInstance != null) Destroy(_ghostKartInstance);
-            _ghostKartInstance = CreateGhostKartGameObject(playerSpawn + ghostSpawnOffset);
+            Vector3 ghostSpawnPos = playerSpawn + ghostSpawnOffset;
+            _ghostKartInstance = CreateGhostKartGameObject(ghostSpawnPos);
             _ghostKartInstance.name = "GhostKart";
+            _ghostKartInstance.SetActive(true);  // Ensure it's active
+
+            Debug.Log($"[SoloGhost] Ghost kart spawned at {ghostSpawnPos} " +
+                      $"(player spawn: {playerSpawn}, offset: {ghostSpawnOffset}). " +
+                      $"Active: {_ghostKartInstance.activeInHierarchy}, " +
+                      $"SpriteRenderer enabled: {_ghostKartInstance.GetComponent<SpriteRenderer>()?.enabled}");
 
             // Add GhostPlayer component if not already present.
             _ghostPlayer = _ghostKartInstance.GetComponent<GhostPlayer>();

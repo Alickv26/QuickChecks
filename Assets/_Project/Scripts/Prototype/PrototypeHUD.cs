@@ -49,13 +49,21 @@ namespace QuickChecks.Prototype
 
         private void OnEnable()
         {
-            if (raceStarter != null) raceStarter.OnRaceFinished += HandleRaceFinished;
+            if (raceStarter != null)
+            {
+                raceStarter.OnRaceFinished += HandleRaceFinished;
+                raceStarter.OnGhostUpdated += HandleGhostUpdated;
+            }
             if (resetButton != null) resetButton.onClick.AddListener(OnResetClicked);
         }
 
         private void OnDisable()
         {
-            if (raceStarter != null) raceStarter.OnRaceFinished -= HandleRaceFinished;
+            if (raceStarter != null)
+            {
+                raceStarter.OnRaceFinished -= HandleRaceFinished;
+                raceStarter.OnGhostUpdated -= HandleGhostUpdated;
+            }
             if (resetButton != null) resetButton.onClick.RemoveListener(OnResetClicked);
         }
 
@@ -208,6 +216,16 @@ namespace QuickChecks.Prototype
             _finishSwipes = swipes;
             _finishMs = timeMs;
             _isFinished = true;
+        }
+
+        private void HandleGhostUpdated(int swipes, long timeMs, bool isNewBest)
+        {
+            if (isNewBest)
+            {
+                SetLapNotification($"NEW FASTEST LAP!\n{swipes} swipes in {timeMs / 1000f:F2}s");
+                _lapNotificationTimer = 4f;  // Show longer than lap notification (4s)
+                Debug.Log($"[HUD] NEW FASTEST LAP! {swipes} swipes, {timeMs / 1000f:F2}s. New ghost saved.");
+            }
         }
 
         private void OnResetClicked()
