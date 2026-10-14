@@ -102,7 +102,7 @@ namespace QuickChecks.Ghost
             bool playerMoving = playerKart.Velocity.magnitude > stoppedThreshold;
 
             // Player was moving but now stopped → trigger ghost advance after delay
-            if (_playerWasMoving && !playerMoving && !_waitingToStartGhost && !_ghostPlayer.IsAdvancing)
+            if (_playerWasMoving && !playerMoving && !_waitingToStartGhost && !_ghostPlayer.IsMoving)
             {
                 _waitingToStartGhost = true;
                 _ghostStartTimer = ghostStartDelay;
