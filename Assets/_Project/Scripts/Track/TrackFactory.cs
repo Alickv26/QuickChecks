@@ -163,75 +163,39 @@ namespace QuickChecks.Track
             def.isClosedLoop = true;
             def.isFree = true;
             def.trackIndex = 2;
-            def.trackWidth = 4f;  // Narrower — requires precision
+            def.trackWidth = 5f;  // Widened from 4 to 5 to prevent invisible wall issue
             def.lapCount = 1;
             def.defaultZoom = 14f;
             def.parSwipeCount = 14;
             def.maxSwipeCap = -1;  // 30 + 2*10 = 50
 
-            // 8-segment loop with chicanes (S-curves)
+            // 6-segment loop with gentle S-curves (widened to prevent boundary overlap)
             def.splinePoints = new Vector2[]
             {
-                // Segment 1: Start straight
+                // Segment 1: Start → top-right curve
                 new Vector2(-18, 0),
-                new Vector2(-15, 0),
-                new Vector2(-12, 2),
-                new Vector2(-10, 5),
-                // Segment 2: Chicane right
-                new Vector2(-8, 8),
-                new Vector2(-5, 6),
-                new Vector2(-3, 3),
-                // Segment 3: Chicane left
-                new Vector2(0, 5),
-                new Vector2(3, 8),
-                new Vector2(6, 6),
-                // Segment 4: Right turn
-                new Vector2(8, 3),
-                new Vector2(10, 0),
-                new Vector2(12, -3),
-                // Segment 5: Bottom straight
-                new Vector2(10, -6),
-                new Vector2(5, -8),
-                new Vector2(0, -9),
-                // Segment 6: Bottom left
-                new Vector2(-5, -10),
-                new Vector2(-10, -8),
-                new Vector2(-13, -5),
-                // Segment 7: Left turn up
-                new Vector2(-16, -3),
-                new Vector2(-18, 0),  // back to start (closed loop)
-                // Note: segment 7 only needs 2 points (p1, p2) since p3 wraps to points[0]
-                // But for 7 segments we need 21 points (3*7). Let me recount...
-                // Actually 7 segments = 21 points. We have 20 above. Let me fix.
-            };
-
-            // Fix: we need exactly 3*N points for N segments. Let me use 6 segments (18 points) instead.
-            def.splinePoints = new Vector2[]
-            {
-                // Segment 1: Start → first chicane
-                new Vector2(-18, 0),
-                new Vector2(-14, 1),
-                new Vector2(-10, 4),
-                new Vector2(-8, 7),
-                // Segment 2: Chicane right
-                new Vector2(-5, 9),
-                new Vector2(-2, 7),
-                new Vector2(0, 4),
-                // Segment 3: Chicane left + right turn
-                new Vector2(3, 7),
-                new Vector2(7, 8),
-                new Vector2(10, 5),
-                // Segment 4: Right side down
-                new Vector2(12, 2),
-                new Vector2(13, -2),
-                new Vector2(11, -6),
-                // Segment 5: Bottom
-                new Vector2(7, -9),
+                new Vector2(-16, 4),
+                new Vector2(-12, 8),
+                new Vector2(-6, 9),
+                // Segment 2: Top straight with gentle S
+                new Vector2(0, 8),
+                new Vector2(4, 10),
+                new Vector2(8, 8),
+                // Segment 3: Right side going down
+                new Vector2(12, 6),
+                new Vector2(14, 2),
+                new Vector2(13, -3),
+                // Segment 4: Bottom right
+                new Vector2(11, -7),
+                new Vector2(6, -9),
                 new Vector2(0, -10),
-                new Vector2(-7, -9),
-                // Segment 6: Left side up (back to start)
-                new Vector2(-13, -6),
-                new Vector2(-17, -3),
+                // Segment 5: Bottom straight
+                new Vector2(-6, -9),
+                new Vector2(-10, -7),
+                new Vector2(-13, -4),
+                // Segment 6: Left side going up (back to start)
+                new Vector2(-16, -2),
+                new Vector2(-18, 0),  // wrap to start
             };
 
             // 2 power-ups: Boost + Shield

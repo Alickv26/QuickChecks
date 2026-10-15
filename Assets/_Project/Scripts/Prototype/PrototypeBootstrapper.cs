@@ -715,8 +715,8 @@ namespace QuickChecks.Prototype
             // AUTO-RESET: After 4 seconds, automatically reset the race.
             // This is for the prototype — no need to press R or tap Reset button.
             // User can still tap Reset to skip the delay.
-            _autoResetTimer = 4f;
-            Debug.Log("[Prototype] Auto-reset in 4 seconds (tap RESET to skip).");
+            _autoResetTimer = 2f;
+            Debug.Log("[Prototype] Auto-reset in 2 seconds (tap RESET to skip).");
         }
 
         private float _autoResetTimer = -1f;

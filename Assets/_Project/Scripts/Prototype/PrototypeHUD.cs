@@ -53,12 +53,8 @@ namespace QuickChecks.Prototype
 
         private void OnEnable()
         {
-            if (raceStarter != null)
-            {
-                raceStarter.OnRaceFinished += HandleRaceFinished;
-                raceStarter.OnGhostUpdated += HandleGhostUpdated;
-            }
-            if (resetButton != null) resetButton.onClick.AddListener(OnResetClicked);
+            // Don't subscribe to events here — resetButton isn't wired yet (field set via reflection after AddComponent).
+            // Event subscriptions happen in Start() after all fields are wired.
         }
 
         private void OnDisable()
@@ -73,15 +69,26 @@ namespace QuickChecks.Prototype
 
         private void Start()
         {
+            // Subscribe to events (after all fields are wired by the bootstrapper via reflection)
+            if (raceStarter != null)
+            {
+                raceStarter.OnRaceFinished += HandleRaceFinished;
+                raceStarter.OnGhostUpdated += HandleGhostUpdated;
+            }
+            // Wire reset button click listener (resetButton field is now set)
+            if (resetButton != null)
+            {
+                resetButton.onClick.RemoveAllListeners();
+                resetButton.onClick.AddListener(OnResetClicked);
+                Debug.Log("[HUD] Reset button onClick listener wired.");
+            }
+
             // Find PowerUpSystem on the kart (wired by bootstrapper)
             if (kart != null)
             {
                 _powerUpSystem = kart.GetComponent<PowerUpSystem>();
-            }
 
-            // Find CheckpointTracker for lap events
-            if (kart != null)
-            {
+                // Find CheckpointTracker for lap events
                 var tracker = kart.GetComponent<CheckpointTracker>();
                 if (tracker != null)
                 {

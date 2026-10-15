@@ -34,7 +34,7 @@ namespace QuickChecks.Prototype
 
         [Header("Auto-transition")]
         [Tooltip("Seconds to wait on results screen before auto-returning to track select.")]
-        [SerializeField] private float resultsDisplayDuration = 5f;
+        [SerializeField] private float resultsDisplayDuration = 2f;
 
         private Track.TrackDefinition _trackDef;
         private Track.TrackRuntimeData _trackData;
@@ -170,7 +170,7 @@ namespace QuickChecks.Prototype
             _kart = kartGo.AddComponent<KartController>();
             _swipeDetector = kartGo.AddComponent<SwipeDetector>();
             _ghostRecorder = kartGo.AddComponent<GhostRecorder>();
-            kartGo.AddComponent<KartTrail>();
+            var trail = kartGo.AddComponent<KartTrail>();
             kartGo.AddComponent<SwipeFeedback>();
             kartGo.AddComponent<SwipeAudio>();
             kartGo.AddComponent<AudioSource>();
@@ -185,6 +185,7 @@ namespace QuickChecks.Prototype
             SetField(_ghostRecorder, "swipeEvent", swipeEvent);
             SetField(_ghostRecorder, "kartTransform", kartGo.transform);
             SetField(_ghostRecorder, "kartController", _kart);
+            SetField(trail, "kart", _kart);  // Wire trail so it follows the kart
             SetField(pus, "kart", _kart);
             SetField(_cameraRig, "target", kartGo.transform);
 
