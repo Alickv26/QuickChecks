@@ -137,6 +137,8 @@ namespace QuickChecks.Racing
             Vector2 worldDir = ScreenDirectionToWorld(swipe.direction);
 
             float impulse = swipe.magnitude * stats.impulseMultiplier;
+            // In gravel: reduce swipe impulse (each swipe moves the kart less)
+            if (_inGravel) impulse *= _gravelSwipeMult;
             // Cap impulse so resulting velocity doesn't exceed maxSpeed.
             impulse = Mathf.Min(impulse, stats.maxSpeed);
 
@@ -174,6 +176,8 @@ namespace QuickChecks.Racing
 
             // Apply friction (per-second rate, scaled by fixed deltaTime).
             float friction = Mathf.Clamp01(stats.frictionPerSecond * Time.fixedDeltaTime);
+            // In gravel: apply MUCH more friction (kart decelerates faster)
+            if (_inGravel) friction = Mathf.Clamp01(friction + (1f - _gravelFrictionMult) * Time.fixedDeltaTime * 5f);
             currentVelocity *= (1f - friction);
 
             // Stop if below threshold.
@@ -397,14 +401,17 @@ namespace QuickChecks.Racing
         {
             _trailWallPending = value;
         }
-        public bool ConsumeTrailWallPending()
+        // Gravel mode: high friction + reduced swipe impulse
+        private bool _inGravel = false;
+        private float _gravelFrictionMult = 1f;
+        private float _gravelSwipeMult = 1f;
+        public bool IsInGravel => _inGravel;
+
+        public void SetGravelMode(bool enabled, float frictionMult, float swipeMult)
         {
-            if (_trailWallPending)
-            {
-                _trailWallPending = false;
-                return true;
-            }
-            return false;
+            _inGravel = enabled;
+            _gravelFrictionMult = frictionMult;
+            _gravelSwipeMult = swipeMult;
         }
     }
 }

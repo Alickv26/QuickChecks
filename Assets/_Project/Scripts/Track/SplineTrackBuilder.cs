@@ -78,6 +78,9 @@ namespace QuickChecks.Track
             // Build power-up pickups (Week 5)
             BuildPowerUpPickups(points, halfWidth, closedLoop, trackDefinition);
 
+            // Build obstacles (walls, black holes, gravel spots)
+            BuildObstacles(points, halfWidth, closedLoop, trackDefinition);
+
             var data = new TrackRuntimeData
             {
                 checkpoints = checkpoints,
@@ -477,6 +480,115 @@ namespace QuickChecks.Track
             }
 
             Debug.Log($"[SplineTrackBuilder] Placed {placed} power-up pickups.");
+        }
+
+        private void BuildObstacles(IReadOnlyList<Vector2> points, float halfWidth, bool closedLoop, TrackDefinition trackDefinition)
+        {
+            if (trackDefinition.obstacleSpawns == null || trackDefinition.obstacleSpawns.Length == 0)
+            {
+                Debug.Log("[SplineTrackBuilder] No obstacles defined for this track.");
+                return;
+            }
+
+            var container = new GameObject("Obstacles");
+            container.transform.SetParent(transform, false);
+
+            int placed = 0;
+            foreach (var obs in trackDefinition.obstacleSpawns)
+            {
+                Vector2 center = BezierSpline.EvaluateSpline(points, obs.t, closedLoop);
+                Vector2 tangent = BezierSpline.EvaluateSplineTangent(points, obs.t, closedLoop);
+                Vector2 normal = new Vector2(-tangent.y, tangent.x);
+                Vector2 spawnPos = center + normal * obs.lateralOffset;
+
+                switch (obs.type)
+                {
+                    case TrackDefinition.ObstacleSpawn.ObstacleType.Wall:
+                        BuildObstacleWall(container.transform, spawnPos, obs.size, tangent);
+                        break;
+                    case TrackDefinition.ObstacleSpawn.ObstacleType.BlackHole:
+                        BuildBlackHole(container.transform, spawnPos, obs.size.x, obs.teleportDistance);
+                        break;
+                    case TrackDefinition.ObstacleSpawn.ObstacleType.Gravel:
+                        BuildGravelSpot(container.transform, spawnPos, obs.size, tangent);
+                        break;
+                }
+                placed++;
+            }
+
+            Debug.Log($"[SplineTrackBuilder] Placed {placed} obstacles.");
+        }
+
+        private void BuildObstacleWall(Transform parent, Vector2 pos, Vector2 size, Vector2 tangent)
+        {
+            var go = new GameObject($"ObstacleWall_{pos.x:F0}_{pos.y:F0}");
+            go.transform.SetParent(parent, false);
+            go.transform.position = pos;
+            go.transform.localScale = Vector3.one;
+
+            // Solid collider (not trigger) — kart stops dead on collision
+            var col = go.AddComponent<BoxCollider2D>();
+            col.size = size;
+            col.isTrigger = false;
+
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.color = new Color(0.8f, 0.3f, 0.3f, 0.7f);  // muted red
+            sr.sprite = CreateSquareSprite();
+            sr.drawMode = SpriteDrawMode.Sliced;
+            sr.size = size;
+            sr.sortingOrder = 4;
+
+            var wall = go.AddComponent<Obstacles.ObstacleWall>();
+            Debug.Log($"[SplineTrackBuilder] Obstacle wall at {pos} size {size}.");
+        }
+
+        private void BuildBlackHole(Transform parent, Vector2 pos, float radius, float teleportDistance)
+        {
+            var go = new GameObject($"BlackHole_{pos.x:F0}_{pos.y:F0}");
+            go.transform.SetParent(parent, false);
+            go.transform.position = pos;
+            go.transform.localScale = Vector3.one;
+
+            var col = go.AddComponent<CircleCollider2D>();
+            col.radius = radius;
+            col.isTrigger = true;
+
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.color = new Color(0.15f, 0f, 0.2f, 0.9f);  // dark purple-black
+            sr.sprite = CreateSquareSprite();
+            sr.drawMode = SpriteDrawMode.Sliced;
+            sr.size = new Vector2(radius * 2, radius * 2);
+            sr.sortingOrder = 7;
+
+            var bh = go.AddComponent<Obstacles.BlackHole>();
+            bh.teleportDistance = teleportDistance > 0 ? teleportDistance : 8f;
+            bh.visualRadius = radius;
+            Debug.Log($"[SplineTrackBuilder] Black hole at {pos} radius {radius} teleport {teleportDistance}.");
+        }
+
+        private void BuildGravelSpot(Transform parent, Vector2 pos, Vector2 size, Vector2 tangent)
+        {
+            float angle = Mathf.Atan2(tangent.y, tangent.x) * Mathf.Rad2Deg;
+
+            var go = new GameObject($"Gravel_{pos.x:F0}_{pos.y:F0}");
+            go.transform.SetParent(parent, false);
+            go.transform.position = pos;
+            go.transform.rotation = Quaternion.Euler(0, 0, angle);
+            go.transform.localScale = Vector3.one;
+
+            var col = go.AddComponent<BoxCollider2D>();
+            col.size = size;
+            col.isTrigger = true;
+
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.color = new Color(0.6f, 0.5f, 0.3f, 0.4f);  // tan, semi-transparent
+            sr.sprite = CreateSquareSprite();
+            sr.drawMode = SpriteDrawMode.Sliced;
+            sr.size = size;
+            sr.sortingOrder = 2;
+
+            var gravel = go.AddComponent<Obstacles.GravelSpot>();
+            Debug.Log($"[SplineTrackBuilder] Gravel spot at {pos} size {size}.");
         }
 
         private Sprite _cachedSquareSprite;

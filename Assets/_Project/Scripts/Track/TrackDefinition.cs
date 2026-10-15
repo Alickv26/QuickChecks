@@ -42,6 +42,10 @@ namespace QuickChecks.Track
                  "determines which power-up is granted.")]
         public PowerUpSpawn[] powerUpSpawns = new PowerUpSpawn[0];
 
+        [Header("Obstacles")]
+        [Tooltip("Obstacle spawn points. Walls, black holes, and gravel spots placed along the track.")]
+        public ObstacleSpawn[] obstacleSpawns = new ObstacleSpawn[0];
+
         /// <summary>
         /// A power-up spawn point on the track.
         /// </summary>
@@ -59,6 +63,33 @@ namespace QuickChecks.Track
 
             [Tooltip("If true, this pickup is one-time use (no respawn).")]
             public bool oneTimeUse;
+        }
+
+        /// <summary>
+        /// An obstacle placed on the track.
+        /// </summary>
+        [System.Serializable]
+        public struct ObstacleSpawn
+        {
+            public enum ObstacleType { Wall, BlackHole, Gravel }
+
+            [Tooltip("Type of obstacle: Wall (solid, stops kart), BlackHole (teleports kart back), Gravel (high friction trap).")]
+            public ObstacleType type;
+
+            [Tooltip("Position along the spline (0-1).")]
+            [Range(0f, 1f)] public float t;
+
+            [Tooltip("Lateral offset from centerline (positive = left, negative = right).")]
+            public float lateralOffset;
+
+            [Tooltip("Size of the obstacle in world units (width x height). " +
+                     "For walls: must be narrower than trackWidth so player can go around. " +
+                     "For black holes: radius of the trigger zone. " +
+                     "For gravel: size of the gravel patch.")]
+            public Vector2 size;
+
+            [Tooltip("For BlackHole: how far back to teleport the kart (world units along the reverse direction).")]
+            public float teleportDistance;
         }
 
         [Header("Camera")]

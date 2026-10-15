@@ -88,6 +88,19 @@ namespace QuickChecks.Track
             // No power-ups on track 1 (very forgiving, focus on learning swipe mechanic)
             def.powerUpSpawns = new TrackDefinition.PowerUpSpawn[0];
 
+            // 1 gravel spot on track 1 (introduces obstacle gently)
+            def.obstacleSpawns = new TrackDefinition.ObstacleSpawn[]
+            {
+                new TrackDefinition.ObstacleSpawn
+                {
+                    type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
+                    t = 0.5f,
+                    lateralOffset = 0f,
+                    size = new Vector2(3f, 4f),
+                    teleportDistance = 0f
+                }
+            };
+
             return def;
         }
 
@@ -146,6 +159,27 @@ namespace QuickChecks.Track
                     lateralOffset = 0f,
                     powerUp = CreateDoubleMovePowerUp(),
                     oneTimeUse = false
+                }
+            };
+
+            // 2 obstacles: 1 wall + 1 gravel
+            def.obstacleSpawns = new TrackDefinition.ObstacleSpawn[]
+            {
+                new TrackDefinition.ObstacleSpawn
+                {
+                    type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
+                    t = 0.3f,
+                    lateralOffset = 0f,
+                    size = new Vector2(2f, 3f),  // Narrower than trackWidth (5), player can go around
+                    teleportDistance = 0f
+                },
+                new TrackDefinition.ObstacleSpawn
+                {
+                    type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
+                    t = 0.7f,
+                    lateralOffset = 0f,
+                    size = new Vector2(3f, 3f),
+                    teleportDistance = 0f
                 }
             };
 
@@ -221,6 +255,35 @@ namespace QuickChecks.Track
                     lateralOffset = 0f,
                     powerUp = CreateTrailWallPowerUp(),
                     oneTimeUse = false
+                }
+            };
+
+            // 3 obstacles: 1 wall + 1 black hole + 1 gravel
+            def.obstacleSpawns = new TrackDefinition.ObstacleSpawn[]
+            {
+                new TrackDefinition.ObstacleSpawn
+                {
+                    type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
+                    t = 0.2f,
+                    lateralOffset = 0f,
+                    size = new Vector2(2f, 3f),
+                    teleportDistance = 0f
+                },
+                new TrackDefinition.ObstacleSpawn
+                {
+                    type = TrackDefinition.ObstacleSpawn.ObstacleType.BlackHole,
+                    t = 0.55f,
+                    lateralOffset = 0f,
+                    size = new Vector2(1.5f, 1.5f),
+                    teleportDistance = 8f
+                },
+                new TrackDefinition.ObstacleSpawn
+                {
+                    type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
+                    t = 0.85f,
+                    lateralOffset = 0f,
+                    size = new Vector2(3f, 4f),
+                    teleportDistance = 0f
                 }
             };
 
@@ -303,6 +366,43 @@ namespace QuickChecks.Track
                     lateralOffset = 0f,
                     powerUp = CreateMagnetPowerUp(),
                     oneTimeUse = false
+                }
+            };
+
+            // 4 obstacles: 2 walls + 1 black hole + 1 gravel
+            def.obstacleSpawns = new TrackDefinition.ObstacleSpawn[]
+            {
+                new TrackDefinition.ObstacleSpawn
+                {
+                    type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
+                    t = 0.1f,
+                    lateralOffset = 0f,
+                    size = new Vector2(2f, 2f),
+                    teleportDistance = 0f
+                },
+                new TrackDefinition.ObstacleSpawn
+                {
+                    type = TrackDefinition.ObstacleSpawn.ObstacleType.BlackHole,
+                    t = 0.4f,
+                    lateralOffset = 0f,
+                    size = new Vector2(1.5f, 1.5f),
+                    teleportDistance = 10f
+                },
+                new TrackDefinition.ObstacleSpawn
+                {
+                    type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
+                    t = 0.6f,
+                    lateralOffset = 0f,
+                    size = new Vector2(2f, 2f),
+                    teleportDistance = 0f
+                },
+                new TrackDefinition.ObstacleSpawn
+                {
+                    type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
+                    t = 0.9f,
+                    lateralOffset = 0f,
+                    size = new Vector2(4f, 3f),
+                    teleportDistance = 0f
                 }
             };
 
