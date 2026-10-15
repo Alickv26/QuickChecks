@@ -344,6 +344,13 @@ namespace QuickChecks.Prototype
             int playerCount = _raceMode.PlayerCount();
             Debug.Log($"[RaceScene] Multiplayer mode: {_raceMode.DisplayName()} ({playerCount} players)");
 
+            // Disable CameraFollowController in multiplayer — HandleTurnStart controls camera
+            if (_cameraFollowController != null)
+            {
+                _cameraFollowController.enabled = false;
+                Debug.Log("[RaceScene] CameraFollowController disabled (multiplayer uses HandleTurnStart for camera).");
+            }
+
             // CRITICAL: Create a separate SwipeEvent for EACH kart so they don't share input.
             // Without this, when player swipes, ALL karts move simultaneously.
             // Player 0: create new event, re-wire its SwipeDetector + KartController
@@ -441,18 +448,25 @@ namespace QuickChecks.Prototype
             // Enable the active player's SwipeDetector (CPU karts don't have one)
             SetActiveSwipeDetector(playerIndex);
 
-            // Camera follows the active kart
+            // Camera follows the active kart — SmoothDamp creates a smooth pan between karts
             if (_cameraRig != null && _allKarts.Count > playerIndex)
             {
                 _cameraRig.target = _allKarts[playerIndex].transform;
+                Debug.Log($"[RaceScene] Camera target set to kart {playerIndex} at {_allKarts[playerIndex].transform.position}.");
             }
 
             // Deactivate THIS player's trail wall (their wall disappears when their turn starts)
-            // Other players' trail walls stay active until THEIR turns start.
             var trail = _allKarts[playerIndex]?.GetComponent<KartTrail>();
             if (trail != null && trail.IsTrailWallActive)
             {
                 trail.DeactivateTrailWall();
+            }
+
+            // Show whose turn it is via lap notification (if HUD supports it)
+            if (_hud != null)
+            {
+                string playerName = _turnManager.Players[playerIndex].playerName;
+                Debug.Log($"[RaceScene] {playerName}'s turn. Camera panning to their kart.");
             }
         }
 

@@ -1,4 +1,5 @@
 using UnityEngine;
+using QuickChecks.Track;
 
 namespace QuickChecks.Racing
 {
@@ -131,18 +132,39 @@ namespace QuickChecks.Racing
         // TODO: replace with CheckpointTracker query.
         private Transform FindNextCheckpoint(Track.TrackDefinition track)
         {
-            // For now: find the closest checkpoint object tagged "Checkpoint" that the kart
-            // hasn't passed yet. Real impl uses CheckpointTracker.nextCheckpoint.
-            var checkpoints = GameObject.FindGameObjectsWithTag("Checkpoint");
+            // Find all Checkpoint components in the scene (not via tags — tags aren't set).
+            var checkpoints = FindObjectsOfType<Track.Checkpoint>();
+            if (checkpoints == null || checkpoints.Length == 0)
+            {
+                Debug.LogWarning("[CPUPlayer] No checkpoints found in scene — CPU can't determine target.");
+                return null;
+            }
+
+            // Find the CheckpointTracker on this kart to know which checkpoint is next.
+            var tracker = _kart.GetComponent<CheckpointTracker>();
+            int targetIndex = tracker != null ? tracker.NextCheckpointIndex : 0;
+
+            // Find the checkpoint with the matching index.
+            foreach (var cp in checkpoints)
+            {
+                if (cp.index == targetIndex)
+                {
+                    Debug.Log($"[CPUPlayer] Targeting checkpoint {cp.index} at {cp.transform.position}.");
+                    return cp.transform;
+                }
+            }
+
+            // Fallback: find closest checkpoint.
+            Debug.LogWarning($"[CPUPlayer] Checkpoint {targetIndex} not found — falling back to closest.");
             Transform best = null;
             float bestDist = float.MaxValue;
-            foreach (var go in checkpoints)
+            foreach (var cp in checkpoints)
             {
-                float d = Vector2.Distance(go.transform.position, _kart.transform.position);
+                float d = Vector2.Distance(cp.transform.position, _kart.transform.position);
                 if (d < bestDist)
                 {
                     bestDist = d;
-                    best = go.transform;
+                    best = cp.transform;
                 }
             }
             return best;
