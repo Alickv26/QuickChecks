@@ -50,9 +50,13 @@ namespace QuickChecks.Prototype
         // Multiplayer state
         private Core.RaceMode _raceMode = Core.RaceMode.Solo;
         private List<KartController> _allKarts = new();
+        private List<SwipeDetector> _allSwipeDetectors = new();
         private Racing.TurnManager _turnManager;
         private UI.PassPlayOverlay _passPlayOverlay;
         private bool _isMultiplayer = false;
+        private int _currentTurnPlayerIndex = 0;
+        private bool[] _wasKartMoving;  // tracks previous moving state for each kart
+        private float _turnStartDelay = 0f;  // delay before camera switch / CPU move
 
         private long _raceStartMs;
         private int _swipeCount;
@@ -339,11 +343,17 @@ namespace QuickChecks.Prototype
             int playerCount = _raceMode.PlayerCount();
             Debug.Log($"[RaceScene] Multiplayer mode: {_raceMode.DisplayName()} ({playerCount} players)");
 
+            // Store player 0's SwipeDetector
+            _allSwipeDetectors.Add(_swipeDetector);
+
             // Spawn additional karts (player 0 is already created as _kart)
             for (int i = 1; i < playerCount; i++)
             {
                 SpawnAdditionalKart(i);
             }
+
+            // Init wasKartMoving array
+            _wasKartMoving = new bool[_allKarts.Count];
 
             // Create TurnManager
             var tmGo = new GameObject("[TurnManager]");
@@ -357,7 +367,7 @@ namespace QuickChecks.Prototype
                 {
                     playerName = i == 0 ? "Player 1" : (_raceMode.IsVsCpu() ? "CPU" : $"Player {i + 1}"),
                     kart = _allKarts[i],
-                    isCPU = _raceMode.IsVsCpu() && i > 0,  // CPU karts are AI-controlled
+                    isCPU = _raceMode.IsVsCpu() && i > 0,
                     isFinished = false,
                     swipeCount = 0,
                     finishTimeMs = 0,
@@ -371,24 +381,27 @@ namespace QuickChecks.Prototype
                     SetField(cpu, "swipeEvent", swipeEvent);
                     SetField(cpu, "kart", _allKarts[i]);
 
-                    // Set difficulty
                     var difficulty = _raceMode switch
                     {
                         Core.RaceMode.VsCpuEasy => Racing.CPUPlayer.Difficulty.Easy,
                         Core.RaceMode.VsCpuMedium => Racing.CPUPlayer.Difficulty.Medium,
                         Core.RaceMode.VsCpuHard => Racing.CPUPlayer.Difficulty.Hard,
-                        Core.RaceMode.Online => Racing.CPUPlayer.Difficulty.Medium,  // Online stub uses medium CPU
+                        Core.RaceMode.Online => Racing.CPUPlayer.Difficulty.Medium,
                         _ => Racing.CPUPlayer.Difficulty.Medium
                     };
                     cpu.SetDifficulty(difficulty);
                 }
             }
 
-            // Disable ghost recorder in multiplayer (ghost is for solo only)
+            // Disable ghost recorder in multiplayer
             if (_ghostRecorder != null) _ghostRecorder.enabled = false;
 
             // Start TurnManager
             _turnManager.StartRace(playerStates, _trackDef, ConvertToTurnManagerRaceMode(_raceMode));
+
+            // Subscribe to turn events
+            _turnManager.OnTurnStart += HandleTurnStart;
+            _turnManager.OnTurnEnd += HandleTurnEnd;
             _turnManager.OnRaceFinished += (winnerIndex) =>
             {
                 if (!_finished) FinishRaceMultiplayer(winnerIndex);
@@ -399,14 +412,68 @@ namespace QuickChecks.Prototype
             {
                 var overlayGo = new GameObject("PassPlayOverlay");
                 _passPlayOverlay = overlayGo.AddComponent<UI.PassPlayOverlay>();
-                // Wire up PassPlayManager
                 var ppmGo = new GameObject("[PassPlayManager]");
                 var ppm = ppmGo.AddComponent<Multiplayer.PassPlayManager>();
                 SetField(ppm, "turnManager", _turnManager);
                 SetField(ppm, "passOverlay", _passPlayOverlay);
             }
 
+            // Initial turn: player 0 (TurnManager calls OnTurnStart for index 0)
+            // Disable all SwipeDetectors except player 0
+            SetActiveSwipeDetector(0);
+
             Debug.Log($"[RaceScene] Multiplayer setup complete: {playerCount} karts, TurnManager active.");
+
+            // Make all karts ignore collision with each other (they pass through, like ghosts)
+            // Karts still collide with walls but not with each other.
+            for (int i = 0; i < _allKarts.Count; i++)
+            {
+                var colA = _allKarts[i].GetComponent<Collider2D>();
+                if (colA == null) continue;
+                for (int j = i + 1; j < _allKarts.Count; j++)
+                {
+                    var colB = _allKarts[j].GetComponent<Collider2D>();
+                    if (colB != null)
+                    {
+                        UnityEngine.Physics2D.IgnoreCollision(colA, colB, true);
+                    }
+                }
+            }
+            Debug.Log("[RaceScene] All karts set to ignore collision with each other.");
+        }
+
+        private void HandleTurnStart(int playerIndex)
+        {
+            _currentTurnPlayerIndex = playerIndex;
+            Debug.Log($"[RaceScene] Turn started for player {playerIndex} ({_turnManager.Players[playerIndex].playerName}).");
+
+            // Enable the active player's SwipeDetector (CPU karts don't have one)
+            SetActiveSwipeDetector(playerIndex);
+
+            // Camera follows the active kart
+            if (_cameraRig != null && _allKarts.Count > playerIndex)
+            {
+                _cameraRig.target = _allKarts[playerIndex].transform;
+            }
+        }
+
+        private void HandleTurnEnd(int playerIndex, int swipeCount)
+        {
+            Debug.Log($"[RaceScene] Turn ended for player {playerIndex} ({swipeCount} swipes total).");
+            // Disable all SwipeDetectors while waiting for next turn
+            // (TurnManager will call HandleTurnStart for the next player)
+            SetActiveSwipeDetector(-1);
+        }
+
+        private void SetActiveSwipeDetector(int activeIndex)
+        {
+            for (int i = 0; i < _allSwipeDetectors.Count; i++)
+            {
+                if (_allSwipeDetectors[i] != null)
+                {
+                    _allSwipeDetectors[i].enabled = (i == activeIndex);
+                }
+            }
         }
 
         private void SpawnAdditionalKart(int playerIndex)
@@ -445,6 +512,13 @@ namespace QuickChecks.Prototype
             var kart = kartGo.AddComponent<KartController>();
             kart.SetSwipeEvent(swipeEvent);
             SetField(kart, "stats", kartStats);
+
+            // Add SwipeDetector (disabled by default — TurnManager enables it per turn)
+            var sd = kartGo.AddComponent<SwipeDetector>();
+            SetField(sd, "settings", inputSettings);
+            SetField(sd, "swipeEvent", swipeEvent);
+            sd.enabled = false;  // Disabled until it's this player's turn
+            _allSwipeDetectors.Add(sd);
 
             // Add trail
             var trail = kartGo.AddComponent<KartTrail>();
@@ -517,18 +591,51 @@ namespace QuickChecks.Prototype
         private void OnSwipe(SwipeData swipe)
         {
             _swipeCount++;
+
+            // In multiplayer: notify TurnManager that the active player swiped
+            if (_isMultiplayer && _turnManager != null)
+            {
+                _turnManager.RegisterSwipe(_currentTurnPlayerIndex);
+            }
         }
 
         private void Update()
         {
+            // Auto-reset countdown
             if (_autoResetTimer > 0f)
             {
                 _autoResetTimer -= Time.deltaTime;
                 if (_autoResetTimer <= 0f)
                 {
                     _autoResetTimer = -1f;
-                    TransitionToResults();
+                    if (_isMultiplayer)
+                    {
+                        // Multiplayer: just reset (no results scene for now)
+                        ResetRace();
+                    }
+                    else
+                    {
+                        TransitionToResults();
+                    }
                     return;
+                }
+            }
+
+            // Multiplayer: detect when karts stop moving → notify TurnManager
+            if (_isMultiplayer && _turnManager != null && _wasKartMoving != null)
+            {
+                for (int i = 0; i < _allKarts.Count; i++)
+                {
+                    if (_allKarts[i] == null) continue;
+                    bool isMoving = _allKarts[i].Velocity.magnitude > 10f;
+
+                    // Transition from moving → stopped = turn end
+                    if (_wasKartMoving[i] && !isMoving)
+                    {
+                        Debug.Log($"[RaceScene] Kart {i} stopped — notifying TurnManager.");
+                        _turnManager.NotifyKartStopped(i);
+                    }
+                    _wasKartMoving[i] = isMoving;
                 }
             }
 
