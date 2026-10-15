@@ -99,6 +99,9 @@ namespace QuickChecks.Input
                 {
                     if (touch.phase == TouchPhase.Began)
                     {
+                        // Skip touches that are over a UI element (like the Reset button)
+                        if (IsPointerOverUI(touch.position)) continue;
+
                         _activeTouchId = touch.fingerId;
                         _touchStartPos = touch.position;
                         _lastTouchPos = touch.position;
@@ -147,6 +150,9 @@ namespace QuickChecks.Input
 
             if (UnityEngine.Input.GetMouseButtonDown(0))
             {
+                // Skip clicks that are over a UI element (like the Reset button)
+                if (IsPointerOverUI(UnityEngine.Input.mousePosition)) return;
+
                 _activeTouchId = -1; // sentinel for mouse
                 _touchStartPos = UnityEngine.Input.mousePosition;
                 _lastTouchPos = UnityEngine.Input.mousePosition;
@@ -180,6 +186,31 @@ namespace QuickChecks.Input
                 EvaluateSwipe(UnityEngine.Input.mousePosition);
                 _activeTouchId = null;
             }
+        }
+
+        /// <summary>
+        /// Returns true if the given screen position is over a UI element.
+        /// Used to prevent button taps from being interpreted as swipes.
+        /// </summary>
+        private bool IsPointerOverUI(Vector2 screenPosition)
+        {
+            // Use EventSystem to check if a UI element is under the pointer
+            var eventData = new UnityEngine.EventSystems.PointerEventData(
+                UnityEngine.EventSystems.EventSystem.current);
+            eventData.position = screenPosition;
+
+            var results = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
+            UnityEngine.EventSystems.EventSystem.current.RaycastAll(eventData, results);
+
+            if (results.Count > 0)
+            {
+                if (logAllSwipeAttempts)
+                {
+                    Debug.Log($"[Swipe] Touch at {screenPosition} is over UI element '{results[0].gameObject.name}' — ignoring as swipe.");
+                }
+                return true;
+            }
+            return false;
         }
 
         private void EvaluateSwipe(Vector2 endPos)

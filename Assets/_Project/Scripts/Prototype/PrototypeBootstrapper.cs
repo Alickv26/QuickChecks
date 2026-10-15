@@ -342,6 +342,15 @@ namespace QuickChecks.Prototype
             scaler.referenceResolution = new Vector2(1080, 1920);
             canvasGo.AddComponent<GraphicRaycaster>();
 
+            // Add EventSystem (required for UI raycasting — button clicks, IsPointerOverUI checks)
+            if (UnityEngine.EventSystems.EventSystem.current == null)
+            {
+                var eventSystemGo = new GameObject("EventSystem");
+                eventSystemGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                eventSystemGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+                Debug.Log("[Prototype] Created EventSystem for UI raycasting.");
+            }
+
             var statusGo = new GameObject("StatusText");
             statusGo.transform.SetParent(canvasGo.transform, false);
 
@@ -449,12 +458,12 @@ namespace QuickChecks.Prototype
             powerUpRect.anchorMin = new Vector2(1, 1);
             powerUpRect.anchorMax = new Vector2(1, 1);
             powerUpRect.pivot = new Vector2(1, 1);
-            powerUpRect.anchoredPosition = new Vector2(-40, -40);
-            powerUpRect.sizeDelta = new Vector2(500, 300);
+            powerUpRect.anchoredPosition = new Vector2(-40, -160);  // Below reset button
+            powerUpRect.sizeDelta = new Vector2(500, 200);
             if (powerUpTMP != null) SetPrivateField(_hud, "powerUpTextTMP", powerUpTMP);
             else if (powerUpLegacy != null) SetPrivateField(_hud, "powerUpTextLegacy", powerUpLegacy);
 
-            // ----- Reset button (TOP-LEFT, below status text, mobile-friendly) -----
+            // ----- Reset button (TOP-RIGHT, mobile-friendly) -----
             var resetBtnGo = new GameObject("ResetButton");
             resetBtnGo.transform.SetParent(canvasGo.transform, false);
             var resetBtn = resetBtnGo.AddComponent<Button>();
@@ -462,11 +471,11 @@ namespace QuickChecks.Prototype
             resetBtnImg.color = new Color(0.247f, 0.878f, 0.760f, 0.9f);  // bright cyan
             resetBtnImg.raycastTarget = true;  // CRITICAL: must be true for clicks to register
             var resetBtnRect = resetBtnGo.GetComponent<RectTransform>();
-            // Top-left corner, below the status text
-            resetBtnRect.anchorMin = new Vector2(0, 1);
-            resetBtnRect.anchorMax = new Vector2(0, 1);
-            resetBtnRect.pivot = new Vector2(0, 1);
-            resetBtnRect.anchoredPosition = new Vector2(40, -120);
+            // Top-right corner
+            resetBtnRect.anchorMin = new Vector2(1, 1);
+            resetBtnRect.anchorMax = new Vector2(1, 1);
+            resetBtnRect.pivot = new Vector2(1, 1);
+            resetBtnRect.anchoredPosition = new Vector2(-40, -40);
             resetBtnRect.sizeDelta = new Vector2(250, 100);  // Big enough for touch
 
             // Set the button's target graphic so Button component knows what to raycast against
@@ -502,7 +511,7 @@ namespace QuickChecks.Prototype
             resetLabelRect.offsetMax = Vector2.zero;
 
             SetPrivateField(_hud, "resetButton", resetBtn);
-            Debug.Log("[Prototype] Reset button created at top-left (250x100, raycastTarget=true).");
+            Debug.Log("[Prototype] Reset button created at top-right (250x100, raycastTarget=true).");
 
             // ----- Hint text -----
             var hintGo = new GameObject("HintText");
