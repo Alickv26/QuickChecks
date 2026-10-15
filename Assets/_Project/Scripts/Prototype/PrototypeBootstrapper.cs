@@ -454,18 +454,23 @@ namespace QuickChecks.Prototype
             if (powerUpTMP != null) SetPrivateField(_hud, "powerUpTextTMP", powerUpTMP);
             else if (powerUpLegacy != null) SetPrivateField(_hud, "powerUpTextLegacy", powerUpLegacy);
 
-            // ----- Reset button (bottom-right, mobile-friendly) -----
+            // ----- Reset button (TOP-LEFT, below status text, mobile-friendly) -----
             var resetBtnGo = new GameObject("ResetButton");
             resetBtnGo.transform.SetParent(canvasGo.transform, false);
             var resetBtn = resetBtnGo.AddComponent<Button>();
             var resetBtnImg = resetBtnGo.AddComponent<Image>();
-            resetBtnImg.color = new Color(0.247f, 0.878f, 0.760f, 0.8f);  // cyan
+            resetBtnImg.color = new Color(0.247f, 0.878f, 0.760f, 0.9f);  // bright cyan
+            resetBtnImg.raycastTarget = true;  // CRITICAL: must be true for clicks to register
             var resetBtnRect = resetBtnGo.GetComponent<RectTransform>();
-            resetBtnRect.anchorMin = new Vector2(1, 0);
-            resetBtnRect.anchorMax = new Vector2(1, 0);
-            resetBtnRect.pivot = new Vector2(1, 0);
-            resetBtnRect.anchoredPosition = new Vector2(-40, 40);
-            resetBtnRect.sizeDelta = new Vector2(200, 80);
+            // Top-left corner, below the status text
+            resetBtnRect.anchorMin = new Vector2(0, 1);
+            resetBtnRect.anchorMax = new Vector2(0, 1);
+            resetBtnRect.pivot = new Vector2(0, 1);
+            resetBtnRect.anchoredPosition = new Vector2(40, -120);
+            resetBtnRect.sizeDelta = new Vector2(250, 100);  // Big enough for touch
+
+            // Set the button's target graphic so Button component knows what to raycast against
+            resetBtn.targetGraphic = resetBtnImg;
 
             var resetLabelGo = new GameObject("Label");
             resetLabelGo.transform.SetParent(resetBtnGo.transform, false);
@@ -474,18 +479,20 @@ namespace QuickChecks.Prototype
             {
                 resetLabelTMP = resetLabelGo.AddComponent<TextMeshProUGUI>();
                 resetLabelTMP.text = "RESET";
-                resetLabelTMP.fontSize = 36;
+                resetLabelTMP.fontSize = 42;
                 resetLabelTMP.alignment = TextAlignmentOptions.Center;
                 resetLabelTMP.color = new Color(0.055f, 0.078f, 0.078f);  // dark
+                resetLabelTMP.raycastTarget = false;  // Don't block button clicks
             }
             catch
             {
                 var resetLabelLegacy = resetLabelGo.AddComponent<Text>();
                 resetLabelLegacy.text = "RESET";
                 resetLabelLegacy.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                resetLabelLegacy.fontSize = 28;
+                resetLabelLegacy.fontSize = 32;
                 resetLabelLegacy.alignment = TextAnchor.MiddleCenter;
                 resetLabelLegacy.color = new Color(0.055f, 0.078f, 0.078f);
+                resetLabelLegacy.raycastTarget = false;
             }
             var resetLabelRect = resetLabelGo.GetComponent<RectTransform>();
             resetLabelRect.anchorMin = Vector2.zero;
@@ -495,6 +502,7 @@ namespace QuickChecks.Prototype
             resetLabelRect.offsetMax = Vector2.zero;
 
             SetPrivateField(_hud, "resetButton", resetBtn);
+            Debug.Log("[Prototype] Reset button created at top-left (250x100, raycastTarget=true).");
 
             // ----- Hint text -----
             var hintGo = new GameObject("HintText");

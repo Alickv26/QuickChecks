@@ -37,6 +37,9 @@ namespace QuickChecks.Prototype
         private long _finishMs = -1;
         private int _finishSwipes = -1;
         private bool _isFinished;
+        private bool _isNewBest = false;
+        private int _newBestSwipes = 0;
+        private long _newBestTimeMs = 0;
 
         // Lap tracking
         private int _currentLap = 0;
@@ -106,22 +109,20 @@ namespace QuickChecks.Prototype
                 long bestTime = raceStarter?.SoloGhost?.BestGhost?.finishTimeMs ?? _finishMs;
 
                 int deltaVsPar = _finishSwipes - finishedPar;
-                int deltaVsBest = _finishSwipes - bestSwipes;
                 string parStr = deltaVsPar <= 0
                     ? $"{_finishSwipes} (par -{Math.Abs(deltaVsPar)})"
                     : $"{_finishSwipes} (par +{deltaVsPar})";
 
-                string bestStr = bestSwipes == _finishSwipes
-                    ? "NEW BEST!"
-                    : $"+{deltaVsBest} vs best ({bestSwipes})";
+                string bestStr = _isNewBest
+                    ? $"*** NEW FASTEST LAP! ***\n{_newBestSwipes} swipes in {_newBestTimeMs / 1000f:F2}s\nGhost updated!"
+                    : $"Best: {bestSwipes} swipes / {bestTime / 1000f:F2}s\n(+{_finishSwipes - bestSwipes} vs best)";
 
                 return
                     "RACE COMPLETE\n\n" +
                     $"Swipes: {parStr}\n" +
-                    $"Time: {_finishMs / 1000f:F2}s\n" +
-                    $"Best: {bestSwipes} swipes / {bestTime / 1000f:F2}s\n" +
+                    $"Time: {_finishMs / 1000f:F2}s\n\n" +
                     $"{bestStr}\n\n" +
-                    "Tap Reset to retry";
+                    "Tap RESET to retry";
             }
 
             if (kart == null) return "";
@@ -223,8 +224,15 @@ namespace QuickChecks.Prototype
             if (isNewBest)
             {
                 SetLapNotification($"NEW FASTEST LAP!\n{swipes} swipes in {timeMs / 1000f:F2}s");
-                _lapNotificationTimer = 4f;  // Show longer than lap notification (4s)
+                _lapNotificationTimer = 5f;
+                _isNewBest = true;
+                _newBestSwipes = swipes;
+                _newBestTimeMs = timeMs;
                 Debug.Log($"[HUD] NEW FASTEST LAP! {swipes} swipes, {timeMs / 1000f:F2}s. New ghost saved.");
+            }
+            else
+            {
+                Debug.Log($"[HUD] Race finished but not a new best (swipes={swipes}).");
             }
         }
 
@@ -237,7 +245,9 @@ namespace QuickChecks.Prototype
                 _finishMs = -1;
                 _finishSwipes = -1;
                 _currentLap = 0;
+                _isNewBest = false;
                 SetLapNotification("");
+                Debug.Log("[HUD] Reset clicked — race restarted.");
             }
         }
 
