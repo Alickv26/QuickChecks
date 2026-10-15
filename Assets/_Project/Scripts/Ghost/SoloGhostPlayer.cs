@@ -45,11 +45,18 @@ namespace QuickChecks.Ghost
 
         private void Awake()
         {
-            LoadBestGhost();
+            // Don't load ghost here — trackId is not set yet (set by RaceSceneController via reflection
+            // AFTER Awake). LoadBestGhost() will be called from OnRaceStart() instead.
         }
 
         public void OnRaceStart(long startMs, Vector3 playerSpawn)
         {
+            // Load best ghost NOW (trackId has been set by RaceSceneController before calling OnRaceStart)
+            if (_bestGhost == null)
+            {
+                LoadBestGhost();
+            }
+
             // Diagnostic logging
             Debug.Log($"[SoloGhost] OnRaceStart called. " +
                       $"_bestGhost null? {_bestGhost == null}. " +
