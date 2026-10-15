@@ -50,15 +50,36 @@ namespace QuickChecks.Ghost
 
         public void OnRaceStart(long startMs, Vector3 playerSpawn)
         {
+            // Diagnostic logging
+            Debug.Log($"[SoloGhost] OnRaceStart called. " +
+                      $"_bestGhost null? {_bestGhost == null}. " +
+                      $"playerKart null? {playerKart == null}. " +
+                      $"playerRecorder null? {playerRecorder == null}.");
+
             if (_bestGhost == null)
             {
-                Debug.Log("[SoloGhost] No best run yet — racing without ghost.");
+                Debug.Log("[SoloGhost] No best run yet — racing without ghost. " +
+                          "Complete a lap to record your first ghost.");
                 return;
             }
 
-            if (_bestGhost.positionSamples == null || _bestGhost.positionSamples.Count == 0)
+            int posCount = _bestGhost.positionSamples?.Count ?? 0;
+            int stopCount = _bestGhost.stopPositions?.Count ?? 0;
+            Debug.Log($"[SoloGhost] Best ghost loaded: {_bestGhost.swipeCount} swipes, " +
+                      $"{posCount} position samples, {stopCount} stop positions, " +
+                      $"{_bestGhost.finishTimeMs / 1000f:F2}s.");
+
+            if (posCount == 0)
             {
-                Debug.LogWarning("[SoloGhost] Best ghost has 0 position samples — not spawning ghost.");
+                Debug.LogWarning("[SoloGhost] Best ghost has 0 position samples — not spawning. " +
+                                 "Press C to clear old data, then complete a new lap.");
+                return;
+            }
+
+            if (stopCount == 0)
+            {
+                Debug.LogWarning("[SoloGhost] Best ghost has 0 stop positions — not spawning. " +
+                                 "Press C to clear old data, then complete a new lap.");
                 return;
             }
 
@@ -132,6 +153,10 @@ namespace QuickChecks.Ghost
 
         public void OnRaceFinish(int swipes, long finishMs)
         {
+            Debug.Log($"[SoloGhost] OnRaceFinish: swipes={swipes}, time={finishMs}ms, " +
+                      $"playerRecorder null? {playerRecorder == null}, " +
+                      $"_bestGhost null? {_bestGhost == null}.");
+
             // Stop ghost playback
             if (_ghostPlayer != null)
             {
@@ -150,8 +175,14 @@ namespace QuickChecks.Ghost
                 {
                     _bestGhost = newBest;
                     SaveBestGhost();
+                    int posCount = _bestGhost.positionSamples?.Count ?? 0;
+                    int stopCount = _bestGhost.stopPositions?.Count ?? 0;
                     Debug.Log($"[SoloGhost] NEW BEST! {swipes} swipes in {finishMs / 1000f:F2}s. " +
-                              $"{_bestGhost.positionSamples.Count} position samples saved.");
+                              $"Saved with {posCount} position samples, {stopCount} stop positions.");
+                }
+                else
+                {
+                    Debug.LogError("[SoloGhost] playerRecorder.EndRace returned null — ghost NOT saved!");
                 }
             }
             else
