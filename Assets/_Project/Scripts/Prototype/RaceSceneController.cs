@@ -202,13 +202,28 @@ namespace QuickChecks.Prototype
             SetField(pus, "kart", _kart);
             SetField(_cameraRig, "target", kartGo.transform);
 
-            // Wire checkpoint tracker
+            // Wire feedback + audio (was missing — no particles/whoosh in Race scene)
+            var feedback = kartGo.GetComponent<SwipeFeedback>();
+            if (feedback != null) SetField(feedback, "swipeEvent", swipeEvent);
+            if (feedback != null) SetField(feedback, "kart", _kart);
+            var audioComp = kartGo.GetComponent<SwipeAudio>();
+            if (audioComp != null) SetField(audioComp, "swipeEvent", swipeEvent);
+
+            // Wire checkpoint tracker — route to correct handler based on mode
             if (_trackData != null)
             {
                 var cpArray = _trackData.checkpoints.ToArray();
                 var finishCol = _trackData.finishLine?.GetComponent<Collider2D>();
                 ct.SetCheckpoints(cpArray, finishCol, _trackDef.lapCount);
-                ct.OnRaceComplete += (total) => { if (!_finished) FinishRace(); };
+                // Issue #2: In multiplayer, route to TurnManager.NotifyPlayerFinished, not solo FinishRace
+                ct.OnRaceComplete += (total) =>
+                {
+                    if (_finished) return;
+                    if (_isMultiplayer && _turnManager != null)
+                        _turnManager.NotifyPlayerFinished(0);
+                    else
+                        FinishRace();
+                };
             }
 
             // Camera follow
@@ -319,8 +334,6 @@ namespace QuickChecks.Prototype
                 var ghostGo = new GameObject("SoloGhostPlayer");
                 _soloGhost = ghostGo.AddComponent<SoloGhostPlayer>();
                 SetField(_soloGhost, "playerRecorder", _ghostRecorder);
-                SetField(_soloGhost, "playerSwipeEvent", swipeEvent);
-                SetField(_soloGhost, "ghostSwipeEvent", ghostSwipeEvent);
                 SetField(_soloGhost, "trackId", _trackDef.trackId);
                 SetField(_soloGhost, "playerKart", _kart);
             }
@@ -564,13 +577,26 @@ namespace QuickChecks.Prototype
 
             _allKarts.Add(kart);
 
-            // Add CheckpointTracker for each kart
+            // Add PowerUpSystem so this kart can collect power-ups (issue #9)
+            var pus = kartGo.AddComponent<PowerUpSystem>();
+            SetField(pus, "kart", kart);
+
+            // Add CheckpointTracker for each kart + wire to TurnManager (issue #1)
             var ct = kartGo.AddComponent<CheckpointTracker>();
             if (_trackData != null)
             {
                 var cpArray = _trackData.checkpoints.ToArray();
                 var finishCol = _trackData.finishLine?.GetComponent<Collider2D>();
                 ct.SetCheckpoints(cpArray, finishCol, _trackDef.lapCount);
+                // Wire OnRaceComplete → TurnManager.NotifyPlayerFinished for this kart index
+                int kartIndex = playerIndex;  // capture for closure
+                ct.OnRaceComplete += (total) =>
+                {
+                    if (_turnManager != null)
+                    {
+                        _turnManager.NotifyPlayerFinished(kartIndex);
+                    }
+                };
             }
 
             Debug.Log($"[RaceScene] Spawned kart {playerIndex} at {spawnPos} (color: {sr.color}).");
@@ -596,11 +622,29 @@ namespace QuickChecks.Prototype
             _finished = true;
             long finishMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _raceStartMs;
 
+            // Guard against all-DNF (winnerIndex = -1)
+            if (winnerIndex < 0 || winnerIndex >= _turnManager.Players.Count)
+            {
+                Debug.LogWarning("[RaceScene] Multiplayer race ended — no winner (all DNF).");
+                _autoResetTimer = 3f;
+                return;
+            }
+
             var winner = _turnManager.Players[winnerIndex];
             Debug.Log($"[RaceScene] Multiplayer race finished! Winner: {winner.playerName} " +
                       $"({winner.swipeCount} swipes, {finishMs / 1000f:F2}s)");
 
-            // For now, auto-reset after 3s (results screen for multiplayer will come later)
+            // Record results in player profile (issue #23)
+            if (GameFlowManager.Instance != null)
+            {
+                for (int i = 0; i < _turnManager.Players.Count; i++)
+                {
+                    var p = _turnManager.Players[i];
+                    if (!p.isFinished || p.finishTimeMs < 0) continue;
+                    GameFlowManager.Instance.OnTrackCompleted(_trackDef.trackId, p.swipeCount, p.finishTimeMs);
+                }
+            }
+
             _autoResetTimer = 3f;
         }
 
@@ -751,12 +795,59 @@ namespace QuickChecks.Prototype
         public void ResetRace()
         {
             if (swipeEvent != null) swipeEvent.Unregister(OnSwipe);
-            if (_kart != null) _kart.RespawnAt(_runtimeKartSpawn);
+
+            if (_isMultiplayer)
+            {
+                // Reset ALL karts + their checkpoint trackers + power-up systems
+                foreach (var k in _allKarts)
+                {
+                    if (k != null) k.RespawnAt(_runtimeKartSpawn);
+                    k?.GetComponent<CheckpointTracker>()?.Reset();
+                    k?.GetComponent<PowerUpSystem>()?.Clear();
+                }
+                // Reset TurnManager state
+                if (_turnManager != null && _trackDef != null)
+                {
+                    foreach (var p in _turnManager.Players)
+                    {
+                        p.isFinished = false;
+                        p.swipeCount = 0;
+                        p.finishTimeMs = 0;
+                        p.checkpointIndex = 0;
+                    }
+                    _turnManager.StartRace(
+                        new List<Racing.TurnManager.PlayerState>(_turnManager.Players),
+                        _trackDef, ConvertToTurnManagerRaceMode(_raceMode));
+                }
+            }
+            else
+            {
+                if (_kart != null) _kart.RespawnAt(_runtimeKartSpawn);
+            }
+            // Reset checkpoint visuals
             if (_trackData?.checkpoints != null)
                 foreach (var cp in _trackData.checkpoints) cp?.ResetVisual();
             if (_cameraRig != null && _trackDef != null)
                 _cameraRig.ResetToDefault(_trackDef.defaultZoom);
             StartRace();
+        }
+
+        private void OnDisable()
+        {
+            // Cleanup per-kart SwipeEvent subscriptions (issue #4)
+            if (swipeEvent != null) swipeEvent.Unregister(OnSwipe);
+            foreach (var evt in _perKartSwipeEvents)
+            {
+                if (evt != null) evt.Unregister(OnSwipe);
+                if (evt != null) Destroy(evt);
+            }
+            _perKartSwipeEvents.Clear();
+            // Unsubscribe from TurnManager events
+            if (_turnManager != null)
+            {
+                _turnManager.OnTurnStart -= HandleTurnStart;
+                _turnManager.OnTurnEnd -= HandleTurnEnd;
+            }
         }
 
         // --- Fallback track (same oval as PrototypeBootstrapper) ---
