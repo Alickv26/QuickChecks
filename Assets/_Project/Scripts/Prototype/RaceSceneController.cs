@@ -439,7 +439,7 @@ namespace QuickChecks.Prototype
             rb.gravityScale = 0;
             rb.bodyType = RigidbodyType2D.Dynamic;
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
-            rb.collisionDetectionMode = CollisionDetectionModeD.Continuous;
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
 
             var kart = kartGo.AddComponent<KartController>();
