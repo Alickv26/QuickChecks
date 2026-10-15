@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using QuickChecks.Racing;
+using QuickChecks.Core;
 
 namespace QuickChecks.Prototype
 {
@@ -16,7 +17,7 @@ namespace QuickChecks.Prototype
     /// </summary>
     public class PrototypeHUD : MonoBehaviour
     {
-        [SerializeField] private PrototypeBootstrapper raceStarter;
+        [SerializeField] private IRaceStarter raceStarter;
         [SerializeField] private KartController kart;
         [SerializeField] private TMP_Text statusTextTMP;
         [SerializeField] private UnityEngine.UI.Text statusTextLegacy;

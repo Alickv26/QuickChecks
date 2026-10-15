@@ -24,7 +24,7 @@ namespace QuickChecks.Prototype
     /// If no GameFlowManager exists (e.g., running the Prototype scene directly),
     /// falls back to the oval test track (same as PrototypeBootstrapper).
     /// </summary>
-    public class RaceSceneController : MonoBehaviour
+    public class RaceSceneController : MonoBehaviour, Core.IRaceStarter
     {
         [Header("Fallback (if no GameFlowManager)")]
         [SerializeField] private InputSettings inputSettings;
@@ -179,6 +179,7 @@ namespace QuickChecks.Prototype
 
             // Wire fields
             _kart.SetSwipeEvent(swipeEvent);
+            SetField(_kart, "stats", kartStats);  // CRITICAL: wire stats or kart won't move
             SetField(_swipeDetector, "settings", inputSettings);
             SetField(_swipeDetector, "swipeEvent", swipeEvent);
             SetField(_ghostRecorder, "swipeEvent", swipeEvent);

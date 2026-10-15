@@ -29,7 +29,7 @@ namespace QuickChecks.Prototype
     ///   - SoloGhostPlayer: records + replays best run alongside current attempt
     ///   - CheckpointTracker: lap progress + race completion detection
     /// </summary>
-    public class PrototypeBootstrapper : MonoBehaviour
+    public class PrototypeBootstrapper : MonoBehaviour, Core.IRaceStarter
     {
         [Header("Track Config (spline-based)")]
         [SerializeField] private Vector3 kartSpawn = new Vector3(-15, 0, 0); // Fallback if spline fails
