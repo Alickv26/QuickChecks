@@ -51,12 +51,13 @@ namespace QuickChecks.Prototype
         private Core.RaceMode _raceMode = Core.RaceMode.Solo;
         private List<KartController> _allKarts = new();
         private List<SwipeDetector> _allSwipeDetectors = new();
+        private List<Core.GameEventSO<QuickChecks.Input.SwipeData>> _perKartSwipeEvents = new();
         private Racing.TurnManager _turnManager;
         private UI.PassPlayOverlay _passPlayOverlay;
         private bool _isMultiplayer = false;
         private int _currentTurnPlayerIndex = 0;
-        private bool[] _wasKartMoving;  // tracks previous moving state for each kart
-        private float _turnStartDelay = 0f;  // delay before camera switch / CPU move
+        private bool[] _wasKartMoving;
+        private float _turnStartDelay = 0f;
 
         private long _raceStartMs;
         private int _swipeCount;
@@ -343,7 +344,14 @@ namespace QuickChecks.Prototype
             int playerCount = _raceMode.PlayerCount();
             Debug.Log($"[RaceScene] Multiplayer mode: {_raceMode.DisplayName()} ({playerCount} players)");
 
-            // Store player 0's SwipeDetector
+            // CRITICAL: Create a separate SwipeEvent for EACH kart so they don't share input.
+            // Without this, when player swipes, ALL karts move simultaneously.
+            // Player 0: create new event, re-wire its SwipeDetector + KartController
+            var player0Event = ScriptableObject.CreateInstance<Core.SwipeEvent>();
+            _perKartSwipeEvents.Add(player0Event);
+            _swipeDetector.SetSwipeEvent(player0Event);  // re-wire SwipeDetector to new event
+            _kart.SetSwipeEvent(player0Event);          // re-wire KartController to new event
+            player0Event.Register(OnSwipe);              // count swipes for HUD
             _allSwipeDetectors.Add(_swipeDetector);
 
             // Spawn additional karts (player 0 is already created as _kart)
@@ -373,24 +381,7 @@ namespace QuickChecks.Prototype
                     finishTimeMs = 0,
                     checkpointIndex = 0
                 });
-
-                // Add CPUPlayer to CPU karts
-                if ((_raceMode.IsVsCpu() || _raceMode.IsOnline()) && i > 0)
-                {
-                    var cpu = _allKarts[i].gameObject.AddComponent<Racing.CPUPlayer>();
-                    SetField(cpu, "swipeEvent", swipeEvent);
-                    SetField(cpu, "kart", _allKarts[i]);
-
-                    var difficulty = _raceMode switch
-                    {
-                        Core.RaceMode.VsCpuEasy => Racing.CPUPlayer.Difficulty.Easy,
-                        Core.RaceMode.VsCpuMedium => Racing.CPUPlayer.Difficulty.Medium,
-                        Core.RaceMode.VsCpuHard => Racing.CPUPlayer.Difficulty.Hard,
-                        Core.RaceMode.Online => Racing.CPUPlayer.Difficulty.Medium,
-                        _ => Racing.CPUPlayer.Difficulty.Medium
-                    };
-                    cpu.SetDifficulty(difficulty);
-                }
+                // CPUPlayer is now added inside SpawnAdditionalKart (with per-kart event)
             }
 
             // Disable ghost recorder in multiplayer
@@ -510,15 +501,40 @@ namespace QuickChecks.Prototype
             rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
 
             var kart = kartGo.AddComponent<KartController>();
-            kart.SetSwipeEvent(swipeEvent);
+
+            // CRITICAL: Each kart gets its OWN SwipeEvent so swipes don't leak to other karts.
+            var kartSwipeEvent = ScriptableObject.CreateInstance<Core.SwipeEvent>();
+            _perKartSwipeEvents.Add(kartSwipeEvent);
+            kart.SetSwipeEvent(kartSwipeEvent);
             SetField(kart, "stats", kartStats);
 
             // Add SwipeDetector (disabled by default — TurnManager enables it per turn)
             var sd = kartGo.AddComponent<SwipeDetector>();
             SetField(sd, "settings", inputSettings);
-            SetField(sd, "swipeEvent", swipeEvent);
-            sd.enabled = false;  // Disabled until it's this player's turn
+            SetField(sd, "swipeEvent", kartSwipeEvent);
+            sd.enabled = false;
             _allSwipeDetectors.Add(sd);
+
+            // Wire CPUPlayer to use this kart's event (not the shared one)
+            if (_raceMode.IsVsCpu() || _raceMode.IsOnline())
+            {
+                var cpu = kartGo.AddComponent<Racing.CPUPlayer>();
+                SetField(cpu, "swipeEvent", kartSwipeEvent);  // CPU raises THIS kart's event
+                SetField(cpu, "kart", kart);
+
+                var difficulty = _raceMode switch
+                {
+                    Core.RaceMode.VsCpuEasy => Racing.CPUPlayer.Difficulty.Easy,
+                    Core.RaceMode.VsCpuMedium => Racing.CPUPlayer.Difficulty.Medium,
+                    Core.RaceMode.VsCpuHard => Racing.CPUPlayer.Difficulty.Hard,
+                    Core.RaceMode.Online => Racing.CPUPlayer.Difficulty.Medium,
+                    _ => Racing.CPUPlayer.Difficulty.Medium
+                };
+                cpu.SetDifficulty(difficulty);
+            }
+
+            // Register this kart's event for swipe counting
+            kartSwipeEvent.Register(OnSwipe);
 
             // Add trail
             var trail = kartGo.AddComponent<KartTrail>();
