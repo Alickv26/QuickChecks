@@ -45,8 +45,9 @@ namespace QuickChecks.UI
 
         private void WireModeButton(string buttonName, RaceMode mode)
         {
-            var transform = this.transform;
-            var button = FindButtonRecursive(transform, buttonName);
+            // Search the entire scene for the button by name (buttons are children of Canvas,
+            // not children of this [ModeSelectController] GameObject)
+            var button = FindButtonRecursive(UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects(), buttonName);
             if (button != null)
             {
                 button.onClick.RemoveAllListeners();
@@ -57,6 +58,16 @@ namespace QuickChecks.UI
             {
                 Debug.LogWarning($"[ModeSelect] Button '{buttonName}' not found — mode {mode.DisplayName()} won't be selectable.");
             }
+        }
+
+        private Button FindButtonRecursive(GameObject[] rootObjects, string name)
+        {
+            foreach (var root in rootObjects)
+            {
+                var found = FindButtonRecursive(root.transform, name);
+                if (found != null) return found;
+            }
+            return null;
         }
 
         private Button FindButtonRecursive(Transform parent, string name)
