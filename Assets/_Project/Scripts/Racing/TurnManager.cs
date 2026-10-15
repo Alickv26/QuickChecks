@@ -139,12 +139,23 @@ namespace QuickChecks.Racing
                 OnTurnStart?.Invoke(_currentPlayerIndex);
 
                 // CPU players take their turn via CPUPlayer component.
+                // Small delay so camera can pan to CPU kart before it moves.
                 if (player.isCPU)
                 {
                     var cpu = player.kart.GetComponent<CPUPlayer>();
-                    if (cpu != null) cpu.TakeTurn(trackDefinition);
+                    if (cpu != null)
+                    {
+                        // Delay CPU turn by 1s to let camera pan
+                        StartCoroutine(DelayedCpuTurn(cpu, 1f));
+                    }
                 }
             }
+        }
+
+        private System.Collections.IEnumerator DelayedCpuTurn(CPUPlayer cpu, float delaySec)
+        {
+            yield return new WaitForSeconds(delaySec);
+            cpu.TakeTurn(trackDefinition);
         }
 
         /// <summary>

@@ -585,14 +585,16 @@ namespace QuickChecks.Prototype
         private void StartRace()
         {
             _raceStartMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            _swipeDetector.SetRaceStartTime(_raceStartMs);
-            swipeEvent.Register(OnSwipe);
             _finished = false;
             _swipeCount = 0;
 
             if (!_isMultiplayer)
             {
-                // Solo: record ghost + spawn ghost replay
+                // Solo: use shared swipeEvent
+                _swipeDetector.SetRaceStartTime(_raceStartMs);
+                swipeEvent.Register(OnSwipe);
+
+                // Record ghost + spawn ghost replay
                 _ghostRecorder.BeginRace(_trackDef.trackId, "kart_starter");
                 Vector3 spawn = _runtimeKartSpawn != Vector3.zero ? _runtimeKartSpawn : Vector3.zero;
                 _soloGhost?.OnRaceStart(_raceStartMs, spawn);
@@ -600,6 +602,8 @@ namespace QuickChecks.Prototype
             }
             else
             {
+                // Multiplayer: OnSwipe is already registered on per-kart events in SetupMultiplayer.
+                // TurnManager.OnTurnStart was already called for player 0 in SetupMultiplayer.
                 Debug.Log($"[RaceScene] Multiplayer race started: {_raceMode.DisplayName()}. Par = {_trackDef.parSwipeCount} swipes.");
             }
         }
@@ -612,6 +616,13 @@ namespace QuickChecks.Prototype
             if (_isMultiplayer && _turnManager != null)
             {
                 _turnManager.RegisterSwipe(_currentTurnPlayerIndex);
+                // Mark this kart as "was moving" so the Update loop can detect when it stops.
+                // This is needed because the kart might start AND stop moving between Update frames
+                // if the swipe is very short — we'd miss the moving → stopped transition.
+                if (_wasKartMoving != null && _currentTurnPlayerIndex < _wasKartMoving.Length)
+                {
+                    _wasKartMoving[_currentTurnPlayerIndex] = true;
+                }
             }
         }
 
