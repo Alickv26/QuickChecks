@@ -90,6 +90,18 @@ namespace QuickChecks.Input
 
         private void HandleTouchInput()
         {
+            // CRITICAL: If 2+ touches are detected, this is a pinch/pan gesture, NOT a swipe.
+            // Release any active swipe and let PinchZoomInput handle it.
+            if (UnityEngine.Input.touchCount >= 2)
+            {
+                if (_activeTouchId != null && _activeTouchId != -1)
+                {
+                    Debug.Log("[Swipe] 2+ touches detected — releasing swipe for pinch/pan gesture.");
+                    _activeTouchId = null;
+                }
+                return;
+            }
+
             if (UnityEngine.Input.touchCount == 0) return;
 
             // Look for a new touch (began phase) that we haven't claimed yet.
@@ -113,6 +125,13 @@ namespace QuickChecks.Input
             }
 
             if (_activeTouchId == null) return;
+
+            // If a second touch arrives mid-swipe, release (pinch starting)
+            if (UnityEngine.Input.touchCount >= 2)
+            {
+                _activeTouchId = null;
+                return;
+            }
 
             // Track the active touch.
             foreach (var touch in UnityEngine.Input.touches)

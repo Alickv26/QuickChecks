@@ -4,105 +4,149 @@ using QuickChecks.Camera;
 namespace QuickChecks.Input
 {
     /// <summary>
-    /// Handles multi-touch pinch-to-zoom gestures and forwards them to CameraRig.
-    /// Also supports mouse-wheel zoom for editor testing.
+    /// Map-style pan and zoom for the camera.
     ///
-    /// Implementation notes:
-    /// - Uses a state machine: Idle -> Pinching -> Idle
-    /// - On pinch START: record initial distance, no zoom change
-    /// - On pinch MOVE: compute delta from PREVIOUS frame's distance, apply zoom
-    /// - On pinch END: stop (don't keep zooming)
-    /// - Deadzone: ignore tiny pinch movements (< 5px) to prevent jitter
-    /// - Clamps final zoom to InputSettings.minCameraZoom / maxCameraZoom
+    /// GESTURES:
+    /// - One finger flick = swipe (handled by SwipeDetector, not here)
+    /// - Two finger pinch = zoom in/out
+    /// - Two finger drag (both fingers move same direction) = pan camera
     ///
-    /// Attach to the same GameObject as CameraRig.
+    /// When 2+ fingers are down, SwipeDetector releases its touch so this
+    /// component can handle the multi-touch gesture.
+    ///
+    /// Pan temporarily overrides the camera follow — camera moves freely.
+    /// When fingers lift, camera returns to following the kart after a short delay.
     /// </summary>
     [RequireComponent(typeof(CameraRig))]
     public class PinchZoomInput : MonoBehaviour
     {
-        [Header("Pinch Detection")]
-        [Tooltip("Minimum distance (px) between two touches to be considered a pinch.")]
-        [SerializeField] private float minPinchDistance = 50f;
+        [Header("Zoom")]
+        [Tooltip("Multiplier for pinch delta. Higher = more zoom per pinch.")]
+        [SerializeField] private float zoomSensitivity = 0.02f;
 
-        [Tooltip("Pinch movements smaller than this (px) are ignored to prevent jitter.")]
-        [SerializeField] private float pinchDeadzone = 5f;
+        [Tooltip("Minimum distance between fingers to start pinch.")]
+        [SerializeField] private float minPinchDistance = 40f;
 
-        [Tooltip("Multiplier applied to pinch delta. Higher = more zoom per pinch gesture. " +
-                 "Default 0.02 = ~2 ortho size units per 100px of pinch movement.")]
-        [SerializeField] private float pinchSensitivity = 0.02f;
+        [Header("Pan")]
+        [Tooltip("Multiplier for pan delta. Higher = more pan per drag.")]
+        [SerializeField] private float panSensitivity = 0.01f;
 
-        [Header("Mouse Wheel (Editor Fallback)")]
-        [Tooltip("Multiplier applied to mouse scroll wheel delta.")]
-        [SerializeField] private float mouseWheelSensitivity = 2f;
+        [Tooltip("How long after pan ends before camera returns to following kart (seconds).")]
+        [SerializeField] private float panLingerSec = 2f;
+
+        [Header("Mouse (Editor)")]
+        [SerializeField] private float mouseWheelZoomSpeed = 3f;
 
         private CameraRig _cameraRig;
+        private UnityEngine.Camera _camera;
+
+        // Pinch state
         private float _lastPinchDistance;
         private bool _isPinching = false;
+
+        // Pan state
+        private Vector2 _lastPanMidpoint;
+        private bool _isPanning = false;
+        private float _panLingerTimer = 0f;
 
         private void Awake()
         {
             _cameraRig = GetComponent<CameraRig>();
+            _camera = GetComponent<UnityEngine.Camera>();
         }
 
         private void Update()
         {
-            HandleTouchPinch();
+            HandleTouchGesture();
             HandleMouseWheel();
+
+            // Countdown pan linger timer
+            if (_panLingerTimer > 0f)
+            {
+                _panLingerTimer -= Time.deltaTime;
+                if (_panLingerTimer <= 0f && _cameraRig != null)
+                {
+                    // Re-enable camera follow
+                    _cameraRig.enabled = true;
+                    Debug.Log("[PinchZoom] Pan linger ended — camera following kart again.");
+                }
+            }
         }
 
-        private void HandleTouchPinch()
+        private void HandleTouchGesture()
         {
-            // Need exactly 2 touches for a pinch
-            if (UnityEngine.Input.touchCount != 2)
+            if (UnityEngine.Input.touchCount < 2)
             {
                 _isPinching = false;
+                _isPanning = false;
                 return;
             }
 
             Touch t0 = UnityEngine.Input.GetTouch(0);
             Touch t1 = UnityEngine.Input.GetTouch(1);
 
+            Vector2 currentMidpoint = (t0.position + t1.position) * 0.5f;
             float currentDistance = Vector2.Distance(t0.position, t1.position);
 
-            // Not enough distance yet — wait
-            if (currentDistance < minPinchDistance)
+            // Start gesture
+            if (!_isPinching && !_isPanning)
             {
-                _isPinching = false;
+                _lastPinchDistance = currentDistance;
+                _lastPanMidpoint = currentMidpoint;
+                _isPinching = currentDistance > minPinchDistance;
+                _isPanning = true;
+
+                // Disable camera follow while panning
+                if (_cameraRig != null) _cameraRig.enabled = false;
                 return;
             }
 
-            // If either touch just began, this is the START of a pinch
-            if (t0.phase == TouchPhase.Began || t1.phase == TouchPhase.Began || !_isPinching)
+            // ZOOM: detect pinch (distance between fingers changing)
+            if (currentDistance > minPinchDistance)
             {
-                _lastPinchDistance = currentDistance;
-                _isPinching = true;
-                return;  // No zoom change on the first frame
-            }
-
-            // Pinch in progress — compute delta from last frame
-            if (t0.phase == TouchPhase.Moved || t1.phase == TouchPhase.Moved)
-            {
-                float delta = currentDistance - _lastPinchDistance;
-
-                // Apply deadzone — ignore tiny movements
-                if (Mathf.Abs(delta) < pinchDeadzone)
+                float distanceDelta = currentDistance - _lastPinchDistance;
+                if (Mathf.Abs(distanceDelta) > 2f)
                 {
-                    return;  // Don't update _lastPinchDistance, wait for bigger movement
+                    // Positive delta = fingers apart = zoom out (increase ortho size)
+                    // Negative delta = fingers together = zoom in (decrease ortho size)
+                    float zoomDelta = distanceDelta * zoomSensitivity;
+                    ApplyZoom(zoomDelta);
+                    _lastPinchDistance = currentDistance;
                 }
-
-                // delta > 0: fingers moving apart (zoom OUT, increase ortho size)
-                // delta < 0: fingers moving together (zoom IN, decrease ortho size)
-                float zoomDelta = delta * pinchSensitivity;
-                ApplyZoomDelta(zoomDelta);
-
-                // Update last distance for next frame's delta computation
-                _lastPinchDistance = currentDistance;
             }
-            else if (t0.phase == TouchPhase.Ended || t1.phase == TouchPhase.Ended ||
-                     t0.phase == TouchPhase.Canceled || t1.phase == TouchPhase.Canceled)
+
+            // PAN: detect both fingers moving in same direction
+            Vector2 panDelta = currentMidpoint - _lastPanMidpoint;
+            if (panDelta.magnitude > 2f)
             {
-                _isPinching = false;
+                ApplyPan(panDelta);
+                _lastPanMidpoint = currentMidpoint;
             }
+
+            // Set linger timer so camera stays where user panned for a bit
+            _panLingerTimer = panLingerSec;
+        }
+
+        private void ApplyZoom(float zoomDelta)
+        {
+            if (_cameraRig == null) return;
+            _cameraRig.ApplyPinchZoom(zoomDelta);
+        }
+
+        private void ApplyPan(Vector2 screenDelta)
+        {
+            if (_camera == null) return;
+
+            // Convert screen-space pan delta to world-space movement
+            // Pan direction is inverted (like dragging a map — drag right = world moves left)
+            float worldUnitsPerScreenPx = _camera.orthographicSize * 2f / Screen.height;
+            Vector3 worldDelta = new Vector3(
+                -screenDelta.x * worldUnitsPerScreenPx * panSensitivity * 100f,
+                -screenDelta.y * worldUnitsPerScreenPx * panSensitivity * 100f,
+                0
+            );
+
+            _camera.transform.position += worldDelta;
         }
 
         private void HandleMouseWheel()
@@ -111,20 +155,9 @@ namespace QuickChecks.Input
             float scroll = UnityEngine.Input.GetAxis("Mouse ScrollWheel");
             if (Mathf.Abs(scroll) > 0.001f)
             {
-                // Positive scroll = wheel up = zoom IN (ortho size decreases)
-                ApplyZoomDelta(-scroll * mouseWheelSensitivity);
+                ApplyZoom(-scroll * mouseWheelZoomSpeed);
             }
 #endif
-        }
-
-        private void ApplyZoomDelta(float zoomDelta)
-        {
-            if (_cameraRig == null)
-            {
-                _cameraRig = GetComponent<CameraRig>();
-                if (_cameraRig == null) return;
-            }
-            _cameraRig.ApplyPinchZoom(zoomDelta);
         }
     }
 }

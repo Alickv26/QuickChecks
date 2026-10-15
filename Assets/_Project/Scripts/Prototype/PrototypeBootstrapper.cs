@@ -343,12 +343,16 @@ namespace QuickChecks.Prototype
             canvasGo.AddComponent<GraphicRaycaster>();
 
             // Add EventSystem (required for UI raycasting — button clicks, IsPointerOverUI checks)
+            // Must exist for Android touch input to register on UI buttons.
             if (UnityEngine.EventSystems.EventSystem.current == null)
             {
                 var eventSystemGo = new GameObject("EventSystem");
-                eventSystemGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
-                eventSystemGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
-                Debug.Log("[Prototype] Created EventSystem for UI raycasting.");
+                var es = eventSystemGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                var sim = eventSystemGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+                // Ensure touch input is enabled (should be by default, but explicit for safety)
+                sim.inputActionsPerSecond = 30f;
+                sim.repeatDelay = 0.5f;
+                Debug.Log("[Prototype] Created EventSystem with StandaloneInputModule (touch-enabled).");
             }
 
             var statusGo = new GameObject("StatusText");
@@ -636,12 +640,26 @@ namespace QuickChecks.Prototype
 
         private void Update()
         {
+            // Auto-reset countdown
+            if (_autoResetTimer > 0f)
+            {
+                _autoResetTimer -= Time.deltaTime;
+                if (_autoResetTimer <= 0f)
+                {
+                    _autoResetTimer = -1f;
+                    Debug.Log("[Prototype] Auto-reset triggered.");
+                    ResetRace();
+                    return;
+                }
+            }
+
             // Race completion is detected via CheckpointTracker (lap completion), not position.
             // We also keep a fallback: if the kart crosses the finish line collider, that's
             // handled by CheckpointTracker.OnTriggerEnter2D which fires OnRaceComplete.
 
             if (UnityEngine.Input.GetKeyDown(KeyCode.R))
             {
+                _autoResetTimer = -1f; // Cancel auto-reset if manual reset
                 ResetRace();
             }
 
@@ -693,7 +711,15 @@ namespace QuickChecks.Prototype
 
             Debug.Log($"[Prototype] Race finished! Swipes: {_swipeCount} (par {parSwipes}), " +
                       $"Time: {finishMs / 1000f:F2}s. {deltaStr}");
+
+            // AUTO-RESET: After 4 seconds, automatically reset the race.
+            // This is for the prototype — no need to press R or tap Reset button.
+            // User can still tap Reset to skip the delay.
+            _autoResetTimer = 4f;
+            Debug.Log("[Prototype] Auto-reset in 4 seconds (tap RESET to skip).");
         }
+
+        private float _autoResetTimer = -1f;
 
         public void ResetRace()
         {
