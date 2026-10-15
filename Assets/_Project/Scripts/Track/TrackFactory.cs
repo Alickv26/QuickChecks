@@ -137,14 +137,14 @@ namespace QuickChecks.Track
                 new Vector2(-15, -5),
             };
 
-            // 1 power-up: Boost at halfway
+            // 1 power-up: Double Move (introduces the 2x mechanic)
             def.powerUpSpawns = new TrackDefinition.PowerUpSpawn[]
             {
                 new TrackDefinition.PowerUpSpawn
                 {
                     t = 0.5f,
                     lateralOffset = 0f,
-                    powerUp = CreateBoostPowerUp(),
+                    powerUp = CreateDoubleMovePowerUp(),
                     oneTimeUse = false
                 }
             };
@@ -198,21 +198,28 @@ namespace QuickChecks.Track
                 new Vector2(-18, 0),  // wrap to start
             };
 
-            // 2 power-ups: Boost + Shield
+            // 3 power-ups: Boost + Bounce + Trail Wall
             def.powerUpSpawns = new TrackDefinition.PowerUpSpawn[]
             {
                 new TrackDefinition.PowerUpSpawn
                 {
-                    t = 0.33f,
+                    t = 0.25f,
                     lateralOffset = 0f,
                     powerUp = CreateBoostPowerUp(),
                     oneTimeUse = false
                 },
                 new TrackDefinition.PowerUpSpawn
                 {
-                    t = 0.66f,
+                    t = 0.5f,
                     lateralOffset = 0f,
-                    powerUp = CreateShieldPowerUp(),
+                    powerUp = CreateBouncePowerUp(),
+                    oneTimeUse = false
+                },
+                new TrackDefinition.PowerUpSpawn
+                {
+                    t = 0.75f,
+                    lateralOffset = 0f,
+                    powerUp = CreateTrailWallPowerUp(),
                     oneTimeUse = false
                 }
             };
@@ -266,7 +273,7 @@ namespace QuickChecks.Track
                 new Vector2(-20, -4),
             };
 
-            // 3 power-ups: 2 Boosts + 1 Magnet (on long straights)
+            // 4 power-ups: 2 Boost + Magnet + Double Move
             def.powerUpSpawns = new TrackDefinition.PowerUpSpawn[]
             {
                 new TrackDefinition.PowerUpSpawn
@@ -274,6 +281,13 @@ namespace QuickChecks.Track
                     t = 0.15f,  // On the bottom straight
                     lateralOffset = 0f,
                     powerUp = CreateBoostPowerUp(),
+                    oneTimeUse = false
+                },
+                new TrackDefinition.PowerUpSpawn
+                {
+                    t = 0.35f,
+                    lateralOffset = 0f,
+                    powerUp = CreateDoubleMovePowerUp(),
                     oneTimeUse = false
                 },
                 new TrackDefinition.PowerUpSpawn
@@ -310,6 +324,36 @@ namespace QuickChecks.Track
         private static Racing.PowerUpBase CreateMagnetPowerUp()
         {
             return ScriptableObject.CreateInstance<Racing.PowerUps.MagnetPowerUp>();
+        }
+
+        private static Racing.PowerUpBase CreateDoubleMovePowerUp()
+        {
+            return ScriptableObject.CreateInstance<Racing.PowerUps.DoubleMovePowerUp>();
+        }
+
+        private static Racing.PowerUpBase CreateTrailWallPowerUp()
+        {
+            return ScriptableObject.CreateInstance<Racing.PowerUps.TrailWallPowerUp>();
+        }
+
+        private static Racing.PowerUpBase CreateBouncePowerUp()
+        {
+            return ScriptableObject.CreateInstance<Racing.PowerUps.BouncePowerUp>();
+        }
+
+        private static Racing.PowerUpBase CreateSlingshotPowerUp()
+        {
+            return ScriptableObject.CreateInstance<Racing.PowerUps.SlingshotPowerUp>();
+        }
+
+        private static Racing.PowerUpBase CreatePhaseDodgePowerUp()
+        {
+            return ScriptableObject.CreateInstance<Racing.PowerUps.PhaseDodgePowerUp>();
+        }
+
+        private static Racing.PowerUpBase CreateRewindPowerUp()
+        {
+            return ScriptableObject.CreateInstance<Racing.PowerUps.RewindPowerUp>();
         }
     }
 }

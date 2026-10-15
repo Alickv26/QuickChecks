@@ -166,6 +166,19 @@ namespace QuickChecks.Racing
             if (playerIndex != _currentPlayerIndex) return;
             if (_phase != TurnPhase.PlayerInput && _phase != TurnPhase.KartMoving) return;
 
+            // Check if player has an extra move (Double Move power-up)
+            var player = players[playerIndex];
+            if (player.kart != null && player.kart.HasExtraMove)
+            {
+                bool consumed = player.kart.ConsumeExtraMove();
+                if (consumed)
+                {
+                    Debug.Log($"[TurnManager] Player {playerIndex} consumed extra move — turn continues (swipe again).");
+                    _phase = TurnPhase.PlayerInput;  // Back to input phase, waiting for next swipe
+                    return;
+                }
+            }
+
             _phase = TurnPhase.TurnEnded;
             OnTurnEnd?.Invoke(playerIndex, players[playerIndex].swipeCount);
             StartNextTurn();

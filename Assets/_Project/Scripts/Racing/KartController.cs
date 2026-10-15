@@ -204,10 +204,33 @@ namespace QuickChecks.Racing
         }
 
         // Unity's collision callbacks — fired by Dynamic Rigidbody2D hitting BoxCollider2D walls.
-        // We use these to detect "kart hit a wall" so we can stop velocity (golf-feel: stop dead).
         private void OnCollisionEnter2D(Collision2D collision)
         {
-            // Stop the kart on wall impact (golf-feel: no bouncing, no sliding).
+            // BOUNCE MODE: reflect velocity off the wall instead of stopping
+            if (_bounceMode && currentVelocity.magnitude > 5f)
+            {
+                // Get the collision normal (direction the wall pushes back)
+                Vector2 normal = collision.contacts[0].normal;
+                // Reflect velocity: v' = v - 2(v·n)n
+                Vector2 reflected = Vector2.Reflect(currentVelocity, normal);
+                currentVelocity = reflected * _bounceRetention;
+                if (_rb != null) _rb.velocity = currentVelocity;
+                isStopped = false;
+                Debug.Log($"[Kart] BOUNCED off '{collision.gameObject.name}' — velocity reflected, " +
+                          $"new direction ({currentVelocity.normalized.x:F2}, {currentVelocity.normalized.y:F2}), " +
+                          $"speed {currentVelocity.magnitude:F0} u/s.");
+                return;
+            }
+
+            // PHASE DODGE: ignore this collision, pass through
+            if (_phaseDodgeActive)
+            {
+                _phaseDodgeActive = false;
+                Debug.Log($"[Kart] Phase Dodge consumed — passed through '{collision.gameObject.name}'.");
+                return;
+            }
+
+            // Normal: stop the kart on wall impact (golf-feel: stop dead).
             currentVelocity = Vector2.zero;
             if (_rb != null) _rb.velocity = Vector2.zero;
             isStopped = true;
@@ -337,5 +360,51 @@ namespace QuickChecks.Racing
 
         // Note: FixedUpdate is defined earlier in this file. Rewind position recording
         // happens via RecordPositionForRewind() called from the existing FixedUpdate.
+
+        // --- NEW POWER-UP FLAGS ---
+
+        // Double Move: player gets an extra swipe before turn switches
+        private bool _hasExtraMove = false;
+        public bool HasExtraMove => _hasExtraMove;
+        public void SetExtraMove(bool value)
+        {
+            _hasExtraMove = value;
+        }
+        public bool ConsumeExtraMove()
+        {
+            if (_hasExtraMove)
+            {
+                _hasExtraMove = false;
+                return true;
+            }
+            return false;
+        }
+
+        // Bounce: kart bounces off walls instead of stopping
+        private bool _bounceMode = false;
+        private float _bounceRetention = 0.7f;
+        public bool IsBounceMode => _bounceMode;
+        public void SetBounceMode(bool enabled, float retention)
+        {
+            _bounceMode = enabled;
+            _bounceRetention = retention;
+        }
+
+        // Trail Wall: next swipe's trail becomes a barrier
+        private bool _trailWallPending = false;
+        public bool IsTrailWallPending => _trailWallPending;
+        public void SetTrailWallPending(bool value)
+        {
+            _trailWallPending = value;
+        }
+        public bool ConsumeTrailWallPending()
+        {
+            if (_trailWallPending)
+            {
+                _trailWallPending = false;
+                return true;
+            }
+            return false;
+        }
     }
 }
