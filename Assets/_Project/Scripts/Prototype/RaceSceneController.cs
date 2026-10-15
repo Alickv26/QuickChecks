@@ -46,6 +46,13 @@ namespace QuickChecks.Prototype
         private PrototypeHUD _hud;
         private SoloGhostPlayer _soloGhost;
 
+        // Multiplayer state
+        private Core.RaceMode _raceMode = Core.RaceMode.Solo;
+        private List<KartController> _allKarts = new();
+        private Racing.TurnManager _turnManager;
+        private UI.PassPlayOverlay _passPlayOverlay;
+        private bool _isMultiplayer = false;
+
         private long _raceStartMs;
         private int _swipeCount;
         private bool _finished;
@@ -288,14 +295,29 @@ namespace QuickChecks.Prototype
 
         private void BuildServices()
         {
-            // Solo ghost
-            var ghostGo = new GameObject("SoloGhostPlayer");
-            _soloGhost = ghostGo.AddComponent<SoloGhostPlayer>();
-            SetField(_soloGhost, "playerRecorder", _ghostRecorder);
-            SetField(_soloGhost, "playerSwipeEvent", swipeEvent);
-            SetField(_soloGhost, "ghostSwipeEvent", ghostSwipeEvent);
-            SetField(_soloGhost, "trackId", _trackDef.trackId);
-            SetField(_soloGhost, "playerKart", _kart);
+            // Resolve race mode from GameFlowManager
+            if (GameFlowManager.Instance != null)
+            {
+                _raceMode = GameFlowManager.Instance.selectedMode;
+            }
+            _isMultiplayer = !_raceMode.IsSolo();
+            _allKarts.Add(_kart);
+
+            if (_isMultiplayer)
+            {
+                SetupMultiplayer();
+            }
+            else
+            {
+                // Solo mode: setup ghost
+                var ghostGo = new GameObject("SoloGhostPlayer");
+                _soloGhost = ghostGo.AddComponent<SoloGhostPlayer>();
+                SetField(_soloGhost, "playerRecorder", _ghostRecorder);
+                SetField(_soloGhost, "playerSwipeEvent", swipeEvent);
+                SetField(_soloGhost, "ghostSwipeEvent", ghostSwipeEvent);
+                SetField(_soloGhost, "trackId", _trackDef.trackId);
+                SetField(_soloGhost, "playerKart", _kart);
+            }
 
             // Entitlement + IAP (singletons)
             if (Monetization.EntitlementManager.Instance == null)
@@ -311,19 +333,184 @@ namespace QuickChecks.Prototype
             }
         }
 
+        private void SetupMultiplayer()
+        {
+            int playerCount = _raceMode.PlayerCount();
+            Debug.Log($"[RaceScene] Multiplayer mode: {_raceMode.DisplayName()} ({playerCount} players)");
+
+            // Spawn additional karts (player 0 is already created as _kart)
+            for (int i = 1; i < playerCount; i++)
+            {
+                SpawnAdditionalKart(i);
+            }
+
+            // Create TurnManager
+            var tmGo = new GameObject("[TurnManager]");
+            _turnManager = tmGo.AddComponent<Racing.TurnManager>();
+
+            // Build player states for TurnManager
+            var playerStates = new List<Racing.TurnManager.PlayerState>();
+            for (int i = 0; i < _allKarts.Count; i++)
+            {
+                playerStates.Add(new Racing.TurnManager.PlayerState
+                {
+                    playerName = i == 0 ? "Player 1" : (_raceMode.IsVsCpu() ? "CPU" : $"Player {i + 1}"),
+                    kart = _allKarts[i],
+                    isCPU = _raceMode.IsVsCpu() && i > 0,  // CPU karts are AI-controlled
+                    isFinished = false,
+                    swipeCount = 0,
+                    finishTimeMs = 0,
+                    checkpointIndex = 0
+                });
+
+                // Add CPUPlayer to CPU karts
+                if ((_raceMode.IsVsCpu() || _raceMode.IsOnline()) && i > 0)
+                {
+                    var cpu = _allKarts[i].gameObject.AddComponent<Racing.CPUPlayer>();
+                    SetField(cpu, "swipeEvent", swipeEvent);
+                    SetField(cpu, "kart", _allKarts[i]);
+
+                    // Set difficulty
+                    var difficulty = _raceMode switch
+                    {
+                        Core.RaceMode.VsCpuEasy => Racing.CPUPlayer.Difficulty.Easy,
+                        Core.RaceMode.VsCpuMedium => Racing.CPUPlayer.Difficulty.Medium,
+                        Core.RaceMode.VsCpuHard => Racing.CPUPlayer.Difficulty.Hard,
+                        Core.RaceMode.Online => Racing.CPUPlayer.Difficulty.Medium,  // Online stub uses medium CPU
+                        _ => Racing.CPUPlayer.Difficulty.Medium
+                    };
+                    cpu.SetDifficulty(difficulty);
+                }
+            }
+
+            // Disable ghost recorder in multiplayer (ghost is for solo only)
+            if (_ghostRecorder != null) _ghostRecorder.enabled = false;
+
+            // Start TurnManager
+            _turnManager.StartRace(playerStates, _trackDef, ConvertToTurnManagerRaceMode(_raceMode));
+            _turnManager.OnRaceFinished += (winnerIndex) =>
+            {
+                if (!_finished) FinishRaceMultiplayer(winnerIndex);
+            };
+
+            // Pass & Play overlay
+            if (_raceMode.IsPassPlay())
+            {
+                var overlayGo = new GameObject("PassPlayOverlay");
+                _passPlayOverlay = overlayGo.AddComponent<UI.PassPlayOverlay>();
+                // Wire up PassPlayManager
+                var ppmGo = new GameObject("[PassPlayManager]");
+                var ppm = ppmGo.AddComponent<Multiplayer.PassPlayManager>();
+                SetField(ppm, "turnManager", _turnManager);
+                SetField(ppm, "passOverlay", _passPlayOverlay);
+            }
+
+            Debug.Log($"[RaceScene] Multiplayer setup complete: {playerCount} karts, TurnManager active.");
+        }
+
+        private void SpawnAdditionalKart(int playerIndex)
+        {
+            // Spawn at same position as player (slightly offset)
+            Vector3 spawnPos = _runtimeKartSpawn + new Vector3(0, playerIndex * 2f, 0);
+
+            var kartGo = new GameObject($"Kart_{playerIndex}");
+            kartGo.transform.position = spawnPos;
+            kartGo.transform.localScale = Vector3.one;
+
+            var sr = kartGo.AddComponent<SpriteRenderer>();
+            // Different colors for different players
+            Color[] kartColors = {
+                new Color(1f, 0.82f, 0.4f),    // yellow (player 1 — already spawned)
+                new Color(1f, 0.42f, 0.42f),    // red (player 2 / CPU)
+                new Color(0.42f, 0.79f, 0.47f), // green (player 3)
+                new Color(0.42f, 0.58f, 1f),    // blue (player 4)
+            };
+            sr.color = kartColors[playerIndex % kartColors.Length];
+            sr.sprite = CreateSquareSprite();
+            sr.drawMode = SpriteDrawMode.Sliced;
+            sr.size = new Vector2(1.5f, 1.5f);
+            sr.sortingOrder = 10;
+
+            var col = kartGo.AddComponent<BoxCollider2D>();
+            col.size = new Vector2(1.5f, 1.5f);
+
+            var rb = kartGo.AddComponent<Rigidbody2D>();
+            rb.gravityScale = 0;
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+            rb.collisionDetectionMode = CollisionDetectionModeD.Continuous;
+            rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
+
+            var kart = kartGo.AddComponent<KartController>();
+            kart.SetSwipeEvent(swipeEvent);
+            SetField(kart, "stats", kartStats);
+
+            // Add trail
+            var trail = kartGo.AddComponent<KartTrail>();
+            SetField(trail, "kart", kart);
+
+            _allKarts.Add(kart);
+
+            // Add CheckpointTracker for each kart
+            var ct = kartGo.AddComponent<CheckpointTracker>();
+            if (_trackData != null)
+            {
+                var cpArray = _trackData.checkpoints.ToArray();
+                var finishCol = _trackData.finishLine?.GetComponent<Collider2D>();
+                ct.SetCheckpoints(cpArray, finishCol, _trackDef.lapCount);
+            }
+
+            Debug.Log($"[RaceScene] Spawned kart {playerIndex} at {spawnPos} (color: {sr.color}).");
+        }
+
+        private Racing.TurnManager.RaceMode ConvertToTurnManagerRaceMode(Core.RaceMode mode)
+        {
+            return mode switch
+            {
+                Core.RaceMode.VsCpuEasy => Racing.TurnManager.RaceMode.VsCpuEasy,
+                Core.RaceMode.VsCpuMedium => Racing.TurnManager.RaceMode.VsCpuMedium,
+                Core.RaceMode.VsCpuHard => Racing.TurnManager.RaceMode.VsCpuHard,
+                Core.RaceMode.PassPlay2 => Racing.TurnManager.RaceMode.PassAndPlay,
+                Core.RaceMode.PassPlay3 => Racing.TurnManager.RaceMode.PassAndPlay,
+                Core.RaceMode.PassPlay4 => Racing.TurnManager.RaceMode.PassAndPlay,
+                Core.RaceMode.Online => Racing.TurnManager.RaceMode.Online,
+                _ => Racing.TurnManager.RaceMode.Solo
+            };
+        }
+
+        private void FinishRaceMultiplayer(int winnerIndex)
+        {
+            _finished = true;
+            long finishMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _raceStartMs;
+
+            var winner = _turnManager.Players[winnerIndex];
+            Debug.Log($"[RaceScene] Multiplayer race finished! Winner: {winner.playerName} " +
+                      $"({winner.swipeCount} swipes, {finishMs / 1000f:F2}s)");
+
+            // For now, auto-reset after 3s (results screen for multiplayer will come later)
+            _autoResetTimer = 3f;
+        }
+
         private void StartRace()
         {
             _raceStartMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             _swipeDetector.SetRaceStartTime(_raceStartMs);
-            _ghostRecorder.BeginRace(_trackDef.trackId, "kart_starter");
             swipeEvent.Register(OnSwipe);
             _finished = false;
             _swipeCount = 0;
 
-            Vector3 spawn = _runtimeKartSpawn != Vector3.zero ? _runtimeKartSpawn : Vector3.zero;
-            _soloGhost?.OnRaceStart(_raceStartMs, spawn);
-
-            Debug.Log($"[RaceScene] Race started on track '{_trackDef.trackId}'. Par = {_trackDef.parSwipeCount} swipes.");
+            if (!_isMultiplayer)
+            {
+                // Solo: record ghost + spawn ghost replay
+                _ghostRecorder.BeginRace(_trackDef.trackId, "kart_starter");
+                Vector3 spawn = _runtimeKartSpawn != Vector3.zero ? _runtimeKartSpawn : Vector3.zero;
+                _soloGhost?.OnRaceStart(_raceStartMs, spawn);
+                Debug.Log($"[RaceScene] Solo race started on track '{_trackDef.trackId}'. Par = {_trackDef.parSwipeCount} swipes.");
+            }
+            else
+            {
+                Debug.Log($"[RaceScene] Multiplayer race started: {_raceMode.DisplayName()}. Par = {_trackDef.parSwipeCount} swipes.");
+            }
         }
 
         private void OnSwipe(SwipeData swipe)

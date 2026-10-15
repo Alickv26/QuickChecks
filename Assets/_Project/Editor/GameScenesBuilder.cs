@@ -30,6 +30,7 @@ namespace QuickChecks.Editor
             BuildGameFlowManager();
 
             BuildMainMenuScene();
+            BuildModeSelectScene();
             BuildTrackSelectScene();
             BuildRaceScene();
             BuildResultsScene();
@@ -39,8 +40,9 @@ namespace QuickChecks.Editor
 
             EditorUtility.DisplayDialog(
                 "Game Scenes Built",
-                "All 4 game scenes created:\n\n" +
+                "All 5 game scenes created:\n\n" +
                 "• MainMenu.unity\n" +
+                "• ModeSelect.unity\n" +
                 "• TrackSelect.unity\n" +
                 "• Race.unity\n" +
                 "• Results.unity\n\n" +
@@ -189,6 +191,138 @@ namespace QuickChecks.Editor
 
             EditorSceneManager.SaveScene(scene, SCENES_DIR + "MainMenu.unity");
             Debug.Log("[GameScenesBuilder] MainMenu scene built.");
+        }
+
+        private static void BuildModeSelectScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            // Camera
+            var camGo = new GameObject("Main Camera");
+            var cam = camGo.AddComponent<UnityEngine.Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = 10;
+            cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f);
+            camGo.transform.position = new Vector3(0, 0, -10);
+            camGo.tag = "MainCamera";
+            camGo.AddComponent<AudioListener>();
+
+            // Canvas
+            var canvasGo = new GameObject("Canvas");
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            canvasGo.AddComponent<GraphicRaycaster>();
+
+            if (UnityEngine.EventSystems.EventSystem.current == null)
+            {
+                var esGo = new GameObject("EventSystem");
+                esGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            }
+
+            // Title
+            var titleGo = new GameObject("Title");
+            titleGo.transform.SetParent(canvasGo.transform, false);
+            var titleText = titleGo.AddComponent<TextMeshProUGUI>();
+            titleText.text = "Select Mode";
+            titleText.fontSize = 56;
+            titleText.alignment = TextAlignmentOptions.Center;
+            titleText.color = new Color(0.247f, 0.878f, 0.760f);
+            var titleRect = titleGo.GetComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0.5f, 0.95f);
+            titleRect.anchorMax = new Vector2(0.5f, 0.95f);
+            titleRect.pivot = new Vector2(0.5f, 1);
+            titleRect.sizeDelta = new Vector2(800, 80);
+
+            // Back button
+            var backGo = new GameObject("BackButton");
+            backGo.transform.SetParent(canvasGo.transform, false);
+            var backBtn = backGo.AddComponent<Button>();
+            var backImg = backGo.AddComponent<Image>();
+            backImg.color = new Color(0.15f, 0.2f, 0.2f, 0.9f);
+            backImg.raycastTarget = true;
+            backBtn.targetGraphic = backImg;
+            var backRect = backGo.GetComponent<RectTransform>();
+            backRect.anchorMin = new Vector2(0, 1);
+            backRect.anchorMax = new Vector2(0, 1);
+            backRect.pivot = new Vector2(0, 1);
+            backRect.anchoredPosition = new Vector2(40, -40);
+            backRect.sizeDelta = new Vector2(200, 80);
+
+            var blGo = new GameObject("Label");
+            blGo.transform.SetParent(backGo.transform, false);
+            var blText = blGo.AddComponent<TextMeshProUGUI>();
+            blText.text = "← Back";
+            blText.fontSize = 32;
+            blText.alignment = TextAlignmentOptions.Center;
+            blText.color = Color.white;
+            blText.raycastTarget = false;
+            var blR = blGo.GetComponent<RectTransform>();
+            blR.anchorMin = Vector2.zero; blR.anchorMax = Vector2.one;
+            blR.pivot = new Vector2(0.5f, 0.5f);
+            blR.offsetMin = Vector2.zero; blR.offsetMax = Vector2.zero;
+
+            // Mode buttons (vertical stack)
+            string[] modeNames = { "Solo Practice", "vs CPU (Easy)", "vs CPU (Medium)", "vs CPU (Hard)", "Pass & Play (2P)", "Pass & Play (3P)", "Pass & Play (4P)", "Online Match" };
+            string[] buttonNames = { "SoloButton", "VsCpuEasyButton", "VsCpuMediumButton", "VsCpuHardButton", "PassPlay2Button", "PassPlay3Button", "PassPlay4Button", "OnlineButton" };
+            Color[] modeColors = {
+                new Color(0.247f, 0.878f, 0.760f, 0.9f),  // cyan (Solo)
+                new Color(0.42f, 0.79f, 0.47f, 0.9f),      // green (CPU Easy)
+                new Color(1f, 0.82f, 0.4f, 0.9f),          // yellow (CPU Medium)
+                new Color(1f, 0.42f, 0.42f, 0.9f),          // red (CPU Hard)
+                new Color(0.42f, 0.58f, 1f, 0.9f),          // blue (PassPlay 2P)
+                new Color(0.42f, 0.58f, 1f, 0.9f),          // blue (PassPlay 3P)
+                new Color(0.42f, 0.58f, 1f, 0.9f),          // blue (PassPlay 4P)
+                new Color(0.725f, 0.514f, 1f, 0.9f),        // purple (Online)
+            };
+
+            float startY = 0.82f;
+            float stepY = 0.09f;
+
+            for (int i = 0; i < modeNames.Length; i++)
+            {
+                var btnGo = new GameObject(buttonNames[i]);
+                btnGo.transform.SetParent(canvasGo.transform, false);
+                var btn = btnGo.AddComponent<Button>();
+                var img = btnGo.AddComponent<Image>();
+                img.color = modeColors[i];
+                img.raycastTarget = true;
+                btn.targetGraphic = img;
+                var rect = btnGo.GetComponent<RectTransform>();
+                rect.anchorMin = new Vector2(0.5f, startY - i * stepY);
+                rect.anchorMax = new Vector2(0.5f, startY - i * stepY);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.sizeDelta = new Vector2(500, 65);
+
+                var labelGo2 = new GameObject("Label");
+                labelGo2.transform.SetParent(btnGo.transform, false);
+                var label = labelGo2.AddComponent<TextMeshProUGUI>();
+                label.text = modeNames[i];
+                label.fontSize = 32;
+                label.alignment = TextAlignmentOptions.Center;
+                label.color = new Color(0.055f, 0.078f, 0.078f);
+                label.raycastTarget = false;
+                var lRect = labelGo2.GetComponent<RectTransform>();
+                lRect.anchorMin = Vector2.zero; lRect.anchorMax = Vector2.one;
+                lRect.pivot = new Vector2(0.5f, 0.5f);
+                lRect.offsetMin = Vector2.zero; lRect.offsetMax = Vector2.zero;
+            }
+
+            // GameFlowManager
+            var flowGo = new GameObject("[GameFlowManager]");
+            flowGo.AddComponent<GameFlowManager>();
+
+            // ModeSelectController
+            var ctrlGo = new GameObject("[ModeSelectController]");
+            var ctrl = ctrlGo.AddComponent<QuickChecks.UI.ModeSelectController>();
+            var so = new SerializedObject(ctrl);
+            so.FindProperty("backButton").objectReferenceValue = backBtn;
+            so.FindProperty("titleText").objectReferenceValue = titleText;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorSceneManager.SaveScene(scene, SCENES_DIR + "ModeSelect.unity");
+            Debug.Log("[GameScenesBuilder] ModeSelect scene built.");
         }
 
         private static void BuildTrackSelectScene()
@@ -449,6 +583,7 @@ namespace QuickChecks.Editor
             var scenes = new[]
             {
                 new EditorBuildSettingsScene(SCENES_DIR + "MainMenu.unity", true),
+                new EditorBuildSettingsScene(SCENES_DIR + "ModeSelect.unity", true),
                 new EditorBuildSettingsScene(SCENES_DIR + "TrackSelect.unity", true),
                 new EditorBuildSettingsScene(SCENES_DIR + "Race.unity", true),
                 new EditorBuildSettingsScene(SCENES_DIR + "Results.unity", true),

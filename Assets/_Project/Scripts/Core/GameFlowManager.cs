@@ -32,6 +32,7 @@ namespace QuickChecks.Core
         [Header("Current Selection (carried between scenes)")]
         public TrackDefinition selectedTrack;
         public KartStats selectedKart;
+        public RaceMode selectedMode = RaceMode.Solo;
 
         [Header("Last Race Results (carried to Results scene)")]
         public int lastRaceSwipes;

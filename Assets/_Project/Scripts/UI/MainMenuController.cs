@@ -40,14 +40,15 @@ namespace QuickChecks.UI
 
         private void OnPlayClicked()
         {
-            Debug.Log("[MainMenu] PLAY clicked — going to track select.");
+            Debug.Log("[MainMenu] PLAY clicked — going to mode select.");
             if (GameFlowManager.Instance != null)
             {
-                GameFlowManager.Instance.GoToTrackSelect();
+                // Go to ModeSelect (not TrackSelect directly)
+                UnityEngine.SceneManagement.SceneManager.LoadScene("ModeSelect");
             }
             else
             {
-                SceneManager.LoadScene("TrackSelect");
+                UnityEngine.SceneManagement.SceneManager.LoadScene("ModeSelect");
             }
         }
 
