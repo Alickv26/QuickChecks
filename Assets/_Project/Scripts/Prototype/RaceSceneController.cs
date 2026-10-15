@@ -10,6 +10,7 @@ using QuickChecks.Ghost;
 using QuickChecks.Core;
 using QuickChecks.Audio;
 using QuickChecks.Track;
+using QuickChecks.Camera;
 
 namespace QuickChecks.Prototype
 {
