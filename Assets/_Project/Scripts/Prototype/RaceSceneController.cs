@@ -446,6 +446,14 @@ namespace QuickChecks.Prototype
             {
                 _cameraRig.target = _allKarts[playerIndex].transform;
             }
+
+            // Deactivate THIS player's trail wall (their wall disappears when their turn starts)
+            // Other players' trail walls stay active until THEIR turns start.
+            var trail = _allKarts[playerIndex]?.GetComponent<KartTrail>();
+            if (trail != null && trail.IsTrailWallActive)
+            {
+                trail.DeactivateTrailWall();
+            }
         }
 
         private void HandleTurnEnd(int playerIndex, int swipeCount)
@@ -616,12 +624,23 @@ namespace QuickChecks.Prototype
             if (_isMultiplayer && _turnManager != null)
             {
                 _turnManager.RegisterSwipe(_currentTurnPlayerIndex);
+
                 // Mark this kart as "was moving" so the Update loop can detect when it stops.
-                // This is needed because the kart might start AND stop moving between Update frames
-                // if the swipe is very short — we'd miss the moving → stopped transition.
                 if (_wasKartMoving != null && _currentTurnPlayerIndex < _wasKartMoving.Length)
                 {
                     _wasKartMoving[_currentTurnPlayerIndex] = true;
+                }
+
+                // Check if this kart has a trail wall pending → activate it on this swipe
+                var kart = _allKarts[_currentTurnPlayerIndex];
+                if (kart != null && kart.ConsumeTrailWallPending())
+                {
+                    var trail = kart.GetComponent<KartTrail>();
+                    if (trail != null)
+                    {
+                        trail.ActivateTrailWall();
+                        Debug.Log($"[RaceScene] Trail wall activated for player {_currentTurnPlayerIndex}.");
+                    }
                 }
             }
         }
