@@ -349,7 +349,7 @@ namespace QuickChecks.Prototype
             // Player 0: create new event, re-wire its SwipeDetector + KartController
             var player0Event = ScriptableObject.CreateInstance<Core.SwipeEvent>();
             _perKartSwipeEvents.Add(player0Event);
-            _swipeDetector.SetSwipeEvent(player0Event);  // re-wire SwipeDetector to new event
+            SetField(_swipeDetector, "swipeEvent", player0Event);  // re-wire SwipeDetector via reflection
             _kart.SetSwipeEvent(player0Event);          // re-wire KartController to new event
             player0Event.Register(OnSwipe);              // count swipes for HUD
             _allSwipeDetectors.Add(_swipeDetector);
