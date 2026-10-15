@@ -65,7 +65,7 @@ namespace QuickChecks.Editor
 
             // Camera
             var camGo = new GameObject("Main Camera");
-            var cam = camGo.AddComponent<Camera>();
+            var cam = camGo.AddComponent<UnityEngine.Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 10;
             cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f);
@@ -197,7 +197,7 @@ namespace QuickChecks.Editor
 
             // Camera
             var camGo = new GameObject("Main Camera");
-            var cam = camGo.AddComponent<Camera>();
+            var cam = camGo.AddComponent<UnityEngine.Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 10;
             cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f);
@@ -313,7 +313,7 @@ namespace QuickChecks.Editor
 
             // Camera
             var camGo = new GameObject("Main Camera");
-            var cam = camGo.AddComponent<Camera>();
+            var cam = camGo.AddComponent<UnityEngine.Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 10;
             cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f);
