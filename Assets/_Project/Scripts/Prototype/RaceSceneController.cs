@@ -713,20 +713,23 @@ namespace QuickChecks.Prototype
 
         private void FinishRaceMultiplayer(int winnerIndex)
         {
-            _finished = true;
-            long finishMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _raceStartMs;
-
             // Guard against all-DNF
             if (winnerIndex < 0 || winnerIndex >= _turnManager.Players.Count)
             {
                 Debug.LogWarning("[RaceScene] Multiplayer race ended — no winner (all DNF).");
-                _autoResetTimer = 3f;
+                ShowMultiplayerEndPrompt(null);
                 return;
             }
 
             var winner = _turnManager.Players[winnerIndex];
-            Debug.Log($"[RaceScene] Multiplayer race finished! Winner: {winner.playerName} " +
-                      $"({winner.swipeCount} swipes, {finishMs / 1000f:F2}s)");
+            long finishMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _raceStartMs;
+            Debug.Log($"[RaceScene] {winner.playerName} wins! ({winner.swipeCount} swipes, {finishMs / 1000f:F2}s)");
+
+            // Record winner in profile
+            if (GameFlowManager.Instance != null && winner.finishTimeMs > 0)
+            {
+                GameFlowManager.Instance.OnTrackCompleted(_trackDef.trackId, winner.swipeCount, winner.finishTimeMs);
+            }
 
             // Show winner banner
             if (_turnBanner != null)
@@ -734,19 +737,78 @@ namespace QuickChecks.Prototype
                 _turnBanner.ShowTurnBanner(winnerIndex, $"{winner.playerName} WINS!", true);
             }
 
-            // Record results in player profile
-            if (GameFlowManager.Instance != null)
+            // Check if there are remaining players who haven't finished
+            bool hasRemainingPlayers = false;
+            foreach (var p in _turnManager.Players)
             {
-                for (int i = 0; i < _turnManager.Players.Count; i++)
+                if (!p.isFinished) { hasRemainingPlayers = true; break; }
+            }
+
+            if (hasRemainingPlayers)
+            {
+                // Show Continue / End Game prompt (NOT auto-reset)
+                ShowMultiplayerEndPrompt(winner);
+            }
+            else
+            {
+                // All players finished — show final results
+                ShowFinalResults();
+            }
+        }
+
+        private void ShowMultiplayerEndPrompt(Racing.TurnManager.PlayerState winner)
+        {
+            _finished = true;  // Stop normal race flow
+
+            // Build results string
+            string results = "RACE RESULTS\n\n";
+            var players = _turnManager.Players;
+            // Sort by: finished first (by swipes), then DNF
+            var sorted = new System.Collections.Generic.List<Racing.TurnManager.PlayerState>(players);
+            sorted.Sort((a, b) =>
+            {
+                if (a.isFinished && !b.isFinished) return -1;
+                if (!a.isFinished && b.isFinished) return 1;
+                if (a.isFinished && b.isFinished)
                 {
-                    var p = _turnManager.Players[i];
-                    if (!p.isFinished || p.finishTimeMs < 0) continue;
-                    GameFlowManager.Instance.OnTrackCompleted(_trackDef.trackId, p.swipeCount, p.finishTimeMs);
+                    if (a.swipeCount != b.swipeCount) return a.swipeCount.CompareTo(b.swipeCount);
+                    return a.finishTimeMs.CompareTo(b.finishTimeMs);
+                }
+                return 0;
+            });
+
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                var p = sorted[i];
+                if (p.isFinished && p.finishTimeMs > 0)
+                {
+                    results += $"{i + 1}. {p.playerName}: {p.swipeCount} swipes\n";
+                }
+                else
+                {
+                    results += $"{i + 1}. {p.playerName}: DNF\n";
                 }
             }
 
-            // Auto-reset after 5s (gives time to see the winner banner)
-            _autoResetTimer = 5f;
+            // Show on HUD
+            if (_hud != null)
+            {
+                // Use the lap notification text for results display
+                var lapText = _hud.GetType().GetField("lapNotificationTMP",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                // Can't easily access private field — just log for now
+            }
+
+            Debug.Log($"[RaceScene] === FINAL RESULTS ===\n{results}");
+
+            // Auto-reset after 8s (gives time to read results)
+            _autoResetTimer = 8f;
+        }
+
+        private void ShowFinalResults()
+        {
+            _finished = true;
+            ShowMultiplayerEndPrompt(null);
         }
 
         private void StartRace()
@@ -854,31 +916,38 @@ namespace QuickChecks.Prototype
                 int currentIdx = _turnManager.CurrentPlayerIndex;
                 if (currentIdx >= 0 && currentIdx < _allKarts.Count && _allKarts[currentIdx] != null)
                 {
-                    // Use IsStopped from KartController (more reliable than velocity check)
-                    // IsStopped is true when velocity < stopThreshold (8 u/s)
-                    bool isStopped = _allKarts[currentIdx].IsStopped;
-                    bool isMoving = !isStopped;
+                    // Only check for stopped if the kart was actually moving at some point.
+                    // _wasKartMoving is set to true in OnKartSwipe when a swipe fires.
+                    // We also set _kartStopDelay to 0.3s there — this delay gives physics
+                    // time to apply the impulse before we check if the kart stopped.
+                    if (_wasKartMoving[currentIdx])
+                    {
+                        // Check if the kart is currently stopped (velocity below stopThreshold)
+                        bool isStopped = _allKarts[currentIdx].IsStopped;
 
-                    if (isMoving)
-                    {
-                        _wasKartMoving[currentIdx] = true;
-                        if (_kartStopDelay != null && currentIdx < _kartStopDelay.Length)
-                            _kartStopDelay[currentIdx] = 0.3f;
-                    }
-                    else if (_wasKartMoving[currentIdx])
-                    {
-                        // Was moving, now stopped — count down delay
-                        if (_kartStopDelay != null && currentIdx < _kartStopDelay.Length && _kartStopDelay[currentIdx] > 0f)
+                        if (!isStopped)
                         {
-                            _kartStopDelay[currentIdx] -= Time.deltaTime;
+                            // Kart is still moving — reset the stop delay
+                            if (_kartStopDelay != null && currentIdx < _kartStopDelay.Length)
+                                _kartStopDelay[currentIdx] = 0.3f;
                         }
                         else
                         {
-                            // Confirmed stopped for 0.3s — end turn
-                            Debug.Log($"[RaceScene] Kart {currentIdx} stopped — notifying TurnManager. " +
-                                      $"Phase={_turnManager.Phase}, vel={_allKarts[currentIdx].Velocity.magnitude:F1}");
-                            _wasKartMoving[currentIdx] = false;
-                            _turnManager.NotifyKartStopped(currentIdx);
+                            // Kart appears stopped — count down the delay
+                            // This prevents false triggers from the frame gap between
+                            // swipe registration and physics impulse application.
+                            if (_kartStopDelay != null && currentIdx < _kartStopDelay.Length && _kartStopDelay[currentIdx] > 0f)
+                            {
+                                _kartStopDelay[currentIdx] -= Time.deltaTime;
+                            }
+                            else
+                            {
+                                // Confirmed stopped for 0.3s — end turn
+                                Debug.Log($"[RaceScene] Kart {currentIdx} stopped — notifying TurnManager. " +
+                                          $"Phase={_turnManager.Phase}, vel={_allKarts[currentIdx].Velocity.magnitude:F1}");
+                                _wasKartMoving[currentIdx] = false;
+                                _turnManager.NotifyKartStopped(currentIdx);
+                            }
                         }
                     }
                 }

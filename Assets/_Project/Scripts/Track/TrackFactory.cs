@@ -96,7 +96,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
                     t = 0.5f,
                     lateralOffset = 0f,
-                    size = new Vector2(3f, 4f),
+                    size = new Vector2(2f, 2f),
                     teleportDistance = 0f
                 }
             };
@@ -162,7 +162,7 @@ namespace QuickChecks.Track
                 }
             };
 
-            // 2 obstacles: 1 wall + 1 gravel
+            // 2 obstacles: 1 wall + 1 gravel (SMALLER sizes for navigability)
             def.obstacleSpawns = new TrackDefinition.ObstacleSpawn[]
             {
                 new TrackDefinition.ObstacleSpawn
@@ -170,7 +170,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
                     t = 0.3f,
                     lateralOffset = 0f,
-                    size = new Vector2(2f, 3f),  // Narrower than trackWidth (5), player can go around
+                    size = new Vector2(1.5f, 1.5f),  // Small wall — plenty of room around
                     teleportDistance = 0f
                 },
                 new TrackDefinition.ObstacleSpawn
@@ -178,7 +178,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
                     t = 0.7f,
                     lateralOffset = 0f,
-                    size = new Vector2(3f, 3f),
+                    size = new Vector2(2.5f, 2.5f),  // Smaller gravel patch
                     teleportDistance = 0f
                 }
             };
@@ -266,7 +266,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
                     t = 0.2f,
                     lateralOffset = 0f,
-                    size = new Vector2(2f, 3f),
+                    size = new Vector2(1.5f, 1.5f),  // Small wall
                     teleportDistance = 0f
                 },
                 new TrackDefinition.ObstacleSpawn
@@ -274,7 +274,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.BlackHole,
                     t = 0.55f,
                     lateralOffset = 0f,
-                    size = new Vector2(1.5f, 1.5f),
+                    size = new Vector2(1.0f, 1.0f),  // Small black hole
                     teleportDistance = 8f
                 },
                 new TrackDefinition.ObstacleSpawn
@@ -282,7 +282,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
                     t = 0.85f,
                     lateralOffset = 0f,
-                    size = new Vector2(3f, 4f),
+                    size = new Vector2(2f, 2f),  // Small gravel
                     teleportDistance = 0f
                 }
             };
@@ -369,7 +369,7 @@ namespace QuickChecks.Track
                 }
             };
 
-            // 4 obstacles: 2 walls + 1 black hole + 1 gravel
+            // 4 obstacles: 2 walls + 1 black hole + 1 gravel (ALL SMALL)
             def.obstacleSpawns = new TrackDefinition.ObstacleSpawn[]
             {
                 new TrackDefinition.ObstacleSpawn
@@ -377,7 +377,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
                     t = 0.1f,
                     lateralOffset = 0f,
-                    size = new Vector2(2f, 2f),
+                    size = new Vector2(1.5f, 1.5f),  // Small wall
                     teleportDistance = 0f
                 },
                 new TrackDefinition.ObstacleSpawn
@@ -385,7 +385,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.BlackHole,
                     t = 0.4f,
                     lateralOffset = 0f,
-                    size = new Vector2(1.5f, 1.5f),
+                    size = new Vector2(1.0f, 1.0f),  // Small black hole
                     teleportDistance = 10f
                 },
                 new TrackDefinition.ObstacleSpawn
@@ -393,7 +393,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
                     t = 0.6f,
                     lateralOffset = 0f,
-                    size = new Vector2(2f, 2f),
+                    size = new Vector2(1.5f, 1.5f),  // Small wall
                     teleportDistance = 0f
                 },
                 new TrackDefinition.ObstacleSpawn
@@ -401,7 +401,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
                     t = 0.9f,
                     lateralOffset = 0f,
-                    size = new Vector2(4f, 3f),
+                    size = new Vector2(2.5f, 2f),  // Small gravel
                     teleportDistance = 0f
                 }
             };
