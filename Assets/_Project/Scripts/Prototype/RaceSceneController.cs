@@ -52,12 +52,22 @@ namespace QuickChecks.Prototype
         private List<KartController> _allKarts = new();
         private List<SwipeDetector> _allSwipeDetectors = new();
         private List<Core.GameEventSO<QuickChecks.Input.SwipeData>> _perKartSwipeEvents = new();
+        private List<Racing.KartGlow> _allKartGlows = new();
         private Racing.TurnManager _turnManager;
         private UI.PassPlayOverlay _passPlayOverlay;
+        private UI.TurnBannerController _turnBanner;
         private bool _isMultiplayer = false;
         private int _currentTurnPlayerIndex = 0;
         private bool[] _wasKartMoving;
         private float _turnStartDelay = 0f;
+
+        // Player colors for glow
+        private static readonly Color[] PLAYER_COLORS = {
+            new Color(0.247f, 0.878f, 0.760f),  // cyan (player 1)
+            new Color(1f, 0.42f, 0.42f),         // red (player 2 / CPU)
+            new Color(0.42f, 0.79f, 0.47f),      // green (player 3)
+            new Color(0.42f, 0.58f, 1f),          // blue (player 4)
+        };
 
         private long _raceStartMs;
         private int _swipeCount;
@@ -187,6 +197,9 @@ namespace QuickChecks.Prototype
             kartGo.AddComponent<SwipeFeedback>();
             kartGo.AddComponent<SwipeAudio>();
             kartGo.AddComponent<AudioSource>();
+            var glow = kartGo.AddComponent<Racing.KartGlow>();  // Neon glow for active kart
+            glow.SetGlowColor(PLAYER_COLORS[0]);  // Player 1 = cyan
+            _allKartGlows.Add(glow);
             var pus = kartGo.AddComponent<PowerUpSystem>();
             var ct = kartGo.AddComponent<CheckpointTracker>();
 
@@ -312,6 +325,53 @@ namespace QuickChecks.Prototype
             SetField(_hud, "kart", _kart);
             if (statusText is TMP_Text tmp) SetField(_hud, "statusTextTMP", tmp);
             SetField(_hud, "resetButton", resetBtn);
+
+            // ----- Turn banner (top-center, slides in/out) -----
+            var bannerGo = new GameObject("TurnBanner");
+            bannerGo.transform.SetParent(canvasGo.transform, false);
+            var bannerImg = bannerGo.AddComponent<Image>();
+            bannerImg.color = Color.clear;
+            bannerImg.raycastTarget = false;
+            var bannerRect = bannerGo.GetComponent<RectTransform>();
+            bannerRect.anchorMin = new Vector2(0.5f, 1);
+            bannerRect.anchorMax = new Vector2(0.5f, 1);
+            bannerRect.pivot = new Vector2(0.5f, 0.5f);
+            bannerRect.anchoredPosition = new Vector2(0, 100);
+            bannerRect.sizeDelta = new Vector2(600, 80);
+
+            var bannerLabelGo = new GameObject("BannerText");
+            bannerLabelGo.transform.SetParent(bannerGo.transform, false);
+            TMP_Text bannerLabel = null;
+            try
+            {
+                bannerLabel = bannerLabelGo.AddComponent<TextMeshProUGUI>();
+                bannerLabel.text = "";
+                bannerLabel.fontSize = 42;
+                bannerLabel.alignment = TextAlignmentOptions.Center;
+                bannerLabel.color = Color.white;
+                bannerLabel.raycastTarget = false;
+            }
+            catch
+            {
+                var legacy = bannerLabelGo.AddComponent<Text>();
+                legacy.text = "";
+                legacy.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                legacy.fontSize = 32;
+                legacy.alignment = TextAnchor.MiddleCenter;
+                legacy.color = Color.white;
+                legacy.raycastTarget = false;
+                bannerLabel = (TMP_Text)(object)legacy;
+            }
+            var blRect = bannerLabelGo.GetComponent<RectTransform>();
+            blRect.anchorMin = Vector2.zero;
+            blRect.anchorMax = Vector2.one;
+            blRect.pivot = new Vector2(0.5f, 0.5f);
+            blRect.offsetMin = Vector2.zero;
+            blRect.offsetMax = Vector2.zero;
+
+            _turnBanner = bannerGo.AddComponent<UI.TurnBannerController>();
+            SetField(_turnBanner, "bannerText", bannerLabel);
+            SetField(_turnBanner, "bannerBackground", bannerImg);
         }
 
         private void BuildServices()
@@ -456,38 +516,51 @@ namespace QuickChecks.Prototype
         private void HandleTurnStart(int playerIndex)
         {
             _currentTurnPlayerIndex = playerIndex;
-            Debug.Log($"[RaceScene] Turn started for player {playerIndex} ({_turnManager.Players[playerIndex].playerName}).");
+            string playerName = _turnManager.Players[playerIndex].playerName;
+            Debug.Log($"[RaceScene] Turn started for player {playerIndex} ({playerName}).");
 
-            // Enable the active player's SwipeDetector (CPU karts don't have one)
+            // Enable the active player's SwipeDetector
             SetActiveSwipeDetector(playerIndex);
 
-            // Camera follows the active kart — SmoothDamp creates a smooth pan between karts
+            // Camera follows the active kart
             if (_cameraRig != null && _allKarts.Count > playerIndex)
             {
                 _cameraRig.target = _allKarts[playerIndex].transform;
-                Debug.Log($"[RaceScene] Camera target set to kart {playerIndex} at {_allKarts[playerIndex].transform.position}.");
             }
 
-            // Deactivate THIS player's trail wall (their wall disappears when their turn starts)
+            // Update kart glow — only active kart glows
+            for (int i = 0; i < _allKartGlows.Count; i++)
+            {
+                if (_allKartGlows[i] != null)
+                {
+                    _allKartGlows[i].SetActive(i == playerIndex);
+                }
+            }
+
+            // Show turn banner
+            if (_turnBanner != null)
+            {
+                _turnBanner.ShowTurnBanner(playerIndex, playerName, _isMultiplayer);
+            }
+
+            // Deactivate trail wall
             var trail = _allKarts[playerIndex]?.GetComponent<KartTrail>();
             if (trail != null && trail.IsTrailWallActive)
             {
                 trail.DeactivateTrailWall();
-            }
-
-            // Show whose turn it is via lap notification (if HUD supports it)
-            if (_hud != null)
-            {
-                string playerName = _turnManager.Players[playerIndex].playerName;
-                Debug.Log($"[RaceScene] {playerName}'s turn. Camera panning to their kart.");
             }
         }
 
         private void HandleTurnEnd(int playerIndex, int swipeCount)
         {
             Debug.Log($"[RaceScene] Turn ended for player {playerIndex} ({swipeCount} swipes total).");
-            // Disable all SwipeDetectors while waiting for next turn
-            // (TurnManager will call HandleTurnStart for the next player)
+
+            // Deactivate all kart glows
+            foreach (var glow in _allKartGlows)
+            {
+                glow?.SetActive(false);
+            }
+
             SetActiveSwipeDetector(-1);
         }
 
@@ -574,6 +647,11 @@ namespace QuickChecks.Prototype
             // Add trail
             var trail = kartGo.AddComponent<KartTrail>();
             SetField(trail, "kart", kart);
+
+            // Add neon glow for this kart (color matches player index)
+            var glow = kartGo.AddComponent<Racing.KartGlow>();
+            glow.SetGlowColor(PLAYER_COLORS[playerIndex % PLAYER_COLORS.Length]);
+            _allKartGlows.Add(glow);
 
             _allKarts.Add(kart);
 
