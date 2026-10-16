@@ -112,8 +112,8 @@ namespace QuickChecks.Racing
 
         private void StartNextTurn()
         {
-            // Skip finished players.
-            for (int i = 0; i < players.Count; i++)
+            // Advance to the NEXT player (start from i=1 to skip current player).
+            for (int i = 1; i <= players.Count; i++)
             {
                 int idx = (_currentPlayerIndex + i) % players.Count;
                 if (!players[idx].isFinished)
