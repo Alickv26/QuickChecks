@@ -328,6 +328,63 @@ namespace QuickChecks.Prototype
             if (statusText is TMP_Text tmp) SetField(_hud, "statusTextTMP", tmp);
             SetField(_hud, "resetButton", resetBtn);
 
+            // ----- Back button (top-right, below RESET) -----
+            var backBtnGo = new GameObject("BackButton");
+            backBtnGo.transform.SetParent(canvasGo.transform, false);
+            var backBtn = backBtnGo.AddComponent<Button>();
+            var backBtnImg = backBtnGo.AddComponent<Image>();
+            backBtnImg.color = new Color(0.15f, 0.2f, 0.2f, 0.9f);  // dark
+            backBtnImg.raycastTarget = true;
+            backBtn.targetGraphic = backBtnImg;
+            var backBtnRect = backBtnGo.GetComponent<RectTransform>();
+            backBtnRect.anchorMin = new Vector2(1, 1);
+            backBtnRect.anchorMax = new Vector2(1, 1);
+            backBtnRect.pivot = new Vector2(1, 1);
+            backBtnRect.anchoredPosition = new Vector2(-40, -160);  // Below reset button
+            backBtnRect.sizeDelta = new Vector2(250, 80);
+
+            var backLabelGo = new GameObject("Label");
+            backLabelGo.transform.SetParent(backBtnGo.transform, false);
+            try
+            {
+                var backLabel = backLabelGo.AddComponent<TextMeshProUGUI>();
+                backLabel.text = "← TRACK SELECT";
+                backLabel.fontSize = 30;
+                backLabel.alignment = TextAlignmentOptions.Center;
+                backLabel.color = Color.white;
+                backLabel.raycastTarget = false;
+            }
+            catch
+            {
+                var backLabel = backLabelGo.AddComponent<Text>();
+                backLabel.text = "← TRACK SELECT";
+                backLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                backLabel.fontSize = 22;
+                backLabel.alignment = TextAnchor.MiddleCenter;
+                backLabel.color = Color.white;
+                backLabel.raycastTarget = false;
+            }
+            var backLabelRect = backLabelGo.GetComponent<RectTransform>();
+            backLabelRect.anchorMin = Vector2.zero;
+            backLabelRect.anchorMax = Vector2.one;
+            backLabelRect.pivot = new Vector2(0.5f, 0.5f);
+            backLabelRect.offsetMin = Vector2.zero;
+            backLabelRect.offsetMax = Vector2.zero;
+
+            backBtn.onClick.AddListener(() =>
+            {
+                Debug.Log("[RaceScene] Back button clicked — going to track select.");
+                if (Core.GameFlowManager.Instance != null)
+                {
+                    Core.GameFlowManager.Instance.GoToTrackSelect();
+                }
+                else
+                {
+                    UnityEngine.SceneManagement.SceneManager.LoadScene("TrackSelect");
+                }
+            });
+            Debug.Log("[Prototype] Back button created at top-right (below RESET).");
+
             // ----- Turn banner (top-center, slides in/out) -----
             var bannerGo = new GameObject("TurnBanner");
             bannerGo.transform.SetParent(canvasGo.transform, false);
