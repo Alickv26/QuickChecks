@@ -843,31 +843,30 @@ namespace QuickChecks.Prototype
             // Multiplayer: detect when karts stop moving → notify TurnManager
             if (_isMultiplayer && _turnManager != null && _wasKartMoving != null)
             {
-                for (int i = 0; i < _allKarts.Count; i++)
+                // Only check the CURRENT player's kart — ignore other karts
+                int currentIdx = _turnManager.CurrentPlayerIndex;
+                if (currentIdx >= 0 && currentIdx < _allKarts.Count && _allKarts[currentIdx] != null)
                 {
-                    if (_allKarts[i] == null) continue;
-                    bool isMoving = _allKarts[i].Velocity.magnitude > 10f;
+                    bool isMoving = _allKarts[currentIdx].Velocity.magnitude > 10f;
 
                     if (isMoving)
                     {
-                        // Kart is moving — track it and reset the stop delay
-                        _wasKartMoving[i] = true;
-                        _kartStopDelay[i] = 0.3f;  // Reset stop delay (must be stopped for 0.3s)
+                        _wasKartMoving[currentIdx] = true;
+                        if (_kartStopDelay != null && currentIdx < _kartStopDelay.Length)
+                            _kartStopDelay[currentIdx] = 0.3f;
                     }
-                    else if (_wasKartMoving[i])
+                    else if (_wasKartMoving[currentIdx])
                     {
-                        // Kart was moving but now stopped — wait a bit before declaring turn end
-                        // This prevents false triggers from physics jitter at the start of movement
-                        if (_kartStopDelay[i] > 0f)
+                        if (_kartStopDelay != null && currentIdx < _kartStopDelay.Length && _kartStopDelay[currentIdx] > 0f)
                         {
-                            _kartStopDelay[i] -= Time.deltaTime;
+                            _kartStopDelay[currentIdx] -= Time.deltaTime;
                         }
                         else
                         {
-                            // Confirmed stopped
-                            Debug.Log($"[RaceScene] Kart {i} stopped — notifying TurnManager.");
-                            _wasKartMoving[i] = false;
-                            _turnManager.NotifyKartStopped(i);
+                            Debug.Log($"[RaceScene] Kart {currentIdx} (current player) stopped — notifying TurnManager. " +
+                                      $"Phase={_turnManager.Phase}");
+                            _wasKartMoving[currentIdx] = false;
+                            _turnManager.NotifyKartStopped(currentIdx);
                         }
                     }
                 }

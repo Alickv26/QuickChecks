@@ -34,6 +34,28 @@ namespace QuickChecks.Racing
         public int TotalLaps => totalLaps;
         public int NextCheckpointIndex => nextCheckpointIndex;
         public int TotalCheckpointsPassed => totalCheckpointsPassed;
+
+        /// <summary>
+        /// In lenient mode, returns the index of the first un-passed checkpoint (for CPU targeting).
+        /// In strict mode, returns nextCheckpointIndex.
+        /// </summary>
+        public int GetNextCheckpointToTarget()
+        {
+            if (lenientOrder && _passedCheckpoints != null && _checkpoints != null)
+            {
+                // Find first checkpoint index not yet passed
+                for (int i = 0; i < _checkpoints.Length; i++)
+                {
+                    if (!_passedCheckpoints.Contains(i))
+                    {
+                        return i;
+                    }
+                }
+                // All passed — target finish line (return -1 as signal)
+                return -1;
+            }
+            return nextCheckpointIndex;
+        }
         public bool RaceComplete => currentLap >= totalLaps;
 
         /// <summary>Event with the lap number (1-based) that was just completed.</summary>

@@ -143,7 +143,20 @@ namespace QuickChecks.Racing
 
             // Find the CheckpointTracker on this kart to know which checkpoint is next.
             var tracker = _kart.GetComponent<CheckpointTracker>();
-            int targetIndex = tracker != null ? tracker.NextCheckpointIndex : 0;
+            int targetIndex = tracker != null ? tracker.GetNextCheckpointToTarget() : 0;
+
+            // If all checkpoints passed (-1), target the finish line
+            if (targetIndex == -1)
+            {
+                // Find the finish line by tag (or just aim forward)
+                var finishObj = GameObject.Find("FinishLine");
+                if (finishObj != null)
+                {
+                    Debug.Log($"[CPUPlayer] All checkpoints passed — targeting finish line at {finishObj.transform.position}.");
+                    return finishObj.transform;
+                }
+                return null;
+            }
 
             // Find the checkpoint with the matching index.
             foreach (var cp in checkpoints)
