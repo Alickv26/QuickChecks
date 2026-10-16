@@ -62,7 +62,8 @@ namespace QuickChecks.Prototype
         private float[] _kartStopDelay;  // countdown before declaring kart stopped (prevents false triggers)
         private float _turnStartDelay = 0f;
 
-        // Player colors for glow
+        // Per-kart swipe handlers (each knows its own player index)
+        private List<Action<QuickChecks.Input.SwipeData>> _perKartSwipeHandlers = new();
         private static readonly Color[] PLAYER_COLORS = {
             new Color(0.247f, 0.878f, 0.760f),  // cyan (player 1)
             new Color(1f, 0.42f, 0.42f),         // red (player 2 / CPU)
@@ -426,13 +427,17 @@ namespace QuickChecks.Prototype
             }
 
             // CRITICAL: Create a separate SwipeEvent for EACH kart so they don't share input.
-            // Without this, when player swipes, ALL karts move simultaneously.
-            // Player 0: create new event, re-wire its SwipeDetector + KartController
+            // Each kart gets its own handler that KNOWS its player index.
             var player0Event = ScriptableObject.CreateInstance<Core.SwipeEvent>();
             _perKartSwipeEvents.Add(player0Event);
-            SetField(_swipeDetector, "swipeEvent", player0Event);  // re-wire SwipeDetector via reflection
-            _kart.SetSwipeEvent(player0Event);          // re-wire KartController to new event
-            player0Event.Register(OnSwipe);              // count swipes for HUD
+            SetField(_swipeDetector, "swipeEvent", player0Event);
+            _kart.SetSwipeEvent(player0Event);
+
+            // Create a per-kart handler for player 0
+            int p0Index = 0;  // capture for closure
+            var handler0 = new Action<QuickChecks.Input.SwipeData>(swipe => OnKartSwipe(p0Index, swipe));
+            _perKartSwipeHandlers.Add(handler0);
+            player0Event.Register(handler0);
             _allSwipeDetectors.Add(_swipeDetector);
 
             // Spawn additional karts (player 0 is already created as _kart)
@@ -496,6 +501,11 @@ namespace QuickChecks.Prototype
             SetActiveSwipeDetector(0);
 
             Debug.Log($"[RaceScene] Multiplayer setup complete: {playerCount} karts, TurnManager active.");
+
+            // Add turn flow debugger for diagnostics
+            var debuggerGo = new GameObject("[TurnFlowDebugger]");
+            var debugger = debuggerGo.AddComponent<TurnFlowDebugger>();
+            debugger.Initialize(_turnManager, _allKarts, _allSwipeDetectors);
 
             // Make all karts ignore collision with each other (they pass through, like ghosts)
             // Karts still collide with walls but not with each other.
@@ -643,8 +653,11 @@ namespace QuickChecks.Prototype
                 cpu.SetDifficulty(difficulty);
             }
 
-            // Register this kart's event for swipe counting
-            kartSwipeEvent.Register(OnSwipe);
+            // Register this kart's event with a PER-KART handler (knows its own index)
+            int kartIndex = playerIndex;  // capture for closure
+            var handler = new Action<QuickChecks.Input.SwipeData>(swipe => OnKartSwipe(kartIndex, swipe));
+            _perKartSwipeHandlers.Add(handler);
+            kartSwipeEvent.Register(handler);
 
             // Add trail
             var trail = kartGo.AddComponent<KartTrail>();
@@ -754,43 +767,55 @@ namespace QuickChecks.Prototype
             }
         }
 
-        private void OnSwipe(SwipeData swipe)
+        /// <summary>
+        /// Per-kart swipe handler. Each kart has its own handler that knows its player index.
+        /// This prevents the race condition where OnSwipe used _currentTurnPlayerIndex
+        /// which might not have been updated yet.
+        /// </summary>
+        private void OnKartSwipe(int playerIndex, QuickChecks.Input.SwipeData swipe)
         {
             _swipeCount++;
 
-            // In multiplayer: identify WHICH kart's event fired this swipe
-            // by checking which per-kart event raised it.
             if (_isMultiplayer && _turnManager != null)
             {
-                // Find which player index this swipe came from
-                int swipingPlayerIndex = _currentTurnPlayerIndex;  // default to current turn
-                // We can't easily identify which event raised this from inside OnSwipe,
-                // but we know only the active player's SwipeDetector is enabled, so
-                // _currentTurnPlayerIndex is correct for human players.
-                // For CPU: the CPUPlayer raises its own per-kart event, and
-                // _currentTurnPlayerIndex was set by HandleTurnStart before the CPU took its turn.
+                Debug.Log($"[RaceScene] OnKartSwipe: player={playerIndex}, currentTurn={_currentTurnPlayerIndex}, " +
+                          $"phase={_turnManager.Phase}, mag={swipe.magnitude:F0}");
 
-                _turnManager.RegisterSwipe(swipingPlayerIndex);
-
-                // Mark this kart as "was moving" — use a short delay to ensure
-                // the kart has time to start moving before we check if it stopped.
-                if (_wasKartMoving != null && swipingPlayerIndex < _wasKartMoving.Length)
+                // Only register the swipe if it's actually this player's turn
+                if (playerIndex == _turnManager.CurrentPlayerIndex)
                 {
-                    _wasKartMoving[swipingPlayerIndex] = true;
-                }
+                    _turnManager.RegisterSwipe(playerIndex);
 
-                // Check if this kart has a trail wall pending → activate it on this swipe
-                var kart = _allKarts[swipingPlayerIndex];
-                if (kart != null && kart.ConsumeTrailWallPending())
-                {
-                    var trail = kart.GetComponent<KartTrail>();
-                    if (trail != null)
+                    // Mark this kart as "was moving"
+                    if (_wasKartMoving != null && playerIndex < _wasKartMoving.Length)
                     {
-                        trail.ActivateTrailWall();
-                        Debug.Log($"[RaceScene] Trail wall activated for player {swipingPlayerIndex}.");
+                        _wasKartMoving[playerIndex] = true;
+                        if (_kartStopDelay != null) _kartStopDelay[playerIndex] = 0.3f;
+                    }
+
+                    // Check trail wall pending
+                    var kart = _allKarts[playerIndex];
+                    if (kart != null && kart.ConsumeTrailWallPending())
+                    {
+                        var trail = kart.GetComponent<KartTrail>();
+                        if (trail != null)
+                        {
+                            trail.ActivateTrailWall();
+                            Debug.Log($"[RaceScene] Trail wall activated for player {playerIndex}.");
+                        }
                     }
                 }
+                else
+                {
+                    Debug.LogWarning($"[RaceScene] Swipe from player {playerIndex} but it's player {_turnManager.CurrentPlayerIndex}'s turn — IGNORED.");
+                }
             }
+        }
+
+        private void OnSwipe(SwipeData swipe)
+        {
+            // Solo mode only
+            _swipeCount++;
         }
 
         private void Update()
@@ -939,14 +964,18 @@ namespace QuickChecks.Prototype
 
         private void OnDisable()
         {
-            // Cleanup per-kart SwipeEvent subscriptions (issue #4)
+            // Cleanup per-kart SwipeEvent subscriptions
             if (swipeEvent != null) swipeEvent.Unregister(OnSwipe);
-            foreach (var evt in _perKartSwipeEvents)
+            for (int i = 0; i < _perKartSwipeEvents.Count; i++)
             {
-                if (evt != null) evt.Unregister(OnSwipe);
-                if (evt != null) Destroy(evt);
+                if (_perKartSwipeEvents[i] != null && i < _perKartSwipeHandlers.Count && _perKartSwipeHandlers[i] != null)
+                {
+                    _perKartSwipeEvents[i].Unregister(_perKartSwipeHandlers[i]);
+                }
+                if (_perKartSwipeEvents[i] != null) Destroy(_perKartSwipeEvents[i]);
             }
             _perKartSwipeEvents.Clear();
+            _perKartSwipeHandlers.Clear();
             // Unsubscribe from TurnManager events
             if (_turnManager != null)
             {
