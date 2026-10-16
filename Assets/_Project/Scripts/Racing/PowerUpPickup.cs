@@ -100,6 +100,12 @@ namespace QuickChecks.Racing
             // Collect!
             powerUpSystem.Collect(powerUp);
 
+            // Play power-up pickup SFX
+            if (QuickChecks.Audio.SfxPlayer.Instance != null)
+            {
+                QuickChecks.Audio.SfxPlayer.Instance.PlayPowerUpPickup();
+            }
+
             if (oneTimeUse)
             {
                 // Permanent collection — destroy the GameObject

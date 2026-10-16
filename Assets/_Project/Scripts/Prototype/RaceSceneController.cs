@@ -1050,6 +1050,12 @@ namespace QuickChecks.Prototype
             _finished = false;
             _swipeCount = 0;
 
+            // Play race music
+            if (QuickChecks.Audio.MusicPlayer.Instance != null)
+            {
+                QuickChecks.Audio.MusicPlayer.Instance.PlayRaceMusic();
+            }
+
             if (!_isMultiplayer)
             {
                 // Solo: use shared swipeEvent

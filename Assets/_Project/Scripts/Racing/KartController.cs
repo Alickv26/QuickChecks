@@ -239,6 +239,12 @@ namespace QuickChecks.Racing
             if (_rb != null) _rb.velocity = Vector2.zero;
             isStopped = true;
 
+            // Play boundary hit SFX
+            if (QuickChecks.Audio.SfxPlayer.Instance != null)
+            {
+                QuickChecks.Audio.SfxPlayer.Instance.PlayBoundaryHit();
+            }
+
             Debug.Log($"[Kart] Collision with '{collision.gameObject.name}' — kart stopped (golf-feel).");
         }
 

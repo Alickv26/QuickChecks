@@ -179,6 +179,10 @@ namespace QuickChecks.Editor
             var flowGo = new GameObject("[GameFlowManager]");
             flowGo.AddComponent<GameFlowManager>();
 
+            // AudioBootstrap (creates MusicPlayer + SfxPlayer, loads track.mp3)
+            var audioGo = new GameObject("[AudioBootstrap]");
+            audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
+
             // MainMenuController
             var controllerGo = new GameObject("[MainMenuController]");
             var controller = controllerGo.AddComponent<MainMenuController>();
@@ -313,6 +317,10 @@ namespace QuickChecks.Editor
             var flowGo = new GameObject("[GameFlowManager]");
             flowGo.AddComponent<GameFlowManager>();
 
+            // AudioBootstrap (creates MusicPlayer + SfxPlayer, loads track.mp3)
+            var audioGo = new GameObject("[AudioBootstrap]");
+            audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
+
             // ModeSelectController
             var ctrlGo = new GameObject("[ModeSelectController]");
             var ctrl = ctrlGo.AddComponent<QuickChecks.UI.ModeSelectController>();
@@ -412,6 +420,10 @@ namespace QuickChecks.Editor
             var flowGo = new GameObject("[GameFlowManager]");
             flowGo.AddComponent<GameFlowManager>();
 
+            // AudioBootstrap (creates MusicPlayer + SfxPlayer, loads track.mp3)
+            var audioGo = new GameObject("[AudioBootstrap]");
+            audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
+
             // TrackSelectController
             var ctrlGo = new GameObject("[TrackSelectController]");
             var ctrl = ctrlGo.AddComponent<TrackSelectController>();
@@ -436,6 +448,10 @@ namespace QuickChecks.Editor
             // GameFlowManager (persistent — survives from TrackSelect)
             var flowGo = new GameObject("[GameFlowManager]");
             flowGo.AddComponent<GameFlowManager>();
+
+            // AudioBootstrap (creates MusicPlayer + SfxPlayer, loads track.mp3)
+            var audioGo = new GameObject("[AudioBootstrap]");
+            audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
 
             EditorSceneManager.SaveScene(scene, SCENES_DIR + "Race.unity");
             Debug.Log("[GameScenesBuilder] Race scene built.");
@@ -560,6 +576,10 @@ namespace QuickChecks.Editor
             // GameFlowManager
             var flowGo = new GameObject("[GameFlowManager]");
             flowGo.AddComponent<GameFlowManager>();
+
+            // AudioBootstrap (creates MusicPlayer + SfxPlayer, loads track.mp3)
+            var audioGo = new GameObject("[AudioBootstrap]");
+            audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
 
             // ResultsScreenController
             var ctrlGo = new GameObject("[ResultsScreenController]");
