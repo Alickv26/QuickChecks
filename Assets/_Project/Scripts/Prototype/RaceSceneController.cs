@@ -475,12 +475,15 @@ namespace QuickChecks.Prototype
             if (_ghostRecorder != null) _ghostRecorder.enabled = false;
 
             // Subscribe to turn events BEFORE starting the race
-            // (StartRace fires OnTurnStart(0) immediately — must be subscribed first)
             _turnManager.OnTurnStart += HandleTurnStart;
             _turnManager.OnTurnEnd += HandleTurnEnd;
-            _turnManager.OnRaceFinished += (winnerIndex) =>
+            // OnPlayerFinished fires when EACH kart crosses finish line
+            _turnManager.OnPlayerFinished += (playerIndex, finishTimeMs) =>
             {
-                if (!_finished) FinishRaceMultiplayer(winnerIndex);
+                if (!_finished)
+                {
+                    FinishRaceMultiplayer(playerIndex);
+                }
             };
 
             // NOW start the race (OnTurnStart(0) fires, HandleTurnStart is listening)
@@ -711,66 +714,66 @@ namespace QuickChecks.Prototype
             };
         }
 
-        private void FinishRaceMultiplayer(int winnerIndex)
+        private void FinishRaceMultiplayer(int playerIndex)
         {
-            // Guard against all-DNF
-            if (winnerIndex < 0 || winnerIndex >= _turnManager.Players.Count)
+            if (playerIndex < 0 || playerIndex >= _turnManager.Players.Count)
             {
-                Debug.LogWarning("[RaceScene] Multiplayer race ended — no winner (all DNF).");
-                ShowMultiplayerEndPrompt(null);
+                Debug.LogWarning("[RaceScene] Invalid player index in FinishRaceMultiplayer.");
                 return;
             }
 
-            var winner = _turnManager.Players[winnerIndex];
-            long finishMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _raceStartMs;
-            Debug.Log($"[RaceScene] {winner.playerName} wins! ({winner.swipeCount} swipes, {finishMs / 1000f:F2}s)");
+            var finisher = _turnManager.Players[playerIndex];
+            Debug.Log($"[RaceScene] {finisher.playerName} finished! ({finisher.swipeCount} swipes)");
 
-            // Record winner in profile
-            if (GameFlowManager.Instance != null && winner.finishTimeMs > 0)
-            {
-                GameFlowManager.Instance.OnTrackCompleted(_trackDef.trackId, winner.swipeCount, winner.finishTimeMs);
-            }
-
-            // Show winner banner
+            // Show winner banner for this finisher
             if (_turnBanner != null)
             {
-                _turnBanner.ShowTurnBanner(winnerIndex, $"{winner.playerName} WINS!", true);
+                _turnBanner.ShowTurnBanner(playerIndex, $"{finisher.playerName} FINISHES!", true);
             }
 
-            // Check if there are remaining players who haven't finished
-            bool hasRemainingPlayers = false;
+            // Count remaining players (not finished)
+            int remainingCount = 0;
             foreach (var p in _turnManager.Players)
             {
-                if (!p.isFinished) { hasRemainingPlayers = true; break; }
+                if (!p.isFinished) remainingCount++;
             }
 
-            if (hasRemainingPlayers)
+            if (remainingCount <= 1)
             {
-                // Show Continue / End Game prompt (NOT auto-reset)
-                ShowMultiplayerEndPrompt(winner);
+                // Only 1 or 0 players remaining — auto-end
+                foreach (var p in _turnManager.Players)
+                {
+                    if (!p.isFinished)
+                    {
+                        p.isFinished = true;
+                        p.finishTimeMs = -1;
+                        Debug.Log($"[RaceScene] {p.playerName} classified as DNF (only one remaining).");
+                    }
+                }
+                ShowMultiplayerResults();
             }
             else
             {
-                // All players finished — show final results
-                ShowFinalResults();
+                // Multiple players remaining — show Continue / End Game prompt
+                ShowContinuePrompt();
             }
         }
 
-        private void ShowMultiplayerEndPrompt(Racing.TurnManager.PlayerState winner)
+        private void ShowContinuePrompt()
         {
-            _finished = true;  // Stop normal race flow
+            _finished = true;  // Pause normal race flow until player chooses
 
-            // Build results string
-            string results = "RACE RESULTS\n\n";
-            var players = _turnManager.Players;
-            // Sort by: finished first (by swipes), then DNF
-            var sorted = new System.Collections.Generic.List<Racing.TurnManager.PlayerState>(players);
+            // Build results so far
+            string results = "RACE RESULTS SO FAR\n\n";
+            var sorted = new List<Racing.TurnManager.PlayerState>(_turnManager.Players);
             sorted.Sort((a, b) =>
             {
                 if (a.isFinished && !b.isFinished) return -1;
                 if (!a.isFinished && b.isFinished) return 1;
                 if (a.isFinished && b.isFinished)
                 {
+                    if (a.finishTimeMs < 0 && b.finishTimeMs >= 0) return 1;
+                    if (b.finishTimeMs < 0 && a.finishTimeMs >= 0) return -1;
                     if (a.swipeCount != b.swipeCount) return a.swipeCount.CompareTo(b.swipeCount);
                     return a.finishTimeMs.CompareTo(b.finishTimeMs);
                 }
@@ -781,34 +784,207 @@ namespace QuickChecks.Prototype
             {
                 var p = sorted[i];
                 if (p.isFinished && p.finishTimeMs > 0)
-                {
                     results += $"{i + 1}. {p.playerName}: {p.swipeCount} swipes\n";
-                }
-                else
-                {
+                else if (p.isFinished)
                     results += $"{i + 1}. {p.playerName}: DNF\n";
-                }
+                else
+                    results += $"   {p.playerName}: still racing\n";
             }
 
-            // Show on HUD
-            if (_hud != null)
+            Debug.Log($"[RaceScene] === RACE RESULTS SO FAR ===\n{results}");
+            Debug.Log("[RaceScene] Showing Continue / End Game prompt.");
+
+            // Create Continue + End Game buttons dynamically
+            CreateContinueEndButtons(results);
+        }
+
+        private void CreateContinueEndButtons(string resultsText)
+        {
+            // Find canvas
+            var canvas = FindObjectOfType<Canvas>();
+            if (canvas == null) return;
+
+            // Create results panel
+            var panelGo = new GameObject("MP_ResultsPanel");
+            panelGo.transform.SetParent(canvas.transform, false);
+            var panelImg = panelGo.AddComponent<Image>();
+            panelImg.color = new Color(0.05f, 0.08f, 0.08f, 0.95f);
+            var panelRect = panelGo.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.anchoredPosition = Vector2.zero;
+            panelRect.sizeDelta = new Vector2(700, 500);
+
+            // Results text
+            var textGo = new GameObject("ResultsText");
+            textGo.transform.SetParent(panelGo.transform, false);
+            TMP_Text resultsTMP = null;
+            try
             {
-                // Use the lap notification text for results display
-                var lapText = _hud.GetType().GetField("lapNotificationTMP",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                // Can't easily access private field — just log for now
+                resultsTMP = textGo.AddComponent<TextMeshProUGUI>();
+                resultsTMP.text = resultsText + "\nContinue racing or end the game?";
+                resultsTMP.fontSize = 32;
+                resultsTMP.alignment = TextAlignmentOptions.Center;
+                resultsTMP.color = Color.white;
+            }
+            catch
+            {
+                var legacy = textGo.AddComponent<Text>();
+                legacy.text = resultsText + "\nContinue racing or end the game?";
+                legacy.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                legacy.fontSize = 24;
+                legacy.alignment = TextAnchor.MiddleCenter;
+                legacy.color = Color.white;
+            }
+            var textRect = textGo.GetComponent<RectTransform>();
+            textRect.anchorMin = new Vector2(0.5f, 0.7f);
+            textRect.anchorMax = new Vector2(0.5f, 0.7f);
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+            textRect.sizeDelta = new Vector2(650, 300);
+
+            // Continue button
+            var continueGo = new GameObject("ContinueButton");
+            continueGo.transform.SetParent(panelGo.transform, false);
+            var continueBtn = continueGo.AddComponent<Button>();
+            var continueImg = continueGo.AddComponent<Image>();
+            continueImg.color = new Color(0.247f, 0.878f, 0.760f, 0.9f);
+            continueImg.raycastTarget = true;
+            continueBtn.targetGraphic = continueImg;
+            var contRect = continueGo.GetComponent<RectTransform>();
+            contRect.anchorMin = new Vector2(0.3f, 0.15f);
+            contRect.anchorMax = new Vector2(0.3f, 0.15f);
+            contRect.pivot = new Vector2(0.5f, 0.5f);
+            contRect.sizeDelta = new Vector2(250, 80);
+
+            var contLabelGo = new GameObject("Label");
+            contLabelGo.transform.SetParent(continueGo.transform, false);
+            TMP_Text contLabel = null;
+            try
+            {
+                contLabel = contLabelGo.AddComponent<TextMeshProUGUI>();
+                contLabel.text = "CONTINUE";
+                contLabel.fontSize = 32;
+                contLabel.alignment = TextAlignmentOptions.Center;
+                contLabel.color = new Color(0.05f, 0.08f, 0.08f);
+                contLabel.raycastTarget = false;
+            }
+            catch
+            {
+                var legacy = contLabelGo.AddComponent<Text>();
+                legacy.text = "CONTINUE";
+                legacy.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                legacy.fontSize = 24;
+                legacy.alignment = TextAnchor.MiddleCenter;
+                legacy.color = new Color(0.05f, 0.08f, 0.08f);
+                legacy.raycastTarget = false;
+                contLabel = (TMP_Text)(object)legacy;
+            }
+            var clRect = contLabelGo.GetComponent<RectTransform>();
+            clRect.anchorMin = Vector2.zero; clRect.anchorMax = Vector2.one;
+            clRect.pivot = new Vector2(0.5f, 0.5f);
+            clRect.offsetMin = Vector2.zero; clRect.offsetMax = Vector2.zero;
+
+            continueBtn.onClick.AddListener(() =>
+            {
+                Destroy(panelGo);
+                _finished = false;  // Resume race
+                // Winner is already marked as finished — TurnManager will skip them
+                Debug.Log("[RaceScene] Continue selected — remaining players continue racing.");
+            });
+
+            // End Game button
+            var endGo = new GameObject("EndGameButton");
+            endGo.transform.SetParent(panelGo.transform, false);
+            var endBtn = endGo.AddComponent<Button>();
+            var endImg = endGo.AddComponent<Image>();
+            endImg.color = new Color(1f, 0.42f, 0.42f, 0.9f);
+            endImg.raycastTarget = true;
+            endBtn.targetGraphic = endImg;
+            var endRect = endGo.GetComponent<RectTransform>();
+            endRect.anchorMin = new Vector2(0.7f, 0.15f);
+            endRect.anchorMax = new Vector2(0.7f, 0.15f);
+            endRect.pivot = new Vector2(0.5f, 0.5f);
+            endRect.sizeDelta = new Vector2(250, 80);
+
+            var endLabelGo = new GameObject("Label");
+            endLabelGo.transform.SetParent(endGo.transform, false);
+            TMP_Text endLabel = null;
+            try
+            {
+                endLabel = endLabelGo.AddComponent<TextMeshProUGUI>();
+                endLabel.text = "END GAME";
+                endLabel.fontSize = 32;
+                endLabel.alignment = TextAlignmentOptions.Center;
+                endLabel.color = Color.white;
+                endLabel.raycastTarget = false;
+            }
+            catch
+            {
+                var legacy = endLabelGo.AddComponent<Text>();
+                legacy.text = "END GAME";
+                legacy.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                legacy.fontSize = 24;
+                legacy.alignment = TextAnchor.MiddleCenter;
+                legacy.color = Color.white;
+                legacy.raycastTarget = false;
+                endLabel = (TMP_Text)(object)legacy;
+            }
+            var elRect = endLabelGo.GetComponent<RectTransform>();
+            elRect.anchorMin = Vector2.zero; elRect.anchorMax = Vector2.one;
+            elRect.pivot = new Vector2(0.5f, 0.5f);
+            elRect.offsetMin = Vector2.zero; elRect.offsetMax = Vector2.zero;
+
+            endBtn.onClick.AddListener(() =>
+            {
+                Destroy(panelGo);
+                // Classify all remaining as DNF
+                foreach (var p in _turnManager.Players)
+                {
+                    if (!p.isFinished)
+                    {
+                        p.isFinished = true;
+                        p.finishTimeMs = -1;
+                        Debug.Log($"[RaceScene] {p.playerName} classified as DNF (End Game).");
+                    }
+                }
+                ShowMultiplayerResults();
+            });
+        }
+
+        private void ShowMultiplayerResults()
+        {
+            _finished = true;
+
+            string results = "FINAL RESULTS\n\n";
+            var sorted = new List<Racing.TurnManager.PlayerState>(_turnManager.Players);
+            sorted.Sort((a, b) =>
+            {
+                if (a.isFinished && !b.isFinished) return -1;
+                if (!a.isFinished && b.isFinished) return 1;
+                if (a.isFinished && b.isFinished)
+                {
+                    if (a.finishTimeMs < 0 && b.finishTimeMs >= 0) return 1;
+                    if (b.finishTimeMs < 0 && a.finishTimeMs >= 0) return -1;
+                    if (a.swipeCount != b.swipeCount) return a.swipeCount.CompareTo(b.swipeCount);
+                    return a.finishTimeMs.CompareTo(b.finishTimeMs);
+                }
+                return 0;
+            });
+
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                var p = sorted[i];
+                if (p.isFinished && p.finishTimeMs > 0)
+                    results += $"{i + 1}. {p.playerName}: {p.swipeCount} swipes\n";
+                else
+                    results += $"{i + 1}. {p.playerName}: DNF\n";
             }
 
             Debug.Log($"[RaceScene] === FINAL RESULTS ===\n{results}");
 
-            // Auto-reset after 8s (gives time to read results)
+            // Auto-reset after 8s
             _autoResetTimer = 8f;
-        }
-
-        private void ShowFinalResults()
-        {
-            _finished = true;
-            ShowMultiplayerEndPrompt(null);
         }
 
         private void StartRace()
