@@ -23,6 +23,39 @@ namespace QuickChecks.Multiplayer
 
         private List<Racing.TurnManager.PlayerState> _players = new();
 
+        private void OnEnable()
+        {
+            // Subscribe to turn events immediately (SetupPassPlay is never called —
+            // RaceSceneController builds the player list inline, so we subscribe here
+            // and respond to whatever TurnManager is on this GameObject).
+            // Use a coroutine to wait one frame for turnManager to be wired via reflection.
+            StartCoroutine(SubscribeWhenReady());
+        }
+
+        private System.Collections.IEnumerator SubscribeWhenReady()
+        {
+            // Wait a frame for reflection wiring to complete
+            yield return null;
+
+            if (turnManager != null)
+            {
+                turnManager.OnTurnEnd += HandleTurnEnd;
+                turnManager.OnTurnStart += HandleTurnStart;
+                turnManager.OnRaceFinished += HandleRaceFinished;
+                Debug.Log("[PassPlay] Subscribed to TurnManager events (overlay will show between turns).");
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (turnManager != null)
+            {
+                turnManager.OnTurnEnd -= HandleTurnEnd;
+                turnManager.OnTurnStart -= HandleTurnStart;
+                turnManager.OnRaceFinished -= HandleRaceFinished;
+            }
+        }
+
         public void SetupPassPlay(int playerCount, Track.TrackDefinition track)
         {
             if (playerCount < 2 || playerCount > 4)

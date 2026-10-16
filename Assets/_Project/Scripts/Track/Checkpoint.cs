@@ -16,7 +16,7 @@ namespace QuickChecks.Track
         public int requiredCount;
 
         [Tooltip("If true, this checkpoint is invisible (no debug sprite). Set false to see in editor.")]
-        public bool hideInGame = false;  // Default false: show checkpoints during prototype testing.
+        public bool hideInGame = true;  // Default true: checkpoints are invisible, only collider matters.
 
         private SpriteRenderer _spriteRenderer;
         private Color _originalColor;
@@ -38,10 +38,8 @@ namespace QuickChecks.Track
             if (_spriteRenderer != null)
             {
                 _originalColor = _spriteRenderer.color;
-            }
-
-            if (hideInGame && _spriteRenderer != null)
-            {
+                // ALWAYS hide checkpoint visuals — they're triggers, not visual elements.
+                // The collider is thick (prevents tunneling) but the sprite covers the track.
                 _spriteRenderer.enabled = false;
             }
         }

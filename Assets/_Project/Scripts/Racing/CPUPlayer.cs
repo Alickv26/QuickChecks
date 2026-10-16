@@ -83,7 +83,7 @@ namespace QuickChecks.Racing
 
             Vector2 direction = toCheckpoint.normalized;
 
-            // Apply difficulty-based noise.
+            // Apply difficulty-based noise (smaller = more accurate).
             float noiseDeg = difficulty switch
             {
                 Difficulty.Easy => easyDirectionNoiseDeg,
@@ -94,9 +94,10 @@ namespace QuickChecks.Racing
             float angleOffset = Random.Range(-noiseDeg, noiseDeg);
             direction = Rotate(direction, angleOffset);
 
-            // Magnitude scaled by distance, capped by kart max impulse.
+            // Magnitude: aim to reach the checkpoint but not overshoot wildly.
+            // Use a conservative multiplier so the kart doesn't fly past into walls.
             var stats = _kart.Stats;
-            float optimalMag = Mathf.Min(distance * 2.5f, stats.maxSpeed);
+            float optimalMag = Mathf.Min(distance * 1.8f, stats.maxSpeed * 0.85f);
 
             Vector2 magRange = difficulty switch
             {
