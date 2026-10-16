@@ -401,6 +401,15 @@ namespace QuickChecks.Racing
         {
             _trailWallPending = value;
         }
+        public bool ConsumeTrailWallPending()
+        {
+            if (_trailWallPending)
+            {
+                _trailWallPending = false;
+                return true;
+            }
+            return false;
+        }
         // Gravel mode: high friction + reduced swipe impulse
         private bool _inGravel = false;
         private float _gravelFrictionMult = 1f;
