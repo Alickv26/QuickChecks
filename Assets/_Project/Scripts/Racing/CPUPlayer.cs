@@ -1,13 +1,18 @@
 using UnityEngine;
 using QuickChecks.Track;
+using QuickChecks.Core;
 
 namespace QuickChecks.Racing
 {
     /// <summary>
     /// AI opponent for Local vs CPU mode. Attached to a CPU kart prefab
     /// alongside KartController. When TurnManager starts a CPU player's
-    /// turn, this component computes a swipe and emits it via the same
-    /// SwipeEventSO that human input uses — so kart physics is identical.
+    /// turn, this component computes a swipe and emits it via the kart's
+    /// own SwipeEvent.
+    ///
+    /// Navigation: targets the next un-passed checkpoint via CheckpointTracker.
+    /// Wall avoidance: casts a short ray forward; if it hits a wall, steers
+    /// left or right to go around.
     /// </summary>
     public class CPUPlayer : MonoBehaviour
     {
@@ -15,7 +20,7 @@ namespace QuickChecks.Racing
 
         [Header("Config")]
         [SerializeField] private Difficulty difficulty = Difficulty.Medium;
-        [SerializeField] private Core.GameEventSO<Input.SwipeData> swipeEvent;
+        [SerializeField] private GameEventSO<Input.SwipeData> swipeEvent;
         [SerializeField] private float thinkDelaySec = 1.0f;
 
         [Header("Difficulty Tuning")]
@@ -26,6 +31,11 @@ namespace QuickChecks.Racing
         [SerializeField] private Vector2 easyMagnitudeRange = new Vector2(0.5f, 0.8f);
         [SerializeField] private Vector2 mediumMagnitudeRange = new Vector2(0.75f, 0.95f);
         [SerializeField] private Vector2 hardMagnitudeRange = new Vector2(0.92f, 1.0f);
+
+        [Header("Wall Avoidance")]
+        [SerializeField] private float wallCheckDistance = 5f;
+        [SerializeField] private float wallAvoidSteerDeg = 35f;
+        [SerializeField] private int wallAvoidRayCount = 3;
 
         private KartController _kart;
         private Transform _nextCheckpoint;
@@ -49,15 +59,12 @@ namespace QuickChecks.Racing
             };
         }
 
-        /// <summary>
-        /// Called by TurnManager when it's this CPU's turn.
-        /// </summary>
         public void TakeTurn(Track.TrackDefinition track)
         {
-            // Find next checkpoint (simplified — real impl uses CheckpointTracker).
             _nextCheckpoint = FindNextCheckpoint(track);
             _thinkTimer = thinkDelaySec;
             _thinking = true;
+            Debug.Log($"[CPUPlayer] TakeTurn called. Thinking for {thinkDelaySec}s. Target: {(_nextCheckpoint?.name ?? "null")}");
         }
 
         private void Update()
@@ -74,16 +81,28 @@ namespace QuickChecks.Racing
 
         private void ExecuteSwipe()
         {
-            if (_nextCheckpoint == null) return;
+            if (_nextCheckpoint == null)
+            {
+                Debug.LogWarning("[CPUPlayer] No checkpoint target — skipping turn.");
+                return;
+            }
 
             // Direction from kart to next checkpoint.
             Vector2 toCheckpoint = (Vector2)(_nextCheckpoint.position - _kart.transform.position);
             float distance = toCheckpoint.magnitude;
-            if (distance < 0.1f) return;
+            if (distance < 0.1f)
+            {
+                Debug.Log("[CPUPlayer] Already at target — skipping.");
+                return;
+            }
 
             Vector2 direction = toCheckpoint.normalized;
 
-            // Apply difficulty-based noise (smaller = more accurate).
+            // WALL AVOIDANCE: Cast rays ahead to check for walls.
+            // If a wall is in the way, steer left or right to go around.
+            direction = AvoidWalls(direction, distance);
+
+            // Apply difficulty-based noise.
             float noiseDeg = difficulty switch
             {
                 Difficulty.Easy => easyDirectionNoiseDeg,
@@ -95,9 +114,8 @@ namespace QuickChecks.Racing
             direction = Rotate(direction, angleOffset);
 
             // Magnitude: aim to reach the checkpoint but not overshoot wildly.
-            // Use a conservative multiplier so the kart doesn't fly past into walls.
             var stats = _kart.Stats;
-            float optimalMag = Mathf.Min(distance * 1.8f, stats.maxSpeed * 0.85f);
+            float optimalMag = Mathf.Min(distance * 1.5f, stats.maxSpeed * 0.7f);
 
             Vector2 magRange = difficulty switch
             {
@@ -113,13 +131,86 @@ namespace QuickChecks.Racing
             var swipe = new Input.SwipeData
             {
                 timestampMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                screenPosition = _kart.transform.position, // For ghost recording — CPU doesn't really have a screen pos.
+                screenPosition = _kart.transform.position,
                 direction = direction,
                 magnitude = magnitude,
-                rawVelocityPxS = magnitude / 0.1f // Approximation for haptics.
+                rawVelocityPxS = magnitude / 0.1f
             };
 
-            swipeEvent?.Raise(swipe);
+            if (swipeEvent != null)
+            {
+                swipeEvent.Raise(swipe);
+                Debug.Log($"[CPUPlayer] Swipe emitted: dir=({direction.x:F2},{direction.y:F2}), mag={magnitude:F0}");
+            }
+            else
+            {
+                Debug.LogError("[CPUPlayer] swipeEvent is null — cannot emit swipe!");
+            }
+        }
+
+        /// <summary>
+        /// Casts rays ahead to check for walls. If a wall blocks the path,
+        /// steers left or right to go around it.
+        /// </summary>
+        private Vector2 AvoidWalls(Vector2 baseDirection, float targetDistance)
+        {
+            float checkDist = Mathf.Min(wallCheckDistance, targetDistance);
+
+            // Check center ray first
+            RaycastHit2D centerHit = Physics2D.Raycast(
+                _kart.transform.position, baseDirection, checkDist,
+                LayerMask.GetMask("Default"));
+
+            if (centerHit.collider == null)
+            {
+                // No wall ahead — go straight
+                return baseDirection;
+            }
+
+            Debug.Log($"[CPUPlayer] Wall detected ahead at {centerHit.distance:F1} units — steering around.");
+
+            // Wall ahead — try steering left and right, pick whichever has more clearance
+            float bestClearance = -1f;
+            Vector2 bestDirection = baseDirection;
+
+            for (int i = 1; i <= wallAvoidRayCount; i++)
+            {
+                float steerAngle = wallAvoidSteerDeg * i;
+
+                // Try left
+                Vector2 leftDir = Rotate(baseDirection, steerAngle);
+                RaycastHit2D leftHit = Physics2D.Raycast(
+                    _kart.transform.position, leftDir, checkDist * 1.5f,
+                    LayerMask.GetMask("Default"));
+                float leftClearance = leftHit.collider == null ? checkDist * 1.5f : leftHit.distance;
+
+                // Try right
+                Vector2 rightDir = Rotate(baseDirection, -steerAngle);
+                RaycastHit2D rightHit = Physics2D.Raycast(
+                    _kart.transform.position, rightDir, checkDist * 1.5f,
+                    LayerMask.GetMask("Default"));
+                float rightClearance = rightHit.collider == null ? checkDist * 1.5f : rightHit.distance;
+
+                if (leftClearance > bestClearance)
+                {
+                    bestClearance = leftClearance;
+                    bestDirection = leftDir;
+                }
+                if (rightClearance > bestClearance)
+                {
+                    bestClearance = rightClearance;
+                    bestDirection = rightDir;
+                }
+
+                // If we found a clear path, use it
+                if (bestClearance >= checkDist)
+                {
+                    Debug.Log($"[CPUPlayer] Found clear path steering {steerAngle}° (clearance: {bestClearance:F1}).");
+                    break;
+                }
+            }
+
+            return bestDirection;
         }
 
         private static Vector2 Rotate(Vector2 v, float degrees)
@@ -130,46 +221,39 @@ namespace QuickChecks.Racing
             return new Vector2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
         }
 
-        // TODO: replace with CheckpointTracker query.
         private Transform FindNextCheckpoint(Track.TrackDefinition track)
         {
-            // Find all Checkpoint components in the scene (not via tags — tags aren't set).
             var checkpoints = FindObjectsOfType<Track.Checkpoint>();
             if (checkpoints == null || checkpoints.Length == 0)
             {
-                Debug.LogWarning("[CPUPlayer] No checkpoints found in scene — CPU can't determine target.");
+                Debug.LogWarning("[CPUPlayer] No checkpoints found in scene.");
                 return null;
             }
 
-            // Find the CheckpointTracker on this kart to know which checkpoint is next.
             var tracker = _kart.GetComponent<CheckpointTracker>();
             int targetIndex = tracker != null ? tracker.GetNextCheckpointToTarget() : 0;
 
-            // If all checkpoints passed (-1), target the finish line
             if (targetIndex == -1)
             {
-                // Find the finish line by tag (or just aim forward)
                 var finishObj = GameObject.Find("FinishLine");
                 if (finishObj != null)
                 {
-                    Debug.Log($"[CPUPlayer] All checkpoints passed — targeting finish line at {finishObj.transform.position}.");
+                    Debug.Log($"[CPUPlayer] Targeting finish line.");
                     return finishObj.transform;
                 }
                 return null;
             }
 
-            // Find the checkpoint with the matching index.
             foreach (var cp in checkpoints)
             {
                 if (cp.index == targetIndex)
                 {
-                    Debug.Log($"[CPUPlayer] Targeting checkpoint {cp.index} at {cp.transform.position}.");
+                    Debug.Log($"[CPUPlayer] Targeting checkpoint {cp.index}.");
                     return cp.transform;
                 }
             }
 
-            // Fallback: find closest checkpoint.
-            Debug.LogWarning($"[CPUPlayer] Checkpoint {targetIndex} not found — falling back to closest.");
+            // Fallback: closest checkpoint
             Transform best = null;
             float bestDist = float.MaxValue;
             foreach (var cp in checkpoints)

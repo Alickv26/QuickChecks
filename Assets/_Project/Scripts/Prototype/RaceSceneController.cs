@@ -840,14 +840,16 @@ namespace QuickChecks.Prototype
                 }
             }
 
-            // Multiplayer: detect when karts stop moving → notify TurnManager
+            // Multiplayer: detect when the CURRENT player's kart stops moving
             if (_isMultiplayer && _turnManager != null && _wasKartMoving != null)
             {
-                // Only check the CURRENT player's kart — ignore other karts
                 int currentIdx = _turnManager.CurrentPlayerIndex;
                 if (currentIdx >= 0 && currentIdx < _allKarts.Count && _allKarts[currentIdx] != null)
                 {
-                    bool isMoving = _allKarts[currentIdx].Velocity.magnitude > 10f;
+                    // Use IsStopped from KartController (more reliable than velocity check)
+                    // IsStopped is true when velocity < stopThreshold (8 u/s)
+                    bool isStopped = _allKarts[currentIdx].IsStopped;
+                    bool isMoving = !isStopped;
 
                     if (isMoving)
                     {
@@ -857,14 +859,16 @@ namespace QuickChecks.Prototype
                     }
                     else if (_wasKartMoving[currentIdx])
                     {
+                        // Was moving, now stopped — count down delay
                         if (_kartStopDelay != null && currentIdx < _kartStopDelay.Length && _kartStopDelay[currentIdx] > 0f)
                         {
                             _kartStopDelay[currentIdx] -= Time.deltaTime;
                         }
                         else
                         {
-                            Debug.Log($"[RaceScene] Kart {currentIdx} (current player) stopped — notifying TurnManager. " +
-                                      $"Phase={_turnManager.Phase}");
+                            // Confirmed stopped for 0.3s — end turn
+                            Debug.Log($"[RaceScene] Kart {currentIdx} stopped — notifying TurnManager. " +
+                                      $"Phase={_turnManager.Phase}, vel={_allKarts[currentIdx].Velocity.magnitude:F1}");
                             _wasKartMoving[currentIdx] = false;
                             _turnManager.NotifyKartStopped(currentIdx);
                         }
@@ -924,16 +928,35 @@ namespace QuickChecks.Prototype
         public void ResetRace()
         {
             if (swipeEvent != null) swipeEvent.Unregister(OnSwipe);
+            _finished = false;
+            _autoResetTimer = -1f;
+            _swipeCount = 0;
 
             if (_isMultiplayer)
             {
-                // Reset ALL karts + their checkpoint trackers + power-up systems
-                foreach (var k in _allKarts)
+                // Reset ALL karts to spawn positions + clear state
+                for (int i = 0; i < _allKarts.Count; i++)
                 {
-                    if (k != null) k.RespawnAt(_runtimeKartSpawn);
-                    k?.GetComponent<CheckpointTracker>()?.Reset();
-                    k?.GetComponent<PowerUpSystem>()?.Clear();
+                    if (_allKarts[i] == null) continue;
+
+                    // Each kart respawns at the same spawn point
+                    _allKarts[i].RespawnAt(_runtimeKartSpawn);
+
+                    // Reset checkpoint tracker
+                    var ct = _allKarts[i].GetComponent<CheckpointTracker>();
+                    ct?.Reset();
+
+                    // Clear power-ups
+                    var pus = _allKarts[i].GetComponent<PowerUpSystem>();
+                    pus?.Clear();
+
+                    // Reset wasKartMoving
+                    if (_wasKartMoving != null && i < _wasKartMoving.Length)
+                        _wasKartMoving[i] = false;
+                    if (_kartStopDelay != null && i < _kartStopDelay.Length)
+                        _kartStopDelay[i] = 0f;
                 }
+
                 // Reset TurnManager state
                 if (_turnManager != null && _trackDef != null)
                 {
@@ -947,18 +970,24 @@ namespace QuickChecks.Prototype
                     _turnManager.StartRace(
                         new List<Racing.TurnManager.PlayerState>(_turnManager.Players),
                         _trackDef, ConvertToTurnManagerRaceMode(_raceMode));
+                    Debug.Log("[RaceScene] TurnManager restarted after reset.");
                 }
             }
             else
             {
                 if (_kart != null) _kart.RespawnAt(_runtimeKartSpawn);
             }
+
             // Reset checkpoint visuals
             if (_trackData?.checkpoints != null)
                 foreach (var cp in _trackData.checkpoints) cp?.ResetVisual();
+
+            // Reset zoom
             if (_cameraRig != null && _trackDef != null)
                 _cameraRig.ResetToDefault(_trackDef.defaultZoom);
+
             StartRace();
+            Debug.Log("[RaceScene] Race reset complete.");
         }
 
         private void OnDisable()

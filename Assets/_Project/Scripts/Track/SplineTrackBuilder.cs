@@ -256,15 +256,13 @@ namespace QuickChecks.Track
 
                 Debug.Log($"[SplineTrackBuilder] Checkpoint {i} at t={t:F3} -> world pos ({center.x:F1}, {center.y:F1})");
 
-                // Visible debug sprite — color cycles through hue so checkpoints are distinguishable.
-                // Index 0 = green, index 1 = yellow, index 2 = orange, etc.
                 var sr = go.AddComponent<SpriteRenderer>();
-                float hue = (float)i / checkpointCount;
-                sr.color = Color.HSVToRGB(hue, 0.6f, 1f);  // Visible but not glaring
+                // INVISIBLE — no sprite color at all. Only collider matters.
+                sr.color = new Color(0, 0, 0, 0);  // Fully transparent
                 sr.sprite = CreateSquareSprite();
                 sr.drawMode = SpriteDrawMode.Sliced;
                 sr.size = new Vector2(6f, trackWidth);  // Match collider size
-                sr.sortingOrder = 5;  // Above track surface
+                sr.sortingOrder = 5;
 
                 // Optional: add a TextMeshPro component to show index above the checkpoint.
                 // For prototype, the hue cycling + the [Checkpoint N] log is enough.
