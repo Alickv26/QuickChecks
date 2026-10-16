@@ -189,7 +189,7 @@ namespace QuickChecks.Prototype
             sr.sortingOrder = 10;
 
             var col = kartGo.AddComponent<BoxCollider2D>();
-            col.size = new Vector2(1.5f, 1.5f);
+            col.size = new Vector2(0.8f, 0.8f);  // Smaller hitbox (visual is 1.5, hitbox is 0.8 for tight navigation)
 
             var rb = kartGo.AddComponent<Rigidbody2D>();
             _kart = kartGo.AddComponent<KartController>();
@@ -474,16 +474,17 @@ namespace QuickChecks.Prototype
             // Disable ghost recorder in multiplayer
             if (_ghostRecorder != null) _ghostRecorder.enabled = false;
 
-            // Start TurnManager
-            _turnManager.StartRace(playerStates, _trackDef, ConvertToTurnManagerRaceMode(_raceMode));
-
-            // Subscribe to turn events
+            // Subscribe to turn events BEFORE starting the race
+            // (StartRace fires OnTurnStart(0) immediately — must be subscribed first)
             _turnManager.OnTurnStart += HandleTurnStart;
             _turnManager.OnTurnEnd += HandleTurnEnd;
             _turnManager.OnRaceFinished += (winnerIndex) =>
             {
                 if (!_finished) FinishRaceMultiplayer(winnerIndex);
             };
+
+            // NOW start the race (OnTurnStart(0) fires, HandleTurnStart is listening)
+            _turnManager.StartRace(playerStates, _trackDef, ConvertToTurnManagerRaceMode(_raceMode));
 
             // Pass & Play overlay
             if (_raceMode.IsPassPlay())
@@ -611,7 +612,7 @@ namespace QuickChecks.Prototype
             sr.sortingOrder = 10;
 
             var col = kartGo.AddComponent<BoxCollider2D>();
-            col.size = new Vector2(1.5f, 1.5f);
+            col.size = new Vector2(0.8f, 0.8f);  // Smaller hitbox (visual is 1.5, hitbox is 0.8 for tight navigation)
 
             var rb = kartGo.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0;
@@ -715,7 +716,7 @@ namespace QuickChecks.Prototype
             _finished = true;
             long finishMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _raceStartMs;
 
-            // Guard against all-DNF (winnerIndex = -1)
+            // Guard against all-DNF
             if (winnerIndex < 0 || winnerIndex >= _turnManager.Players.Count)
             {
                 Debug.LogWarning("[RaceScene] Multiplayer race ended — no winner (all DNF).");
@@ -727,7 +728,13 @@ namespace QuickChecks.Prototype
             Debug.Log($"[RaceScene] Multiplayer race finished! Winner: {winner.playerName} " +
                       $"({winner.swipeCount} swipes, {finishMs / 1000f:F2}s)");
 
-            // Record results in player profile (issue #23)
+            // Show winner banner
+            if (_turnBanner != null)
+            {
+                _turnBanner.ShowTurnBanner(winnerIndex, $"{winner.playerName} WINS!", true);
+            }
+
+            // Record results in player profile
             if (GameFlowManager.Instance != null)
             {
                 for (int i = 0; i < _turnManager.Players.Count; i++)
@@ -738,7 +745,8 @@ namespace QuickChecks.Prototype
                 }
             }
 
-            _autoResetTimer = 3f;
+            // Auto-reset after 5s (gives time to see the winner banner)
+            _autoResetTimer = 5f;
         }
 
         private void StartRace()

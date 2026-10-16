@@ -52,7 +52,12 @@ namespace QuickChecks.UI
             Color color = GetPlayerColor(playerIndex);
             string message;
 
-            if (!isMultiplayer)
+            // If playerName contains "WINS" or custom text, use it directly
+            if (playerName.Contains("WINS") || playerName.Contains("wins"))
+            {
+                message = playerName.ToUpper();
+            }
+            else if (!isMultiplayer)
             {
                 message = "YOUR TURN";
             }
