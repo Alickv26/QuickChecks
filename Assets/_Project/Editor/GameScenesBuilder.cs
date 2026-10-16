@@ -466,7 +466,7 @@ namespace QuickChecks.Editor
             var cam = camGo.AddComponent<UnityEngine.Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 10;
-            cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f);
+            cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f);  // #0E1414 deep dark teal
             camGo.transform.position = new Vector3(0, 0, -10);
             camGo.tag = "MainCamera";
             camGo.AddComponent<AudioListener>();
@@ -475,7 +475,9 @@ namespace QuickChecks.Editor
             var canvasGo = new GameObject("Canvas");
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            var scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080, 1920);
             canvasGo.AddComponent<GraphicRaycaster>();
 
             if (UnityEngine.EventSystems.EventSystem.current == null)
@@ -485,16 +487,31 @@ namespace QuickChecks.Editor
                 esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
             }
 
-            // Helper to create text
-            TMP_Text CreateText(string name, string content, float fontSize, Color color, Vector2 anchor, Vector2 size)
+            // Background panel (full-screen, dark teal)
+            var bgGo = new GameObject("Background");
+            bgGo.transform.SetParent(canvasGo.transform, false);
+            var bgImg = bgGo.AddComponent<Image>();
+            bgImg.color = new Color(0.055f, 0.078f, 0.078f);  // #0E1414
+            var bgRect = bgGo.GetComponent<RectTransform>();
+            bgRect.anchorMin = Vector2.zero;
+            bgRect.anchorMax = Vector2.one;
+            bgRect.pivot = new Vector2(0.5f, 0.5f);
+            bgRect.offsetMin = Vector2.zero;
+            bgRect.offsetMax = Vector2.zero;
+
+            // Helper to create text elements
+            TMP_Text CreateText(string name, string content, float fontSize, Color color,
+                Vector2 anchor, Vector2 size, TextAlignmentOptions align = TextAlignmentOptions.Center)
             {
                 var go = new GameObject(name);
                 go.transform.SetParent(canvasGo.transform, false);
                 var text = go.AddComponent<TextMeshProUGUI>();
                 text.text = content;
                 text.fontSize = fontSize;
-                text.alignment = TextAlignmentOptions.Center;
+                text.alignment = align;
                 text.color = color;
+                text.raycastTarget = false;
+                text.enableWordWrapping = true;
                 var rect = go.GetComponent<RectTransform>();
                 rect.anchorMin = anchor;
                 rect.anchorMax = anchor;
@@ -503,33 +520,139 @@ namespace QuickChecks.Editor
                 return text;
             }
 
-            var titleText = CreateText("Title", "Race Complete!", 64,
-                new Color(0.247f, 0.878f, 0.760f), new Vector2(0.5f, 0.8f), new Vector2(800, 80));
+            var accentCyan = new Color(0.247f, 0.878f, 0.760f);   // #3FE0C2
+            var offWhite = new Color(0.969f, 0.969f, 0.949f);    // #F7F7F2
+            var dimGray = new Color(0.55f, 0.55f, 0.55f);
 
-            var swipesText = CreateText("Swipes", "", 48,
-                Color.white, new Vector2(0.5f, 0.65f), new Vector2(600, 60));
+            // Mode label (top-left small)
+            var modeLabel = CreateText("ModeLabel", "", 28, accentCyan,
+                new Vector2(0.05f, 0.96f), new Vector2(500, 36),
+                TextAlignmentOptions.Left);
 
-            var timeText = CreateText("Time", "", 42,
-                Color.white, new Vector2(0.5f, 0.57f), new Vector2(600, 50));
+            // Track label (top-right small)
+            var trackLabel = CreateText("TrackLabel", "", 26, dimGray,
+                new Vector2(0.95f, 0.96f), new Vector2(700, 36),
+                TextAlignmentOptions.Right);
 
-            var bestText = CreateText("Best", "", 36,
-                new Color(0.247f, 0.878f, 0.760f), new Vector2(0.5f, 0.48f), new Vector2(600, 50));
+            // Title (big, top)
+            var titleText = CreateText("Title", "Race Complete!", 84, accentCyan,
+                new Vector2(0.5f, 0.88f), new Vector2(1000, 100));
 
-            var newBestText = CreateText("NewBest", "", 42,
-                new Color(0.247f, 0.878f, 0.760f), new Vector2(0.5f, 0.38f), new Vector2(600, 80));
+            // Subtitle (under title)
+            var subtitleText = CreateText("Subtitle", "", 32, offWhite,
+                new Vector2(0.5f, 0.80f), new Vector2(900, 50));
+
+            // Stars (large, prominent — solo/CPU only)
+            var starsText = CreateText("Stars", "", 96, accentCyan,
+                new Vector2(0.5f, 0.69f), new Vector2(600, 100));
+
+            // Solo stats: swipes / par / time (vertical, centered)
+            var swipesValueText = CreateText("SwipesValue", "", 42, offWhite,
+                new Vector2(0.5f, 0.56f), new Vector2(800, 50));
+
+            var parValueText = CreateText("ParValue", "", 36, dimGray,
+                new Vector2(0.5f, 0.50f), new Vector2(800, 40));
+
+            var timeValueText = CreateText("TimeValue", "", 36, offWhite,
+                new Vector2(0.5f, 0.44f), new Vector2(800, 40));
+
+            var bestValueText = CreateText("BestValue", "", 30, accentCyan,
+                new Vector2(0.5f, 0.37f), new Vector2(900, 40));
+
+            var newBestText = CreateText("NewBest", "", 42, accentCyan,
+                new Vector2(0.5f, 0.30f), new Vector2(900, 60));
             newBestText.gameObject.SetActive(false);
 
-            // Retry button
+            // --- Comparison panel (Vs CPU / Online) ---
+            var cmpGo = new GameObject("ComparisonPanel");
+            cmpGo.transform.SetParent(canvasGo.transform, false);
+            var cmpRect = cmpGo.GetComponent<RectTransform>();
+            cmpRect.anchorMin = new Vector2(0.5f, 0.5f);
+            cmpRect.anchorMax = new Vector2(0.5f, 0.5f);
+            cmpRect.pivot = new Vector2(0.5f, 0.5f);
+            cmpRect.anchoredPosition = new Vector2(0, 0);
+            cmpRect.sizeDelta = new Vector2(900, 360);
+            cmpGo.SetActive(false);
+
+            // Two-column header row
+            TMP_Text CreateCmpText(string name, float x, float y, float w, float h, float fontSize, Color color, TextAlignmentOptions align)
+            {
+                var go = new GameObject(name);
+                go.transform.SetParent(cmpGo.transform, false);
+                var t = go.AddComponent<TextMeshProUGUI>();
+                t.fontSize = fontSize;
+                t.alignment = align;
+                t.color = color;
+                t.raycastTarget = false;
+                var r = go.GetComponent<RectTransform>();
+                r.anchorMin = new Vector2(x, 1f);
+                r.anchorMax = new Vector2(x, 1f);
+                r.pivot = new Vector2(0.5f, 1f);
+                r.anchoredPosition = new Vector2(0, -y);
+                r.sizeDelta = new Vector2(w, h);
+                return t;
+            }
+
+            // Header row
+            var youHeader = CreateCmpText("YouHeader", 0.3f, 0, 360, 50, 32, accentCyan, TextAlignmentOptions.Center);
+            youHeader.text = "YOU";
+            var oppHeader = CreateCmpText("OppHeader", 0.7f, 0, 360, 50, 32, accentCyan, TextAlignmentOptions.Center);
+            oppHeader.text = "OPPONENT";
+
+            // YOU row
+            var youNameText = CreateCmpText("YouName", 0.3f, 60, 360, 40, 28, offWhite, TextAlignmentOptions.Center);
+            var youSwipesText = CreateCmpText("YouSwipes", 0.3f, 110, 360, 50, 42, offWhite, TextAlignmentOptions.Center);
+            var youTimeText = CreateCmpText("YouTime", 0.3f, 170, 360, 40, 28, dimGray, TextAlignmentOptions.Center);
+
+            // OPPONENT row
+            var opponentNameText = CreateCmpText("OppName", 0.7f, 60, 360, 40, 28, offWhite, TextAlignmentOptions.Center);
+            var opponentSwipesText = CreateCmpText("OppSwipes", 0.7f, 110, 360, 50, 42, offWhite, TextAlignmentOptions.Center);
+            var opponentTimeText = CreateCmpText("OppTime", 0.7f, 170, 360, 40, 28, dimGray, TextAlignmentOptions.Center);
+
+            // Comparison summary (under the two columns)
+            var comparisonSummaryText = CreateCmpText("ComparisonSummary", 0.5f, 260, 880, 60, 32, offWhite, TextAlignmentOptions.Center);
+
+            // --- Ranking panel (Pass & Play) ---
+            var rankGo = new GameObject("RankingPanel");
+            rankGo.transform.SetParent(canvasGo.transform, false);
+            var rankRect = rankGo.GetComponent<RectTransform>();
+            rankRect.anchorMin = new Vector2(0.5f, 0.5f);
+            rankRect.anchorMax = new Vector2(0.5f, 0.5f);
+            rankRect.pivot = new Vector2(0.5f, 1f);
+            rankRect.anchoredPosition = new Vector2(0, -150);
+            rankRect.sizeDelta = new Vector2(900, 360);
+            rankGo.SetActive(false);
+
+            // Ranking rows container (rows are dynamically added at runtime)
+            var rowsGo = new GameObject("RankingRowsContainer");
+            rowsGo.transform.SetParent(rankGo.transform, false);
+            var rowsRect = rowsGo.GetComponent<RectTransform>();
+            rowsRect.anchorMin = new Vector2(0, 0);
+            rowsRect.anchorMax = new Vector2(1, 1);
+            rowsRect.pivot = new Vector2(0.5f, 1f);
+            rowsRect.offsetMin = Vector2.zero;
+            rowsRect.offsetMax = Vector2.zero;
+            // VerticalLayoutGroup so rows stack neatly
+            var vlg = rowsGo.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 8;
+            vlg.padding = new RectOffset(20, 20, 20, 20);
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+
+            // Retry / Menu buttons (bottom)
             var retryGo = new GameObject("RetryButton");
             retryGo.transform.SetParent(canvasGo.transform, false);
             var retryBtn = retryGo.AddComponent<Button>();
             var retryImg = retryGo.AddComponent<Image>();
-            retryImg.color = new Color(0.247f, 0.878f, 0.760f, 0.9f);
+            retryImg.color = new Color(0.247f, 0.878f, 0.760f, 0.9f);  // cyan
             retryImg.raycastTarget = true;
             retryBtn.targetGraphic = retryImg;
             var retryRect = retryGo.GetComponent<RectTransform>();
-            retryRect.anchorMin = new Vector2(0.3f, 0.15f);
-            retryRect.anchorMax = new Vector2(0.3f, 0.15f);
+            retryRect.anchorMin = new Vector2(0.3f, 0.08f);
+            retryRect.anchorMax = new Vector2(0.3f, 0.08f);
             retryRect.pivot = new Vector2(0.5f, 0.5f);
             retryRect.sizeDelta = new Vector2(300, 100);
 
@@ -546,7 +669,6 @@ namespace QuickChecks.Editor
             rlR.pivot = new Vector2(0.5f, 0.5f);
             rlR.offsetMin = Vector2.zero; rlR.offsetMax = Vector2.zero;
 
-            // Menu button
             var menuGo = new GameObject("MenuButton");
             menuGo.transform.SetParent(canvasGo.transform, false);
             var menuBtn = menuGo.AddComponent<Button>();
@@ -555,16 +677,16 @@ namespace QuickChecks.Editor
             menuImg.raycastTarget = true;
             menuBtn.targetGraphic = menuImg;
             var menuRect = menuGo.GetComponent<RectTransform>();
-            menuRect.anchorMin = new Vector2(0.7f, 0.15f);
-            menuRect.anchorMax = new Vector2(0.7f, 0.15f);
+            menuRect.anchorMin = new Vector2(0.7f, 0.08f);
+            menuRect.anchorMax = new Vector2(0.7f, 0.08f);
             menuRect.pivot = new Vector2(0.5f, 0.5f);
             menuRect.sizeDelta = new Vector2(300, 100);
 
             var mlGo = new GameObject("Label");
             mlGo.transform.SetParent(menuGo.transform, false);
             var mlText = mlGo.AddComponent<TextMeshProUGUI>();
-            mlText.text = "Menu";
-            mlText.fontSize = 42;
+            mlText.text = "Track Select";
+            mlText.fontSize = 38;
             mlText.alignment = TextAlignmentOptions.Center;
             mlText.color = Color.white;
             mlText.raycastTarget = false;
@@ -581,21 +703,49 @@ namespace QuickChecks.Editor
             var audioGo = new GameObject("[AudioBootstrap]");
             audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
 
-            // ResultsScreenController
+            // ResultsScreenController — wire ALL the references via SerializedObject
             var ctrlGo = new GameObject("[ResultsScreenController]");
             var ctrl = ctrlGo.AddComponent<ResultsScreenController>();
             var so = new SerializedObject(ctrl);
+
+            // Common refs
             so.FindProperty("titleText").objectReferenceValue = titleText;
-            so.FindProperty("swipesText").objectReferenceValue = swipesText;
-            so.FindProperty("timeText").objectReferenceValue = timeText;
-            so.FindProperty("bestText").objectReferenceValue = bestText;
+            so.FindProperty("subtitleText").objectReferenceValue = subtitleText;
+            so.FindProperty("modeLabelText").objectReferenceValue = modeLabel;
+            so.FindProperty("trackLabelText").objectReferenceValue = trackLabel;
+
+            // Solo / CPU refs
+            so.FindProperty("starsText").objectReferenceValue = starsText;
+            so.FindProperty("swipesValueText").objectReferenceValue = swipesValueText;
+            so.FindProperty("parValueText").objectReferenceValue = parValueText;
+            so.FindProperty("timeValueText").objectReferenceValue = timeValueText;
+            so.FindProperty("bestValueText").objectReferenceValue = bestValueText;
             so.FindProperty("newBestText").objectReferenceValue = newBestText;
+
+            // Comparison panel refs
+            so.FindProperty("comparisonPanel").objectReferenceValue = cmpGo;
+            so.FindProperty("youNameText").objectReferenceValue = youNameText;
+            so.FindProperty("youSwipesText").objectReferenceValue = youSwipesText;
+            so.FindProperty("youTimeText").objectReferenceValue = youTimeText;
+            so.FindProperty("opponentNameText").objectReferenceValue = opponentNameText;
+            so.FindProperty("opponentSwipesText").objectReferenceValue = opponentSwipesText;
+            so.FindProperty("opponentTimeText").objectReferenceValue = opponentTimeText;
+            so.FindProperty("comparisonSummaryText").objectReferenceValue = comparisonSummaryText;
+
+            // Ranking panel refs
+            so.FindProperty("rankingPanel").objectReferenceValue = rankGo;
+            so.FindProperty("rankingRowsContainer").objectReferenceValue = rowsGo.transform;
+            // rankingRowPrefab is intentionally left null — runtime builds rows when prefab is missing.
+
+            // Buttons
             so.FindProperty("retryButton").objectReferenceValue = retryBtn;
             so.FindProperty("menuButton").objectReferenceValue = menuBtn;
+            so.FindProperty("retryButtonText").objectReferenceValue = rlText;
+
             so.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, SCENES_DIR + "Results.unity");
-            Debug.Log("[GameScenesBuilder] Results scene built.");
+            Debug.Log("[GameScenesBuilder] Results scene built (Phase 2 mode-aware layout).");
         }
 
         private static void AddScenesToBuildSettings()

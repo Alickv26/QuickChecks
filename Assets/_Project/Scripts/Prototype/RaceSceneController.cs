@@ -795,23 +795,36 @@ namespace QuickChecks.Prototype
                 if (!p.isFinished) remainingCount++;
             }
 
-            if (remainingCount <= 1)
+            if (remainingCount == 0)
             {
-                // Only 1 or 0 players remaining — auto-end
+                // Everyone finished — show results.
+                ShowMultiplayerResults();
+            }
+            else if (_raceMode.IsVsCpu() || _raceMode.IsOnline())
+            {
+                // Vs CPU / Online: when the human finishes, the race ends immediately (per TurnManager rule).
+                // The opponent stays as `isFinished=false` (didn't hit swipe cap, just got beaten) — we don't
+                // mark them as DNF. RaceResultBuilder distinguishes finished / DNF / unfinished states.
+                ShowMultiplayerResults();
+            }
+            else if (remainingCount == 1)
+            {
+                // Pass & Play: only one player left racing — auto-end.
+                // Mark that last player as DNF (they can't catch up / chose not to finish).
                 foreach (var p in _turnManager.Players)
                 {
                     if (!p.isFinished)
                     {
                         p.isFinished = true;
                         p.finishTimeMs = -1;
-                        Debug.Log($"[RaceScene] {p.playerName} classified as DNF (only one remaining).");
+                        Debug.Log($"[RaceScene] {p.playerName} classified as DNF (auto-end, last remaining).");
                     }
                 }
                 ShowMultiplayerResults();
             }
             else
             {
-                // Multiple players remaining — show Continue / End Game prompt
+                // Multiple players remaining (P&P only) — show Continue / End Game prompt.
                 ShowContinuePrompt();
             }
         }
@@ -1013,35 +1026,56 @@ namespace QuickChecks.Prototype
         {
             _finished = true;
 
-            string results = "FINAL RESULTS\n\n";
-            var sorted = new List<Racing.TurnManager.PlayerState>(_turnManager.Players);
-            sorted.Sort((a, b) =>
-            {
-                if (a.isFinished && !b.isFinished) return -1;
-                if (!a.isFinished && b.isFinished) return 1;
-                if (a.isFinished && b.isFinished)
-                {
-                    if (a.finishTimeMs < 0 && b.finishTimeMs >= 0) return 1;
-                    if (b.finishTimeMs < 0 && a.finishTimeMs >= 0) return -1;
-                    if (a.swipeCount != b.swipeCount) return a.swipeCount.CompareTo(b.swipeCount);
-                    return a.finishTimeMs.CompareTo(b.finishTimeMs);
-                }
-                return 0;
-            });
+            // Phase 2: build the structured payload and route through the Results scene.
+            // The in-scene text-dump + auto-reset is replaced by a real scene transition so the
+            // neon results UI can render properly for every mode.
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var results = RaceResultBuilder.Build(
+                mode: _raceMode,
+                track: _trackDef,
+                raceStartMs: _raceStartMs,
+                raceEndMs: nowMs,
+                turnManager: _turnManager,
+                soloGhost: null,
+                isNewBest: false,
+                prevBestSwipes: 0,
+                prevBestTimeMs: 0);
 
-            for (int i = 0; i < sorted.Count; i++)
+            // Log a readable summary (replaces the old Debug.Log text dump).
+            Debug.Log($"[RaceScene] === FINAL RESULTS ===\n{FormatResultsSummary(results)}");
+
+            // SFX
+            if (QuickChecks.Audio.SfxPlayer.Instance != null)
             {
-                var p = sorted[i];
-                if (p.isFinished && p.finishTimeMs > 0)
-                    results += $"{i + 1}. {p.playerName}: {p.swipeCount} swipes\n";
+                if (results.humanDnf || (!results.humanWon && results.IsMultiplayer))
+                    QuickChecks.Audio.SfxPlayer.Instance.PlayRaceFailed();
                 else
-                    results += $"{i + 1}. {p.playerName}: DNF\n";
+                    QuickChecks.Audio.SfxPlayer.Instance.PlayRaceComplete();
             }
 
-            Debug.Log($"[RaceScene] === FINAL RESULTS ===\n{results}");
+            // Transition to the Results scene after a short delay so the winner banner has time to show.
+            // If a winner banner is currently displayed, give it ~2s before transitioning.
+            _autoResetTimer = 2.5f;
+            _pendingResultsPayload = results;
+        }
 
-            // Auto-reset after 8s
-            _autoResetTimer = 8f;
+        /// <summary>Holds the results payload between ShowMultiplayerResults() and the actual scene transition.</summary>
+        private RaceResultData _pendingResultsPayload;
+
+        private static string FormatResultsSummary(RaceResultData r)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"Mode: {r.mode.DisplayName()}  Track: {r.trackDisplayName}  Par: {r.parSwipes}");
+            foreach (var p in r.players)
+            {
+                string outcome = p.isDnf ? "DNF" :
+                                 p.rank > 0 ? $"#{p.rank}" : "—";
+                sb.AppendLine($"  {outcome}  {p.playerName}  swipes={p.SwipesDisplay}  time={p.TimeDisplay}" +
+                              $"{(p.isHuman ? "  [YOU]" : "")}");
+            }
+            if (r.winnerIndex >= 0 && r.winnerIndex < r.players.Count)
+                sb.AppendLine($"Winner: {r.players[r.winnerIndex].playerName}");
+            return sb.ToString();
         }
 
         private void StartRace()
@@ -1136,9 +1170,26 @@ namespace QuickChecks.Prototype
                 if (_autoResetTimer <= 0f)
                 {
                     _autoResetTimer = -1f;
+
+                    // Phase 2: if we have a pending multiplayer results payload, transition to Results scene.
+                    if (_pendingResultsPayload != null)
+                    {
+                        var payload = _pendingResultsPayload;
+                        _pendingResultsPayload = null;
+                        if (GameFlowManager.Instance != null)
+                        {
+                            GameFlowManager.Instance.GoToResults(payload);
+                        }
+                        else
+                        {
+                            UnityEngine.SceneManagement.SceneManager.LoadScene("Results");
+                        }
+                        return;
+                    }
+
                     if (_isMultiplayer)
                     {
-                        // Multiplayer: just reset (no results scene for now)
+                        // Multiplayer in-scene reset (only used if no payload was set — e.g., explicit Reset button)
                         ResetRace();
                     }
                     else
@@ -1217,9 +1268,18 @@ namespace QuickChecks.Prototype
                 if (isNewBest) GameFlowManager.Instance.profile?.UnlockNextTrack(_trackDef.trackIndex);
             }
 
+            // Phase 2: build the full results payload and route through the new path.
+            // We synthesise a 1-entry TurnManager-style snapshot so RaceResultBuilder stays single-source-of-truth.
+            // Auto-transition runs after the short display delay (lets the kart settle before scene change).
             _autoResetTimer = resultsDisplayDuration;
             Debug.Log($"[RaceScene] Race finished! Swipes: {_swipeCount}, Time: {finishMs / 1000f:F2}s. " +
                       $"Auto-transition to results in {resultsDisplayDuration}s.");
+
+            // Play race-complete SFX (or raceFailed if DNF — currently Solo can't DNF without a swipe cap).
+            if (QuickChecks.Audio.SfxPlayer.Instance != null)
+            {
+                QuickChecks.Audio.SfxPlayer.Instance.PlayRaceComplete();
+            }
         }
 
         private void TransitionToResults()
@@ -1231,9 +1291,45 @@ namespace QuickChecks.Prototype
             {
                 bool isNewBest = _swipeCount < bestSwipes ||
                     (_swipeCount == bestSwipes && (_soloGhost?.BestGhost?.finishTimeMs ?? long.MaxValue) < bestTime);
-                GameFlowManager.Instance.GoToResults(_swipeCount,
-                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _raceStartMs,
-                    isNewBest, bestSwipes, bestTime);
+
+                // Phase 2: build a full RaceResultData payload and route through the unified path.
+                // For Solo we synthesise a 1-entry TurnManager-style snapshot via RaceResultBuilder,
+                // passing the ghost info (isNewBest, prevBest) directly.
+                long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                var soloPlayerStates = new List<Racing.TurnManager.PlayerState>
+                {
+                    new Racing.TurnManager.PlayerState
+                    {
+                        playerName = "You",
+                        kart = _kart,
+                        isCPU = false,
+                        isFinished = true,
+                        swipeCount = _swipeCount,
+                        finishTimeMs = nowMs - _raceStartMs,
+                        checkpointIndex = 0
+                    }
+                };
+
+                // Build a transient TurnManager-like snapshot without spawning a real component.
+                // RaceResultBuilder.Build() reads from TurnManager.Players; we synthesise a fake.
+                var fakeTm = new GameObject("[SoloResultsTurnManager]");
+                var tm = fakeTm.AddComponent<Racing.TurnManager>();
+                tm.SetPlayersForResults(soloPlayerStates);
+
+                var results = RaceResultBuilder.Build(
+                    mode: _raceMode,
+                    track: _trackDef,
+                    raceStartMs: _raceStartMs,
+                    raceEndMs: nowMs,
+                    turnManager: tm,
+                    soloGhost: _soloGhost,
+                    isNewBest: isNewBest,
+                    prevBestSwipes: bestSwipes,
+                    prevBestTimeMs: bestTime);
+
+                Destroy(fakeTm);
+
+                GameFlowManager.Instance.GoToResults(results);
             }
             else
             {

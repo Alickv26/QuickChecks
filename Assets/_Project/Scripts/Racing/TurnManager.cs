@@ -79,6 +79,18 @@ namespace QuickChecks.Racing
         public PlayerState CurrentPlayer => players.Count > 0 ? players[_currentPlayerIndex] : null;
         public IReadOnlyList<PlayerState> Players => players;
 
+        /// <summary>
+        /// Replaces the player list WITHOUT starting a race. Used by RaceSceneController.TransitionToResults()
+        /// to synthesise a 1-player TurnManager snapshot for Solo mode (which doesn't actually use a
+        /// TurnManager during the race) so RaceResultBuilder.Build() can read from a uniform source.
+        ///
+        /// This does not change _phase, _currentPlayerIndex, or any turn state — it's purely a data hook.
+        /// </summary>
+        public void SetPlayersForResults(List<PlayerState> snapshot)
+        {
+            players = snapshot ?? new List<PlayerState>();
+        }
+
         private void Update()
         {
             if (_phase == TurnPhase.PlayerInput && mode == RaceMode.Online)

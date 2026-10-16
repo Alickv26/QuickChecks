@@ -41,6 +41,14 @@ namespace QuickChecks.Core
         public int lastRaceBestSwipes;
         public long lastRaceBestTimeMs;
 
+        /// <summary>
+        /// Full race-end payload — set by RaceSceneController before transitioning to Results scene.
+        /// Consumed by ResultsScreenController. When non-null, the legacy scalar fields above are
+        /// ignored in favour of this structured payload.
+        /// </summary>
+        [Header("Full Race Results (Phase 2 — used by all modes)")]
+        public RaceResultData lastRaceResults;
+
         [Header("Player Profile")]
         public PlayerProfile profile;
 
@@ -89,6 +97,27 @@ namespace QuickChecks.Core
             lastRaceIsNewBest = isNewBest;
             lastRaceBestSwipes = bestSwipes;
             lastRaceBestTimeMs = bestTimeMs;
+            SceneManager.LoadScene(resultsScene);
+        }
+
+        /// <summary>
+        /// Phase 2 results path — carries the full structured payload (works for any mode).
+        /// Called by RaceSceneController.FinishRace*() after building RaceResultData.
+        /// </summary>
+        public void GoToResults(RaceResultData results)
+        {
+            lastRaceResults = results;
+            // Also mirror the legacy scalar fields so any code still reading them stays consistent
+            // (used by some legacy UI bits and by PlayerProfile recording).
+            if (results != null && results.HumanResult != null)
+            {
+                var h = results.HumanResult;
+                lastRaceSwipes = h.swipes;
+                lastRaceTimeMs = h.finishTimeMs > 0 ? h.finishTimeMs : results.RaceDurationMs;
+                lastRaceIsNewBest = results.isNewBest;
+                lastRaceBestSwipes = results.prevBestSwipes;
+                lastRaceBestTimeMs = results.prevBestTimeMs;
+            }
             SceneManager.LoadScene(resultsScene);
         }
 
