@@ -682,12 +682,12 @@ namespace QuickChecks.Prototype
                 var finishCol = _trackData.finishLine?.GetComponent<Collider2D>();
                 ct.SetCheckpoints(cpArray, finishCol, _trackDef.lapCount);
                 // Wire OnRaceComplete → TurnManager.NotifyPlayerFinished for this kart index
-                int kartIndex = playerIndex;  // capture for closure
+                int finishKartIndex = playerIndex;  // capture for closure
                 ct.OnRaceComplete += (total) =>
                 {
                     if (_turnManager != null)
                     {
-                        _turnManager.NotifyPlayerFinished(kartIndex);
+                        _turnManager.NotifyPlayerFinished(finishKartIndex);
                     }
                 };
             }
