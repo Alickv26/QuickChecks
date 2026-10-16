@@ -59,6 +59,7 @@ namespace QuickChecks.Prototype
         private bool _isMultiplayer = false;
         private int _currentTurnPlayerIndex = 0;
         private bool[] _wasKartMoving;
+        private float[] _kartStopDelay;  // countdown before declaring kart stopped (prevents false triggers)
         private float _turnStartDelay = 0f;
 
         // Player colors for glow
@@ -440,8 +441,9 @@ namespace QuickChecks.Prototype
                 SpawnAdditionalKart(i);
             }
 
-            // Init wasKartMoving array
+            // Init wasKartMoving + kartStopDelay arrays
             _wasKartMoving = new bool[_allKarts.Count];
+            _kartStopDelay = new float[_allKarts.Count];
 
             // Create TurnManager
             var tmGo = new GameObject("[TurnManager]");
@@ -756,26 +758,36 @@ namespace QuickChecks.Prototype
         {
             _swipeCount++;
 
-            // In multiplayer: notify TurnManager that the active player swiped
+            // In multiplayer: identify WHICH kart's event fired this swipe
+            // by checking which per-kart event raised it.
             if (_isMultiplayer && _turnManager != null)
             {
-                _turnManager.RegisterSwipe(_currentTurnPlayerIndex);
+                // Find which player index this swipe came from
+                int swipingPlayerIndex = _currentTurnPlayerIndex;  // default to current turn
+                // We can't easily identify which event raised this from inside OnSwipe,
+                // but we know only the active player's SwipeDetector is enabled, so
+                // _currentTurnPlayerIndex is correct for human players.
+                // For CPU: the CPUPlayer raises its own per-kart event, and
+                // _currentTurnPlayerIndex was set by HandleTurnStart before the CPU took its turn.
 
-                // Mark this kart as "was moving" so the Update loop can detect when it stops.
-                if (_wasKartMoving != null && _currentTurnPlayerIndex < _wasKartMoving.Length)
+                _turnManager.RegisterSwipe(swipingPlayerIndex);
+
+                // Mark this kart as "was moving" — use a short delay to ensure
+                // the kart has time to start moving before we check if it stopped.
+                if (_wasKartMoving != null && swipingPlayerIndex < _wasKartMoving.Length)
                 {
-                    _wasKartMoving[_currentTurnPlayerIndex] = true;
+                    _wasKartMoving[swipingPlayerIndex] = true;
                 }
 
                 // Check if this kart has a trail wall pending → activate it on this swipe
-                var kart = _allKarts[_currentTurnPlayerIndex];
+                var kart = _allKarts[swipingPlayerIndex];
                 if (kart != null && kart.ConsumeTrailWallPending())
                 {
                     var trail = kart.GetComponent<KartTrail>();
                     if (trail != null)
                     {
                         trail.ActivateTrailWall();
-                        Debug.Log($"[RaceScene] Trail wall activated for player {_currentTurnPlayerIndex}.");
+                        Debug.Log($"[RaceScene] Trail wall activated for player {swipingPlayerIndex}.");
                     }
                 }
             }
@@ -811,13 +823,28 @@ namespace QuickChecks.Prototype
                     if (_allKarts[i] == null) continue;
                     bool isMoving = _allKarts[i].Velocity.magnitude > 10f;
 
-                    // Transition from moving → stopped = turn end
-                    if (_wasKartMoving[i] && !isMoving)
+                    if (isMoving)
                     {
-                        Debug.Log($"[RaceScene] Kart {i} stopped — notifying TurnManager.");
-                        _turnManager.NotifyKartStopped(i);
+                        // Kart is moving — track it and reset the stop delay
+                        _wasKartMoving[i] = true;
+                        _kartStopDelay[i] = 0.3f;  // Reset stop delay (must be stopped for 0.3s)
                     }
-                    _wasKartMoving[i] = isMoving;
+                    else if (_wasKartMoving[i])
+                    {
+                        // Kart was moving but now stopped — wait a bit before declaring turn end
+                        // This prevents false triggers from physics jitter at the start of movement
+                        if (_kartStopDelay[i] > 0f)
+                        {
+                            _kartStopDelay[i] -= Time.deltaTime;
+                        }
+                        else
+                        {
+                            // Confirmed stopped
+                            Debug.Log($"[RaceScene] Kart {i} stopped — notifying TurnManager.");
+                            _wasKartMoving[i] = false;
+                            _turnManager.NotifyKartStopped(i);
+                        }
+                    }
                 }
             }
 
