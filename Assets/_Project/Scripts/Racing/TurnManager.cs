@@ -196,8 +196,19 @@ namespace QuickChecks.Racing
             p.finishTimeMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _raceStartTimeMs;
             OnPlayerFinished?.Invoke(playerIndex, p.finishTimeMs);
 
+            // In vs CPU mode: race ends immediately when the HUMAN player (index 0) finishes.
+            // No need to wait for CPU to also finish — it's a single-player race.
+            if (mode != RaceMode.Solo && mode != RaceMode.PassAndPlay && mode != RaceMode.Online)
+            {
+                if (playerIndex == 0)
+                {
+                    Debug.Log($"[TurnManager] Player 0 finished — ending vs CPU race immediately.");
+                    FinishRace();
+                    return;
+                }
+            }
+
             // Race continues until ALL players are done (both finished or DNF'd).
-            // Match officially ends when everyone has finished or hit cap.
             if (AllPlayersDone()) FinishRace();
         }
 

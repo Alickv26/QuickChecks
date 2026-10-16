@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using QuickChecks.Input;
@@ -6,118 +7,78 @@ namespace QuickChecks.Multiplayer
 {
     /// <summary>
     /// Manages local pass-and-play: 2-4 human players sharing one device.
-    /// Each player picks a kart, then takes turns in order. Between turns,
-    /// a full-screen "Pass to Player N" overlay is shown (UI layer).
+    /// Shows "Pass to Player N" overlay between turns.
     ///
-    /// Flow:
-    ///   1. SetupPassPlay(playerCount) -> creates PlayerState list with distinct kart colors
-    ///   2. TurnManager drives the actual turn logic
-    ///   3. Between turns, this manager shows the pass overlay via OnTurnEnd event
-    ///   4. Player taps overlay -> OnTurnStart fires for next player
+    /// This component subscribes to TurnManager events via OnEnable (with a
+    /// 1-frame delay for reflection wiring). It does NOT need SetupPassPlay
+    /// — it reads the player list from the TurnManager directly.
     /// </summary>
     public class PassPlayManager : MonoBehaviour
     {
         [SerializeField] private Racing.TurnManager turnManager;
-        [SerializeField] private List<GameObject> kartPrefabs; // one per player slot
-        [SerializeField] private UI.PassPlayOverlay passOverlay; // UI controller
+        [SerializeField] private UI.PassPlayOverlay passOverlay;
 
-        private List<Racing.TurnManager.PlayerState> _players = new();
+        private bool _subscribed = false;
 
         private void OnEnable()
         {
-            // Subscribe to turn events immediately (SetupPassPlay is never called —
-            // RaceSceneController builds the player list inline, so we subscribe here
-            // and respond to whatever TurnManager is on this GameObject).
-            // Use a coroutine to wait one frame for turnManager to be wired via reflection.
             StartCoroutine(SubscribeWhenReady());
         }
 
-        private System.Collections.IEnumerator SubscribeWhenReady()
+        private IEnumerator SubscribeWhenReady()
         {
-            // Wait a frame for reflection wiring to complete
-            yield return null;
+            yield return null; // Wait 1 frame for reflection wiring
 
-            if (turnManager != null)
+            if (turnManager != null && !_subscribed)
             {
                 turnManager.OnTurnEnd += HandleTurnEnd;
                 turnManager.OnTurnStart += HandleTurnStart;
                 turnManager.OnRaceFinished += HandleRaceFinished;
-                Debug.Log("[PassPlay] Subscribed to TurnManager events (overlay will show between turns).");
+                _subscribed = true;
+                Debug.Log("[PassPlay] Subscribed to TurnManager events.");
             }
         }
 
         private void OnDisable()
         {
-            if (turnManager != null)
+            if (turnManager != null && _subscribed)
             {
                 turnManager.OnTurnEnd -= HandleTurnEnd;
                 turnManager.OnTurnStart -= HandleTurnStart;
                 turnManager.OnRaceFinished -= HandleRaceFinished;
+                _subscribed = false;
             }
-        }
-
-        public void SetupPassPlay(int playerCount, Track.TrackDefinition track)
-        {
-            if (playerCount < 2 || playerCount > 4)
-            {
-                Debug.LogError($"[PassPlay] Invalid player count: {playerCount}. Must be 2-4.");
-                return;
-            }
-
-            _players.Clear();
-
-            for (int i = 0; i < playerCount; i++)
-            {
-                var prefab = kartPrefabs[i % kartPrefabs.Count];
-                var kartGo = Instantiate(prefab);
-                var state = new Racing.TurnManager.PlayerState
-                {
-                    playerName = $"Player {i + 1}",
-                    kart = kartGo.GetComponent<Racing.KartController>(),
-                    isCPU = false,
-                    isFinished = false,
-                    swipeCount = 0,
-                    finishTimeMs = 0,
-                    checkpointIndex = 0
-                };
-                _players.Add(state);
-            }
-
-            turnManager.OnTurnEnd += HandleTurnEnd;
-            turnManager.OnTurnStart += HandleTurnStart;
-            turnManager.OnRaceFinished += HandleRaceFinished;
-
-            turnManager.StartRace(_players, track, Racing.TurnManager.RaceMode.PassAndPlay);
         }
 
         private void HandleTurnEnd(int playerIndex, int swipeCount)
         {
-            // Show "Pass to Player N" overlay.
-            int nextPlayer = (playerIndex + 1) % _players.Count;
+            // Use TurnManager's player list (not our own _players which is empty)
+            int playerCount = turnManager?.Players?.Count ?? 0;
+            if (playerCount == 0) return;
+
+            int nextPlayer = (playerIndex + 1) % playerCount;
             if (passOverlay != null)
             {
-                passOverlay.Show($"Pass to Player {nextPlayer + 1}");
+                string nextName = turnManager.Players[nextPlayer].playerName;
+                passOverlay.Show($"Pass to {nextName}");
             }
         }
 
         private void HandleTurnStart(int playerIndex)
         {
-            // Hide overlay when new player is ready.
             if (passOverlay != null) passOverlay.Hide();
 
-            // Decision 4 (DECISIONS.md): dim inactive karts to 40% alpha, restore active to 100%.
+            // Decision 4: dim inactive karts to 40% alpha, restore active to 100%.
             UpdateKartVisibility(playerIndex);
         }
 
-        /// <summary>
-        /// All karts remain visible (preserves spatial context), but inactive karts
-        /// are dimmed to 40% alpha so visual focus is on the active player.
-        /// </summary>
         private void UpdateKartVisibility(int activePlayerIndex)
         {
-            for (int i = 0; i < _players.Count; i++)
+            if (turnManager == null || turnManager.Players == null) return;
+
+            for (int i = 0; i < turnManager.Players.Count; i++)
             {
-                var kart = _players[i].kart;
+                var kart = turnManager.Players[i].kart;
                 if (kart == null) continue;
                 var renderer = kart.GetComponent<SpriteRenderer>();
                 if (renderer == null) continue;
@@ -133,24 +94,9 @@ namespace QuickChecks.Multiplayer
             if (passOverlay != null)
             {
                 string msg = winnerIndex >= 0
-                    ? $"Player {winnerIndex + 1} wins!"
+                    ? $"{turnManager?.Players[winnerIndex]?.playerName ?? "Player"} wins!"
                     : "Race ended — no winner (all DNF).";
                 passOverlay.Show(msg);
-            }
-
-            turnManager.OnTurnEnd -= HandleTurnEnd;
-            turnManager.OnTurnStart -= HandleTurnStart;
-            turnManager.OnRaceFinished -= HandleRaceFinished;
-        }
-
-        private void OnDestroy()
-        {
-            // Defensive: ensure we never leak event subscriptions.
-            if (turnManager != null)
-            {
-                turnManager.OnTurnEnd -= HandleTurnEnd;
-                turnManager.OnTurnStart -= HandleTurnStart;
-                turnManager.OnRaceFinished -= HandleRaceFinished;
             }
         }
     }

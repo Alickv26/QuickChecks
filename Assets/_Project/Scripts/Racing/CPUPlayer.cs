@@ -114,8 +114,12 @@ namespace QuickChecks.Racing
             direction = Rotate(direction, angleOffset);
 
             // Magnitude: aim to reach the checkpoint but not overshoot wildly.
+            // Use a MINIMUM so CPU doesn't make tiny swipes — was better before
+            // the wall avoidance changes reduced the multiplier too much.
             var stats = _kart.Stats;
-            float optimalMag = Mathf.Min(distance * 1.5f, stats.maxSpeed * 0.7f);
+            float optimalMag = Mathf.Min(distance * 2.0f, stats.maxSpeed * 0.85f);
+            // Floor: at least 60% of max speed so every swipe is meaningful
+            optimalMag = Mathf.Max(optimalMag, stats.maxSpeed * 0.6f);
 
             Vector2 magRange = difficulty switch
             {
