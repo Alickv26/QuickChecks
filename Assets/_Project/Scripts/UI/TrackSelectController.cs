@@ -6,34 +6,73 @@ using TMPro;
 using QuickChecks.Core;
 using QuickChecks.Track;
 using QuickChecks.Racing;
+using QuickChecks.Audio;
 
 namespace QuickChecks.UI
 {
     /// <summary>
-    /// Track select controller. Shows a grid of track cards.
-    /// Each card shows: track name, difficulty stars, best swipes, locked/unlocked state.
+    /// Track select controller (Phase 2). Renders neon-styled track cards.
+    ///
+    /// Each card shows:
+    ///   - Track index (large, accent color)
+    ///   - Track name (large, off-white)
+    ///   - Difficulty label + stars (EASY ★☆☆, MEDIUM ★★☆, etc.)
+    ///   - Par swipes target ("Par 12")
+    ///   - Player's best swipes (or "Not completed" if first run)
+    ///   - Free / Premium / Locked indicator
+    ///   - Hover FX (ButtonHoverFx auto-attached)
+    ///
     /// Tapping an unlocked track → starts the race.
-    /// Tapping a locked track → shows paywall (if paid) or "complete previous track" message.
+    /// Tapping a locked paid track → opens paywall modal (PaywallController).
+    /// Tapping a locked progression track → shows "Complete previous track first" toast.
     /// </summary>
     public class TrackSelectController : MonoBehaviour
     {
         [Header("UI References")]
         [SerializeField] private Transform trackGridContainer;
-        [SerializeField] private GameObject trackCardPrefab;
         [SerializeField] private Button backButton;
         [SerializeField] private TMP_Text titleText;
+        [SerializeField] private TMP_Text modeLabel;        // shows current mode (e.g. "SOLO PRACTICE")
 
         [Header("Track Library")]
         [SerializeField] private TrackLibrary trackLibrary;
 
+        [Header("Toast (optional)")]
+        [SerializeField] private GameObject toastDialog;
+        [SerializeField] private TMP_Text toastText;
+        [SerializeField] private Button toastOkButton;
+
         private void Start()
         {
             if (titleText != null) titleText.text = "Select Track";
+            if (modeLabel != null)
+            {
+                var mode = GameFlowManager.Instance != null ? GameFlowManager.Instance.selectedMode : RaceMode.Solo;
+                modeLabel.text = mode.DisplayName().ToUpperInvariant();
+                modeLabel.color = Phase2UiPalette.ModeAccent(mode);
+            }
 
             if (backButton != null)
             {
                 backButton.onClick.RemoveAllListeners();
                 backButton.onClick.AddListener(OnBackClicked);
+                EnsureHoverFx(backButton);
+            }
+
+            // Toast dialog wiring
+            if (toastDialog != null)
+            {
+                toastDialog.SetActive(false);
+                if (toastOkButton != null)
+                {
+                    toastOkButton.onClick.RemoveAllListeners();
+                    toastOkButton.onClick.AddListener(() =>
+                    {
+                        if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+                        toastDialog.SetActive(false);
+                    });
+                    EnsureHoverFx(toastOkButton);
+                }
             }
 
             BuildTrackGrid();
@@ -83,114 +122,147 @@ namespace QuickChecks.UI
 
         private void CreateTrackCard(TrackDefinition track, int index)
         {
-            GameObject cardGo;
-            if (trackCardPrefab != null)
-            {
-                cardGo = Instantiate(trackCardPrefab, trackGridContainer);
-            }
-            else
-            {
-                // Create a simple card at runtime
-                cardGo = CreateRuntimeTrackCard(track, index);
-                cardGo.transform.SetParent(trackGridContainer, false);
-            }
-
-            // Setup card content
-            SetupCard(cardGo, track, index);
+            var cardGo = CreateRuntimeTrackCard(track, index);
+            cardGo.transform.SetParent(trackGridContainer, false);
         }
 
         private GameObject CreateRuntimeTrackCard(TrackDefinition track, int index)
         {
+            bool unlocked = IsTrackUnlocked(track);
+            int bestSwipes = GameFlowManager.Instance?.GetBestSwipesForTrack(track.trackId) ?? 0;
+            int stars = bestSwipes > 0 ? StarRating.Calculate(bestSwipes, track.parSwipeCount) : 0;
+            Color accent = Phase2UiPalette.AccentCyan;
+
             var go = new GameObject($"TrackCard_{index}");
             var rect = go.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(400, 200);
+            rect.sizeDelta = new Vector2(0, 200);
 
             var img = go.AddComponent<Image>();
-            img.color = new Color(0.106f, 0.165f, 0.165f, 1f);  // dark teal
+            img.color = unlocked ? Phase2UiPalette.CardSurface : Phase2UiPalette.CardLocked;
 
             var button = go.AddComponent<Button>();
             button.targetGraphic = img;
+            button.interactable = unlocked;
+
+            // Horizontal layout: index | text column | chip
+            var hlg = go.AddComponent<HorizontalLayoutGroup>();
+            hlg.padding = new RectOffset(20, 20, 16, 16);
+            hlg.spacing = 16;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = true;
+            hlg.childForceExpandHeight = false;
+
+            // Track index (large)
+            var idxGo = new GameObject("TrackIndex");
+            idxGo.transform.SetParent(go.transform, false);
+            var idxText = idxGo.AddComponent<TextMeshProUGUI>();
+            idxText.text = $"{index + 1:D2}";
+            idxText.fontSize = 56;
+            idxText.alignment = TextAlignmentOptions.Center;
+            idxText.color = unlocked ? accent : Phase2UiPalette.TextDim;
+            idxText.raycastTarget = false;
+            var idxLayout = idxGo.AddComponent<LayoutElement>();
+            idxLayout.preferredWidth = 100;
+            idxLayout.flexibleWidth = 0;
+
+            // Text column (name + stars + best)
+            var textColGo = new GameObject("TextColumn");
+            textColGo.transform.SetParent(go.transform, false);
+            var vlg = textColGo.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 4;
+            vlg.childAlignment = TextAnchor.UpperLeft;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            var textColLayout = textColGo.AddComponent<LayoutElement>();
+            textColLayout.flexibleWidth = 1;
 
             // Track name
             var nameGo = new GameObject("TrackName");
-            nameGo.transform.SetParent(go.transform, false);
+            nameGo.transform.SetParent(textColGo.transform, false);
             var nameText = nameGo.AddComponent<TextMeshProUGUI>();
-            nameText.text = $"{index + 1}. {track.displayName}";
-            nameText.fontSize = 32;
-            nameText.alignment = TextAlignmentOptions.Center;
-            nameText.color = Color.white;
-            var nameRect = nameGo.GetComponent<RectTransform>();
-            nameRect.anchorMin = new Vector2(0.5f, 1);
-            nameRect.anchorMax = new Vector2(0.5f, 1);
-            nameRect.pivot = new Vector2(0.5f, 1);
-            nameRect.anchoredPosition = new Vector2(0, -10);
-            nameRect.sizeDelta = new Vector2(380, 50);
+            nameText.text = track.displayName;
+            nameText.fontSize = 36;
+            nameText.alignment = TextAlignmentOptions.Left;
+            nameText.color = unlocked ? Phase2UiPalette.TextPrimary : Phase2UiPalette.TextDim;
+            nameText.raycastTarget = false;
 
-            // Difficulty stars
-            var starsGo = new GameObject("Difficulty");
-            starsGo.transform.SetParent(go.transform, false);
+            // Stars + difficulty + par
+            var starsGo = new GameObject("StarsRow");
+            starsGo.transform.SetParent(textColGo.transform, false);
             var starsText = starsGo.AddComponent<TextMeshProUGUI>();
-            starsText.text = new string('★', track.difficultyStars);
-            starsText.fontSize = 28;
-            starsText.alignment = TextAlignmentOptions.Center;
-            starsText.color = new Color(1f, 0.82f, 0.4f);  // yellow
-            var starsRect = starsGo.GetComponent<RectTransform>();
-            starsRect.anchorMin = new Vector2(0.5f, 0.5f);
-            starsRect.anchorMax = new Vector2(0.5f, 0.5f);
-            starsRect.pivot = new Vector2(0.5f, 0.5f);
-            starsRect.anchoredPosition = new Vector2(0, 10);
-            starsRect.sizeDelta = new Vector2(380, 40);
+            starsText.text = $"{Phase2UiPalette.StarsDisplay(track.difficultyStars)}   " +
+                             $"{Phase2UiPalette.DifficultyLabel(track.difficultyStars)}   " +
+                             $"Par {track.parSwipeCount}";
+            starsText.fontSize = 24;
+            starsText.alignment = TextAlignmentOptions.Left;
+            starsText.color = unlocked ? Phase2UiPalette.StarsFilled : Phase2UiPalette.TextDim;
+            starsText.raycastTarget = false;
 
-            // Best swipes
-            var bestGo = new GameObject("BestSwipes");
-            bestGo.transform.SetParent(go.transform, false);
+            // Best swipes line
+            var bestGo = new GameObject("BestLine");
+            bestGo.transform.SetParent(textColGo.transform, false);
             var bestText = bestGo.AddComponent<TextMeshProUGUI>();
-            int bestSwipes = GameFlowManager.Instance?.GetBestSwipesForTrack(track.trackId) ?? 0;
-            bestText.text = bestSwipes > 0 ? $"Best: {bestSwipes} swipes" : "Not completed";
-            bestText.fontSize = 24;
-            bestText.alignment = TextAlignmentOptions.Center;
-            bestText.color = new Color(0.247f, 0.878f, 0.760f);  // cyan
-            var bestRect = bestGo.GetComponent<RectTransform>();
-            bestRect.anchorMin = new Vector2(0.5f, 0);
-            bestRect.anchorMax = new Vector2(0.5f, 0);
-            bestRect.pivot = new Vector2(0.5f, 0);
-            bestRect.anchoredPosition = new Vector2(0, 10);
-            bestRect.sizeDelta = new Vector2(380, 40);
-
-            // Locked indicator
-            bool unlocked = IsTrackUnlocked(track);
-            if (!unlocked)
+            if (unlocked)
             {
-                var lockGo = new GameObject("Locked");
-                lockGo.transform.SetParent(go.transform, false);
-                var lockText = lockGo.AddComponent<TextMeshProUGUI>();
-                lockText.text = track.isFree ? "Complete previous track" : "Premium — $4.99";
-                lockText.fontSize = 22;
-                lockText.alignment = TextAlignmentOptions.Center;
-                lockText.color = new Color(1f, 0.42f, 0.42f);  // red
-                var lockRect = lockGo.GetComponent<RectTransform>();
-                lockRect.anchorMin = new Vector2(0.5f, 0);
-                lockRect.anchorMax = new Vector2(0.5f, 0);
-                lockRect.pivot = new Vector2(0.5f, 0);
-                lockRect.anchoredPosition = new Vector2(0, 50);
-                lockRect.sizeDelta = new Vector2(380, 30);
-
-                // Dim the card
-                img.color = new Color(0.05f, 0.08f, 0.08f, 1f);  // darker
-                nameText.color = new Color(0.5f, 0.5f, 0.5f);  // gray
+                if (bestSwipes > 0)
+                {
+                    bestText.text = $"Best: {bestSwipes} swipes   {Phase2UiPalette.StarsDisplay(stars)}";
+                }
+                else
+                {
+                    bestText.text = "Not completed";
+                }
             }
+            else
+            {
+                bestText.text = track.isFree ? "Locked — complete previous track" : "Premium — $4.99 to unlock";
+            }
+            bestText.fontSize = 22;
+            bestText.alignment = TextAlignmentOptions.Left;
+            bestText.color = unlocked
+                ? (bestSwipes > 0 ? accent : Phase2UiPalette.TextDim)
+                : new Color(1f, 0.42f, 0.42f);
+            bestText.raycastTarget = false;
+
+            // Right-side chip (Free / Paid / Locked icon)
+            var chipGo = new GameObject("StateChip");
+            chipGo.transform.SetParent(go.transform, false);
+            var chipImg = chipGo.AddComponent<Image>();
+            Color chipColor = !unlocked ? new Color(1f, 0.42f, 0.42f, 0.20f) :
+                              track.isFree  ? new Color(accent.r, accent.g, accent.b, 0.20f) :
+                                              new Color(1f, 0.82f, 0.40f, 0.20f);  // gold for paid-unlocked
+            chipImg.color = chipColor;
+            var chipLayout = chipGo.AddComponent<LayoutElement>();
+            chipLayout.preferredWidth = 120;
+            chipLayout.flexibleWidth = 0;
+
+            var chipLabelGo = new GameObject("Label");
+            chipLabelGo.transform.SetParent(chipGo.transform, false);
+            var chipLabel = chipLabelGo.AddComponent<TextMeshProUGUI>();
+            chipLabel.text = !unlocked ? "LOCKED" :
+                             track.isFree  ? "FREE" : "PREMIUM";
+            chipLabel.fontSize = 22;
+            chipLabel.alignment = TextAlignmentOptions.Center;
+            chipLabel.color = !unlocked ? new Color(1f, 0.42f, 0.42f) :
+                              track.isFree  ? accent : new Color(1f, 0.82f, 0.40f);
+            chipLabel.raycastTarget = false;
+            var chipLabelRect = chipLabelGo.GetComponent<RectTransform>();
+            chipLabelRect.anchorMin = Vector2.zero; chipLabelRect.anchorMax = Vector2.one;
+            chipLabelRect.pivot = new Vector2(0.5f, 0.5f);
+            chipLabelRect.offsetMin = Vector2.zero; chipLabelRect.offsetMax = Vector2.zero;
+
+            // Wire button
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(() => OnTrackClicked(track));
+
+            // Attach hover FX only if interactive
+            if (unlocked) EnsureHoverFx(button);
 
             return go;
-        }
-
-        private void SetupCard(GameObject cardGo, TrackDefinition track, int index)
-        {
-            var button = cardGo.GetComponent<Button>();
-            if (button != null)
-            {
-                button.onClick.RemoveAllListeners();
-                button.onClick.AddListener(() => OnTrackClicked(track));
-            }
         }
 
         private bool IsTrackUnlocked(TrackDefinition track)
@@ -208,18 +280,23 @@ namespace QuickChecks.UI
 
             if (!unlocked)
             {
+                if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+
                 if (!track.isFree)
                 {
                     Debug.Log($"[TrackSelect] Track '{track.displayName}' is locked — show paywall.");
-                    // TODO: Show paywall modal (PaywallController)
+                    ShowToast($"Unlock all tracks for $4.99?");
+                    // TODO: Open PaywallController modal (stubbed for now)
                 }
                 else
                 {
                     Debug.Log($"[TrackSelect] Track '{track.displayName}' is locked — complete previous track first.");
+                    ShowToast("Complete the previous track to unlock this one.");
                 }
                 return;
             }
 
+            if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
             Debug.Log($"[TrackSelect] Track '{track.displayName}' selected — starting race.");
 
             // Use default kart for now (Track 1's kart)
@@ -235,9 +312,21 @@ namespace QuickChecks.UI
             }
         }
 
+        private void ShowToast(string message)
+        {
+            if (toastDialog == null)
+            {
+                Debug.Log($"[TrackSelect] (toast missing) {message}");
+                return;
+            }
+            if (toastText != null) toastText.text = message;
+            toastDialog.SetActive(true);
+        }
+
         private void OnBackClicked()
         {
-            Debug.Log("[TrackSelect] BACK clicked — going to main menu.");
+            if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+            Debug.Log("[TrackSelect] BACK clicked — going to mode select.");
             if (GameFlowManager.Instance != null)
             {
                 GameFlowManager.Instance.GoToMainMenu();
@@ -245,6 +334,15 @@ namespace QuickChecks.UI
             else
             {
                 SceneManager.LoadScene("MainMenu");
+            }
+        }
+
+        private static void EnsureHoverFx(Button btn)
+        {
+            if (btn == null) return;
+            if (btn.GetComponent<ButtonHoverFx>() == null)
+            {
+                btn.gameObject.AddComponent<ButtonHoverFx>();
             }
         }
     }

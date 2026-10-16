@@ -135,5 +135,8 @@ namespace QuickChecks.Audio
             sfxVolume = Mathf.Clamp01(volume);
             if (_audioSource != null) _audioSource.volume = sfxVolume;
         }
+
+        /// <summary>Returns the current SFX volume (0-1) — for UI sliders to read on init.</summary>
+        public float GetVolume() => sfxVolume;
     }
 }

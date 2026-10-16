@@ -70,7 +70,7 @@ namespace QuickChecks.Editor
             var cam = camGo.AddComponent<UnityEngine.Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 10;
-            cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f);
+            cam.backgroundColor = Phase2UiPalette.Background;
             camGo.transform.position = new Vector3(0, 0, -10);
             camGo.tag = "MainCamera";
             camGo.AddComponent<AudioListener>();
@@ -79,7 +79,9 @@ namespace QuickChecks.Editor
             var canvasGo = new GameObject("Canvas");
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            var scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080, 1920);
             canvasGo.AddComponent<GraphicRaycaster>();
 
             if (UnityEngine.EventSystems.EventSystem.current == null)
@@ -89,91 +91,77 @@ namespace QuickChecks.Editor
                 esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
             }
 
-            // Title
-            var titleGo = new GameObject("Title");
-            titleGo.transform.SetParent(canvasGo.transform, false);
-            var titleText = titleGo.AddComponent<TextMeshProUGUI>();
-            titleText.text = "QuickChecks";
-            titleText.fontSize = 96;
-            titleText.alignment = TextAlignmentOptions.Center;
-            titleText.color = new Color(0.247f, 0.878f, 0.760f);
-            var titleRect = titleGo.GetComponent<RectTransform>();
-            titleRect.anchorMin = new Vector2(0.5f, 0.7f);
-            titleRect.anchorMax = new Vector2(0.5f, 0.7f);
-            titleRect.pivot = new Vector2(0.5f, 0.5f);
-            titleRect.sizeDelta = new Vector2(800, 120);
+            // Title (centered, accent cyan)
+            var titleText = Phase2UiPalette.CreateText("Title", "QuickChecks", 96, Phase2UiPalette.AccentCyan,
+                new Vector2(0.5f, 0.72f), new Vector2(900, 120));
 
-            // Subtitle
-            var subGo = new GameObject("Subtitle");
-            subGo.transform.SetParent(canvasGo.transform, false);
-            var subText = subGo.AddComponent<TextMeshProUGUI>();
-            subText.text = "Swipe Golf Racing";
-            subText.fontSize = 42;
-            subText.alignment = TextAlignmentOptions.Center;
-            subText.color = new Color(0.969f, 0.969f, 0.949f, 0.7f);
-            var subRect = subGo.GetComponent<RectTransform>();
-            subRect.anchorMin = new Vector2(0.5f, 0.6f);
-            subRect.anchorMax = new Vector2(0.5f, 0.6f);
-            subRect.pivot = new Vector2(0.5f, 0.5f);
-            subRect.sizeDelta = new Vector2(600, 60);
+            // Subtitle (pulses at runtime — see MainMenuController)
+            var subtitleText = Phase2UiPalette.CreateText("Subtitle", "Swipe Golf Racing", 42,
+                new Color(0.247f, 0.878f, 0.760f, 0.7f),
+                new Vector2(0.5f, 0.62f), new Vector2(700, 60));
 
-            // Play button
+            // PLAY button (large, accent cyan)
             var playGo = new GameObject("PlayButton");
             playGo.transform.SetParent(canvasGo.transform, false);
             var playBtn = playGo.AddComponent<Button>();
             var playImg = playGo.AddComponent<Image>();
-            playImg.color = new Color(0.247f, 0.878f, 0.760f, 0.9f);
+            playImg.color = Phase2UiPalette.AccentCyan;
             playImg.raycastTarget = true;
             playBtn.targetGraphic = playImg;
             var playRect = playGo.GetComponent<RectTransform>();
-            playRect.anchorMin = new Vector2(0.5f, 0.4f);
-            playRect.anchorMax = new Vector2(0.5f, 0.4f);
+            playRect.anchorMin = new Vector2(0.5f, 0.40f);
+            playRect.anchorMax = new Vector2(0.5f, 0.40f);
             playRect.pivot = new Vector2(0.5f, 0.5f);
-            playRect.sizeDelta = new Vector2(400, 120);
+            playRect.sizeDelta = new Vector2(500, 130);
 
-            var playLabelGo = new GameObject("Label");
-            playLabelGo.transform.SetParent(playGo.transform, false);
-            var playLabel = playLabelGo.AddComponent<TextMeshProUGUI>();
-            playLabel.text = "PLAY";
-            playLabel.fontSize = 56;
-            playLabel.alignment = TextAlignmentOptions.Center;
-            playLabel.color = new Color(0.055f, 0.078f, 0.078f);
-            playLabel.raycastTarget = false;
-            var plRect = playLabelGo.GetComponent<RectTransform>();
-            plRect.anchorMin = Vector2.zero;
-            plRect.anchorMax = Vector2.one;
-            plRect.pivot = new Vector2(0.5f, 0.5f);
-            plRect.offsetMin = Vector2.zero;
-            plRect.offsetMax = Vector2.zero;
+            var plGo = new GameObject("Label");
+            plGo.transform.SetParent(playGo.transform, false);
+            var plLabel = plGo.AddComponent<TextMeshProUGUI>();
+            plLabel.text = "PLAY";
+            plLabel.fontSize = 64;
+            plLabel.alignment = TextAlignmentOptions.Center;
+            plLabel.color = Phase2UiPalette.TextOnAccent;
+            plLabel.raycastTarget = false;
+            var plR = plGo.GetComponent<RectTransform>();
+            plR.anchorMin = Vector2.zero; plR.anchorMax = Vector2.one;
+            plR.pivot = new Vector2(0.5f, 0.5f);
+            plR.offsetMin = Vector2.zero; plR.offsetMax = Vector2.zero;
 
-            // Settings button
+            // Settings button (smaller, dark teal)
             var settingsGo = new GameObject("SettingsButton");
             settingsGo.transform.SetParent(canvasGo.transform, false);
             var settingsBtn = settingsGo.AddComponent<Button>();
             var settingsImg = settingsGo.AddComponent<Image>();
-            settingsImg.color = new Color(0.15f, 0.2f, 0.2f, 0.9f);
+            settingsImg.color = Phase2UiPalette.PanelSurface;
             settingsImg.raycastTarget = true;
             settingsBtn.targetGraphic = settingsImg;
             var settingsRect = settingsGo.GetComponent<RectTransform>();
             settingsRect.anchorMin = new Vector2(0.5f, 0.25f);
             settingsRect.anchorMax = new Vector2(0.5f, 0.25f);
             settingsRect.pivot = new Vector2(0.5f, 0.5f);
-            settingsRect.sizeDelta = new Vector2(300, 80);
+            settingsRect.sizeDelta = new Vector2(340, 90);
 
-            var sLabelGo = new GameObject("Label");
-            sLabelGo.transform.SetParent(settingsGo.transform, false);
-            var sLabel = sLabelGo.AddComponent<TextMeshProUGUI>();
-            sLabel.text = "Settings";
-            sLabel.fontSize = 36;
-            sLabel.alignment = TextAlignmentOptions.Center;
-            sLabel.color = new Color(0.969f, 0.969f, 0.949f);
-            sLabel.raycastTarget = false;
-            var slRect = sLabelGo.GetComponent<RectTransform>();
-            slRect.anchorMin = Vector2.zero;
-            slRect.anchorMax = Vector2.one;
-            slRect.pivot = new Vector2(0.5f, 0.5f);
-            slRect.offsetMin = Vector2.zero;
-            slRect.offsetMax = Vector2.zero;
+            var slGo = new GameObject("Label");
+            slGo.transform.SetParent(settingsGo.transform, false);
+            var slLabel = slGo.AddComponent<TextMeshProUGUI>();
+            slLabel.text = "Settings";
+            slLabel.fontSize = 38;
+            slLabel.alignment = TextAlignmentOptions.Center;
+            slLabel.color = Phase2UiPalette.TextPrimary;
+            slLabel.raycastTarget = false;
+            var slR = slGo.GetComponent<RectTransform>();
+            slR.anchorMin = Vector2.zero; slR.anchorMax = Vector2.one;
+            slR.pivot = new Vector2(0.5f, 0.5f);
+            slR.offsetMin = Vector2.zero; slR.offsetMax = Vector2.zero;
+
+            // Footer (player display name + premium status)
+            var footerText = Phase2UiPalette.CreateText("Footer", "", 22,
+                Phase2UiPalette.TextDim,
+                new Vector2(0.5f, 0.05f), new Vector2(900, 30),
+                TextAlignmentOptions.Center);
+
+            // --- Settings dialog (hidden by default, controlled by MainMenuController) ---
+            var settingsDialog = BuildSettingsDialog(canvasGo.transform);
 
             // GameFlowManager (persistent singleton)
             var flowGo = new GameObject("[GameFlowManager]");
@@ -183,18 +171,251 @@ namespace QuickChecks.Editor
             var audioGo = new GameObject("[AudioBootstrap]");
             audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
 
-            // MainMenuController
+            // MainMenuController — wire all the references
             var controllerGo = new GameObject("[MainMenuController]");
             var controller = controllerGo.AddComponent<MainMenuController>();
             var so = new SerializedObject(controller);
             so.FindProperty("playButton").objectReferenceValue = playBtn;
             so.FindProperty("settingsButton").objectReferenceValue = settingsBtn;
             so.FindProperty("titleText").objectReferenceValue = titleText;
-            so.FindProperty("subtitleText").objectReferenceValue = subText;
+            so.FindProperty("subtitleText").objectReferenceValue = subtitleText;
+
+            // Settings dialog refs
+            so.FindProperty("settingsDialog").objectReferenceValue = settingsDialog.Root;
+            so.FindProperty("musicVolumeSlider").objectReferenceValue = settingsDialog.MusicSlider;
+            so.FindProperty("sfxVolumeSlider").objectReferenceValue = settingsDialog.SfxSlider;
+            so.FindProperty("settingsCloseButton").objectReferenceValue = settingsDialog.CloseButton;
+            so.FindProperty("restorePurchasesButton").objectReferenceValue = settingsDialog.RestoreButton;
+            so.FindProperty("settingsStatusLabel").objectReferenceValue = settingsDialog.StatusLabel;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, SCENES_DIR + "MainMenu.unity");
-            Debug.Log("[GameScenesBuilder] MainMenu scene built.");
+            Debug.Log("[GameScenesBuilder] MainMenu scene built (Phase 2 neon layout + settings dialog).");
+        }
+
+        /// <summary>
+        /// Builds the in-scene settings dialog used by the MainMenu.
+        /// Contains: title, music volume slider, SFX volume slider, restore purchases button, status text, close button.
+        /// Hidden by default — MainMenuController toggles visibility.
+        /// </summary>
+        private static SettingsDialogRefs BuildSettingsDialog(Transform canvas)
+        {
+            var rootGo = new GameObject("SettingsDialog");
+            rootGo.transform.SetParent(canvas, false);
+
+            // Full-screen dim overlay
+            var dimImg = rootGo.AddComponent<Image>();
+            dimImg.color = new Color(0f, 0f, 0f, 0.7f);
+            dimImg.raycastTarget = true;
+            var rootRect = rootGo.GetComponent<RectTransform>();
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.pivot = new Vector2(0.5f, 0.5f);
+            rootRect.offsetMin = Vector2.zero;
+            rootRect.offsetMax = Vector2.zero;
+
+            // Center panel
+            var panelGo = new GameObject("Panel");
+            panelGo.transform.SetParent(rootGo.transform, false);
+            var panelImg = panelGo.AddComponent<Image>();
+            panelImg.color = Phase2UiPalette.PanelSurface;
+            var panelRect = panelGo.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = new Vector2(800, 700);
+
+            // Title
+            var titleGo = new GameObject("DialogTitle");
+            titleGo.transform.SetParent(panelGo.transform, false);
+            var titleText = titleGo.AddComponent<TextMeshProUGUI>();
+            titleText.text = "Settings";
+            titleText.fontSize = 56;
+            titleText.alignment = TextAlignmentOptions.Center;
+            titleText.color = Phase2UiPalette.AccentCyan;
+            titleText.raycastTarget = false;
+            var titleR = titleGo.GetComponent<RectTransform>();
+            titleR.anchorMin = new Vector2(0.5f, 1);
+            titleR.anchorMax = new Vector2(0.5f, 1);
+            titleR.pivot = new Vector2(0.5f, 1);
+            titleR.anchoredPosition = new Vector2(0, -30);
+            titleR.sizeDelta = new Vector2(700, 80);
+
+            // Music volume slider
+            var musicSlider = BuildLabeledSlider(panelGo.transform, "MusicVolumeSlider",
+                "Music Volume", 0.42f);
+            // SFX volume slider
+            var sfxSlider = BuildLabeledSlider(panelGo.transform, "SfxVolumeSlider",
+                "SFX Volume", 0.28f);
+
+            // Restore purchases button
+            var restoreGo = new GameObject("RestorePurchasesButton");
+            restoreGo.transform.SetParent(panelGo.transform, false);
+            var restoreBtn = restoreGo.AddComponent<Button>();
+            var restoreImg = restoreGo.AddComponent<Image>();
+            restoreImg.color = Phase2UiPalette.AccentCyan;
+            restoreBtn.targetGraphic = restoreImg;
+            var restoreRect = restoreGo.GetComponent<RectTransform>();
+            restoreRect.anchorMin = new Vector2(0.5f, 0.20f);
+            restoreRect.anchorMax = new Vector2(0.5f, 0.20f);
+            restoreRect.pivot = new Vector2(0.5f, 0.5f);
+            restoreRect.sizeDelta = new Vector2(500, 80);
+
+            var rlGo = new GameObject("Label");
+            rlGo.transform.SetParent(restoreGo.transform, false);
+            var rlText = rlGo.AddComponent<TextMeshProUGUI>();
+            rlText.text = "Restore Purchases";
+            rlText.fontSize = 32;
+            rlText.alignment = TextAlignmentOptions.Center;
+            rlText.color = Phase2UiPalette.TextOnAccent;
+            rlText.raycastTarget = false;
+            var rlR = rlGo.GetComponent<RectTransform>();
+            rlR.anchorMin = Vector2.zero; rlR.anchorMax = Vector2.one;
+            rlR.pivot = new Vector2(0.5f, 0.5f);
+            rlR.offsetMin = Vector2.zero; rlR.offsetMax = Vector2.zero;
+
+            // Status text (shows restore result)
+            var statusGo = new GameObject("StatusLabel");
+            statusGo.transform.SetParent(panelGo.transform, false);
+            var statusText = statusGo.AddComponent<TextMeshProUGUI>();
+            statusText.text = "";
+            statusText.fontSize = 24;
+            statusText.alignment = TextAlignmentOptions.Center;
+            statusText.color = Phase2UiPalette.TextPrimary;
+            statusText.raycastTarget = false;
+            var statusR = statusGo.GetComponent<RectTransform>();
+            statusR.anchorMin = new Vector2(0.5f, 0.13f);
+            statusR.anchorMax = new Vector2(0.5f, 0.13f);
+            statusR.pivot = new Vector2(0.5f, 0.5f);
+            statusR.sizeDelta = new Vector2(700, 40);
+
+            // Close button (top-right of panel)
+            var closeGo = new GameObject("CloseButton");
+            closeGo.transform.SetParent(panelGo.transform, false);
+            var closeBtn = closeGo.AddComponent<Button>();
+            var closeImg = closeGo.AddComponent<Image>();
+            closeImg.color = new Color(0.5f, 0.5f, 0.5f, 0.3f);
+            closeBtn.targetGraphic = closeImg;
+            var closeRect = closeGo.GetComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(1, 1);
+            closeRect.anchorMax = new Vector2(1, 1);
+            closeRect.pivot = new Vector2(1, 1);
+            closeRect.anchoredPosition = new Vector2(-20, -20);
+            closeRect.sizeDelta = new Vector2(80, 80);
+
+            var clGo = new GameObject("Label");
+            clGo.transform.SetParent(closeGo.transform, false);
+            var clText = clGo.AddComponent<TextMeshProUGUI>();
+            clText.text = "X";
+            clText.fontSize = 48;
+            clText.alignment = TextAlignmentOptions.Center;
+            clText.color = Phase2UiPalette.TextPrimary;
+            clText.raycastTarget = false;
+            var clR = clGo.GetComponent<RectTransform>();
+            clR.anchorMin = Vector2.zero; clR.anchorMax = Vector2.one;
+            clR.pivot = new Vector2(0.5f, 0.5f);
+            clR.offsetMin = Vector2.zero; clR.offsetMax = Vector2.zero;
+
+            return new SettingsDialogRefs
+            {
+                Root = rootGo,
+                MusicSlider = musicSlider,
+                SfxSlider = sfxSlider,
+                CloseButton = closeBtn,
+                RestoreButton = restoreBtn,
+                StatusLabel = statusText
+            };
+        }
+
+        private struct SettingsDialogRefs
+        {
+            public GameObject Root;
+            public Slider MusicSlider;
+            public Slider SfxSlider;
+            public Button CloseButton;
+            public Button RestoreButton;
+            public TMP_Text StatusLabel;
+        }
+
+        /// <summary>Builds a labeled slider for the settings dialog.</summary>
+        private static Slider BuildLabeledSlider(Transform parent, string sliderName, string labelText, float anchorY)
+        {
+            // Label
+            var labelGo = new GameObject($"{sliderName}_Label");
+            labelGo.transform.SetParent(parent, false);
+            var label = labelGo.AddComponent<TextMeshProUGUI>();
+            label.text = labelText;
+            label.fontSize = 32;
+            label.alignment = TextAlignmentOptions.Left;
+            label.color = Phase2UiPalette.TextPrimary;
+            label.raycastTarget = false;
+            var labelR = labelGo.GetComponent<RectTransform>();
+            labelR.anchorMin = new Vector2(0.1f, anchorY);
+            labelR.anchorMax = new Vector2(0.9f, anchorY);
+            labelR.pivot = new Vector2(0.5f, 0.5f);
+            labelR.sizeDelta = new Vector2(0, 50);
+
+            // Slider
+            var sliderGo = new GameObject(sliderName);
+            sliderGo.transform.SetParent(parent, false);
+            var sliderRect = sliderGo.AddComponent<RectTransform>();
+            sliderRect.anchorMin = new Vector2(0.1f, anchorY - 0.07f);
+            sliderRect.anchorMax = new Vector2(0.9f, anchorY - 0.07f);
+            sliderRect.pivot = new Vector2(0.5f, 0.5f);
+            sliderRect.sizeDelta = new Vector2(0, 50);
+
+            // Background
+            var bgGo = new GameObject("Background");
+            bgGo.transform.SetParent(sliderGo.transform, false);
+            var bgImg = bgGo.AddComponent<Image>();
+            bgImg.color = new Color(0.05f, 0.07f, 0.07f, 1f);
+            var bgRect = bgGo.GetComponent<RectTransform>();
+            bgRect.anchorMin = Vector2.zero; bgRect.anchorMax = Vector2.one;
+            bgRect.pivot = new Vector2(0.5f, 0.5f);
+            bgRect.offsetMin = Vector2.zero; bgRect.offsetMax = Vector2.zero;
+
+            // Fill area + fill
+            var fillAreaGo = new GameObject("Fill Area");
+            fillAreaGo.transform.SetParent(sliderGo.transform, false);
+            var fillAreaRect = fillAreaGo.GetComponent<RectTransform>();
+            fillAreaRect.anchorMin = Vector2.zero; fillAreaRect.anchorMax = Vector2.one;
+            fillAreaRect.pivot = new Vector2(0.5f, 0.5f);
+            fillAreaRect.offsetMin = new Vector2(10, 0); fillAreaRect.offsetMax = new Vector2(-10, 0);
+
+            var fillGo = new GameObject("Fill");
+            fillGo.transform.SetParent(fillAreaGo.transform, false);
+            var fillImg = fillGo.AddComponent<Image>();
+            fillImg.color = Phase2UiPalette.AccentCyan;
+            var fillRect = fillGo.GetComponent<RectTransform>();
+            fillRect.anchorMin = Vector2.zero; fillRect.anchorMax = Vector2.one;
+            fillRect.pivot = new Vector2(0.5f, 0.5f);
+            fillRect.offsetMin = Vector2.zero; fillRect.offsetMax = Vector2.zero;
+
+            // Handle area + handle
+            var handleAreaGo = new GameObject("Handle Slide Area");
+            handleAreaGo.transform.SetParent(sliderGo.transform, false);
+            var handleAreaRect = handleAreaGo.GetComponent<RectTransform>();
+            handleAreaRect.anchorMin = Vector2.zero; handleAreaRect.anchorMax = Vector2.one;
+            handleAreaRect.pivot = new Vector2(0.5f, 0.5f);
+            handleAreaRect.offsetMin = new Vector2(10, 0); handleAreaRect.offsetMax = new Vector2(-10, 0);
+
+            var handleGo = new GameObject("Handle");
+            handleGo.transform.SetParent(handleAreaGo.transform, false);
+            var handleImg = handleGo.AddComponent<Image>();
+            handleImg.color = Phase2UiPalette.TextPrimary;
+            var handleRect = handleGo.GetComponent<RectTransform>();
+            handleRect.sizeDelta = new Vector2(30, 50);
+
+            var slider = sliderGo.AddComponent<Slider>();
+            slider.targetGraphic = handleImg;
+            slider.fillRect = fillRect;
+            slider.handleRect = handleRect;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.value = 0.6f;
+            slider.direction = Slider.Direction.LeftToRight;
+
+            return slider;
         }
 
         private static void BuildModeSelectScene()
@@ -206,7 +427,7 @@ namespace QuickChecks.Editor
             var cam = camGo.AddComponent<UnityEngine.Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 10;
-            cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f);
+            cam.backgroundColor = Phase2UiPalette.Background;
             camGo.transform.position = new Vector3(0, 0, -10);
             camGo.tag = "MainCamera";
             camGo.AddComponent<AudioListener>();
@@ -215,7 +436,9 @@ namespace QuickChecks.Editor
             var canvasGo = new GameObject("Canvas");
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            var scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080, 1920);
             canvasGo.AddComponent<GraphicRaycaster>();
 
             if (UnityEngine.EventSystems.EventSystem.current == null)
@@ -225,112 +448,144 @@ namespace QuickChecks.Editor
                 esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
             }
 
-            // Title
-            var titleGo = new GameObject("Title");
-            titleGo.transform.SetParent(canvasGo.transform, false);
-            var titleText = titleGo.AddComponent<TextMeshProUGUI>();
-            titleText.text = "Select Mode";
-            titleText.fontSize = 56;
-            titleText.alignment = TextAlignmentOptions.Center;
-            titleText.color = new Color(0.247f, 0.878f, 0.760f);
-            var titleRect = titleGo.GetComponent<RectTransform>();
-            titleRect.anchorMin = new Vector2(0.5f, 0.95f);
-            titleRect.anchorMax = new Vector2(0.5f, 0.95f);
-            titleRect.pivot = new Vector2(0.5f, 1);
-            titleRect.sizeDelta = new Vector2(800, 80);
+            // Title (centered, top)
+            var titleText = Phase2UiPalette.CreateText("Title", "Select Mode", 56, Phase2UiPalette.AccentCyan,
+                new Vector2(0.5f, 0.96f), new Vector2(900, 80));
 
-            // Back button
+            // Back button (top-left)
             var backGo = new GameObject("BackButton");
             backGo.transform.SetParent(canvasGo.transform, false);
             var backBtn = backGo.AddComponent<Button>();
             var backImg = backGo.AddComponent<Image>();
-            backImg.color = new Color(0.15f, 0.2f, 0.2f, 0.9f);
-            backImg.raycastTarget = true;
+            backImg.color = Phase2UiPalette.PanelSurface;
             backBtn.targetGraphic = backImg;
             var backRect = backGo.GetComponent<RectTransform>();
             backRect.anchorMin = new Vector2(0, 1);
             backRect.anchorMax = new Vector2(0, 1);
             backRect.pivot = new Vector2(0, 1);
             backRect.anchoredPosition = new Vector2(40, -40);
-            backRect.sizeDelta = new Vector2(200, 80);
+            backRect.sizeDelta = new Vector2(220, 80);
 
             var blGo = new GameObject("Label");
             blGo.transform.SetParent(backGo.transform, false);
             var blText = blGo.AddComponent<TextMeshProUGUI>();
-            blText.text = "← Back";
+            blText.text = "< Back";
             blText.fontSize = 32;
             blText.alignment = TextAlignmentOptions.Center;
-            blText.color = Color.white;
+            blText.color = Phase2UiPalette.TextPrimary;
             blText.raycastTarget = false;
             var blR = blGo.GetComponent<RectTransform>();
             blR.anchorMin = Vector2.zero; blR.anchorMax = Vector2.one;
             blR.pivot = new Vector2(0.5f, 0.5f);
             blR.offsetMin = Vector2.zero; blR.offsetMax = Vector2.zero;
 
-            // Mode buttons (vertical stack)
-            string[] modeNames = { "Solo Practice", "vs CPU (Easy)", "vs CPU (Medium)", "vs CPU (Hard)", "Pass & Play (2P)", "Pass & Play (3P)", "Pass & Play (4P)", "Online Match" };
-            string[] buttonNames = { "SoloButton", "VsCpuEasyButton", "VsCpuMediumButton", "VsCpuHardButton", "PassPlay2Button", "PassPlay3Button", "PassPlay4Button", "OnlineButton" };
-            Color[] modeColors = {
-                new Color(0.247f, 0.878f, 0.760f, 0.9f),  // cyan (Solo)
-                new Color(0.42f, 0.79f, 0.47f, 0.9f),      // green (CPU Easy)
-                new Color(1f, 0.82f, 0.4f, 0.9f),          // yellow (CPU Medium)
-                new Color(1f, 0.42f, 0.42f, 0.9f),          // red (CPU Hard)
-                new Color(0.42f, 0.58f, 1f, 0.9f),          // blue (PassPlay 2P)
-                new Color(0.42f, 0.58f, 1f, 0.9f),          // blue (PassPlay 3P)
-                new Color(0.42f, 0.58f, 1f, 0.9f),          // blue (PassPlay 4P)
-                new Color(0.725f, 0.514f, 1f, 0.9f),        // purple (Online)
-            };
+            // Scroll container for the cards (handles landscape overflow on small screens)
+            var scrollGo = new GameObject("CardScroll");
+            scrollGo.transform.SetParent(canvasGo.transform, false);
+            var scrollRect = scrollGo.GetComponent<RectTransform>();
+            scrollRect.anchorMin = new Vector2(0, 0);
+            scrollRect.anchorMax = new Vector2(1, 1);
+            scrollRect.pivot = new Vector2(0.5f, 0.5f);
+            scrollRect.offsetMin = new Vector2(0, -100);
+            scrollRect.offsetMax = new Vector2(0, -140);
 
-            float startY = 0.82f;
-            float stepY = 0.09f;
+            var scroll = scrollGo.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
 
-            for (int i = 0; i < modeNames.Length; i++)
+            var contentGo = new GameObject("Content");
+            contentGo.transform.SetParent(scrollGo.transform, false);
+            var vlg = contentGo.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 24;
+            vlg.padding = new RectOffset(40, 40, 40, 40);
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            var contentFitter = contentGo.AddComponent<ContentSizeFitter>();
+            contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var contentRect = contentGo.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0, 1);
+            contentRect.anchorMax = new Vector2(1, 1);
+            contentRect.pivot = new Vector2(0.5f, 1);
+            contentRect.sizeDelta = new Vector2(0, 0);
+
+            scroll.content = contentRect;
+            scroll.viewport = contentRect;  // simplified — no separate viewport mask for prototype
+
+            // Helper to build a category section: label + horizontal container for cards
+            void BuildSection(string labelText, float accentHue, out TMP_Text labelOut, out Transform containerOut)
             {
-                var btnGo = new GameObject(buttonNames[i]);
-                btnGo.transform.SetParent(canvasGo.transform, false);
-                var btn = btnGo.AddComponent<Button>();
-                var img = btnGo.AddComponent<Image>();
-                img.color = modeColors[i];
-                img.raycastTarget = true;
-                btn.targetGraphic = img;
-                var rect = btnGo.GetComponent<RectTransform>();
-                rect.anchorMin = new Vector2(0.5f, startY - i * stepY);
-                rect.anchorMax = new Vector2(0.5f, startY - i * stepY);
-                rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.sizeDelta = new Vector2(500, 65);
+                // Category label
+                var catGo = new GameObject($"Category_{labelText}");
+                catGo.transform.SetParent(contentGo.transform, false);
+                var catText = catGo.AddComponent<TextMeshProUGUI>();
+                catText.text = labelText;
+                catText.fontSize = 24;
+                catText.alignment = TextAlignmentOptions.Left;
+                catText.color = Phase2UiPalette.TextDim;
+                catText.raycastTarget = false;
+                var catLayout = catGo.AddComponent<LayoutElement>();
+                catLayout.preferredHeight = 40;
+                catLayout.flexibleWidth = 1;
 
-                var labelGo2 = new GameObject("Label");
-                labelGo2.transform.SetParent(btnGo.transform, false);
-                var label = labelGo2.AddComponent<TextMeshProUGUI>();
-                label.text = modeNames[i];
-                label.fontSize = 32;
-                label.alignment = TextAlignmentOptions.Center;
-                label.color = new Color(0.055f, 0.078f, 0.078f);
-                label.raycastTarget = false;
-                var lRect = labelGo2.GetComponent<RectTransform>();
-                lRect.anchorMin = Vector2.zero; lRect.anchorMax = Vector2.one;
-                lRect.pivot = new Vector2(0.5f, 0.5f);
-                lRect.offsetMin = Vector2.zero; lRect.offsetMax = Vector2.zero;
+                // Horizontal container for cards
+                var rowGo = new GameObject($"Row_{labelText}");
+                rowGo.transform.SetParent(contentGo.transform, false);
+                var hlg2 = rowGo.AddComponent<HorizontalLayoutGroup>();
+                hlg2.spacing = 16;
+                hlg2.childAlignment = TextAnchor.UpperLeft;
+                hlg2.childControlWidth = true;
+                hlg2.childControlHeight = false;
+                hlg2.childForceExpandWidth = true;
+                hlg2.childForceExpandHeight = false;
+                var rowLayout = rowGo.AddComponent<LayoutElement>();
+                rowLayout.preferredHeight = 160;
+                rowLayout.flexibleWidth = 1;
+
+                labelOut = catText;
+                containerOut = rowGo.transform;
             }
+
+            // SOLO section
+            BuildSection("SOLO", 0, out var soloLabel, out var soloContainer);
+
+            // VS CPU section
+            BuildSection("VS CPU", 0, out var cpuLabel, out var cpuContainer);
+
+            // PASS & PLAY section
+            BuildSection("PASS & PLAY", 0, out var passPlayLabel, out var passPlayContainer);
+
+            // ONLINE section
+            BuildSection("ONLINE", 0, out var onlineLabel, out var onlineContainer);
 
             // GameFlowManager
             var flowGo = new GameObject("[GameFlowManager]");
             flowGo.AddComponent<GameFlowManager>();
 
-            // AudioBootstrap (creates MusicPlayer + SfxPlayer, loads track.mp3)
+            // AudioBootstrap
             var audioGo = new GameObject("[AudioBootstrap]");
             audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
 
-            // ModeSelectController
+            // ModeSelectController — wire all the references
             var ctrlGo = new GameObject("[ModeSelectController]");
             var ctrl = ctrlGo.AddComponent<QuickChecks.UI.ModeSelectController>();
             var so = new SerializedObject(ctrl);
             so.FindProperty("backButton").objectReferenceValue = backBtn;
             so.FindProperty("titleText").objectReferenceValue = titleText;
+            so.FindProperty("soloContainer").objectReferenceValue = soloContainer;
+            so.FindProperty("cpuContainer").objectReferenceValue = cpuContainer;
+            so.FindProperty("passPlayContainer").objectReferenceValue = passPlayContainer;
+            so.FindProperty("onlineContainer").objectReferenceValue = onlineContainer;
+            so.FindProperty("soloLabel").objectReferenceValue = soloLabel;
+            so.FindProperty("cpuLabel").objectReferenceValue = cpuLabel;
+            so.FindProperty("passPlayLabel").objectReferenceValue = passPlayLabel;
+            so.FindProperty("onlineLabel").objectReferenceValue = onlineLabel;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, SCENES_DIR + "ModeSelect.unity");
-            Debug.Log("[GameScenesBuilder] ModeSelect scene built.");
+            Debug.Log("[GameScenesBuilder] ModeSelect scene built (Phase 2 grouped neon cards).");
         }
 
         private static void BuildTrackSelectScene()
@@ -342,7 +597,7 @@ namespace QuickChecks.Editor
             var cam = camGo.AddComponent<UnityEngine.Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 10;
-            cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f);
+            cam.backgroundColor = Phase2UiPalette.Background;
             camGo.transform.position = new Vector3(0, 0, -10);
             camGo.tag = "MainCamera";
             camGo.AddComponent<AudioListener>();
@@ -351,7 +606,9 @@ namespace QuickChecks.Editor
             var canvasGo = new GameObject("Canvas");
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            var scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080, 1920);
             canvasGo.AddComponent<GraphicRaycaster>();
 
             if (UnityEngine.EventSystems.EventSystem.current == null)
@@ -361,80 +618,183 @@ namespace QuickChecks.Editor
                 esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
             }
 
-            // Title
-            var titleGo = new GameObject("Title");
-            titleGo.transform.SetParent(canvasGo.transform, false);
-            var titleText = titleGo.AddComponent<TextMeshProUGUI>();
-            titleText.text = "Select Track";
-            titleText.fontSize = 56;
-            titleText.alignment = TextAlignmentOptions.Center;
-            titleText.color = new Color(0.247f, 0.878f, 0.760f);
-            var titleRect = titleGo.GetComponent<RectTransform>();
-            titleRect.anchorMin = new Vector2(0.5f, 0.95f);
-            titleRect.anchorMax = new Vector2(0.5f, 0.95f);
-            titleRect.pivot = new Vector2(0.5f, 1);
-            titleRect.sizeDelta = new Vector2(800, 80);
+            // Title (top center)
+            var titleText = Phase2UiPalette.CreateText("Title", "Select Track", 56, Phase2UiPalette.AccentCyan,
+                new Vector2(0.5f, 0.96f), new Vector2(900, 80));
 
-            // Back button
+            // Mode label (small, below title — shows current mode like "SOLO PRACTICE")
+            var modeLabel = Phase2UiPalette.CreateText("ModeLabel", "", 28, Phase2UiPalette.TextDim,
+                new Vector2(0.5f, 0.91f), new Vector2(700, 36));
+
+            // Back button (top-left)
             var backGo = new GameObject("BackButton");
             backGo.transform.SetParent(canvasGo.transform, false);
             var backBtn = backGo.AddComponent<Button>();
             var backImg = backGo.AddComponent<Image>();
-            backImg.color = new Color(0.15f, 0.2f, 0.2f, 0.9f);
-            backImg.raycastTarget = true;
+            backImg.color = Phase2UiPalette.PanelSurface;
             backBtn.targetGraphic = backImg;
             var backRect = backGo.GetComponent<RectTransform>();
             backRect.anchorMin = new Vector2(0, 1);
             backRect.anchorMax = new Vector2(0, 1);
             backRect.pivot = new Vector2(0, 1);
             backRect.anchoredPosition = new Vector2(40, -40);
-            backRect.sizeDelta = new Vector2(200, 80);
+            backRect.sizeDelta = new Vector2(220, 80);
 
             var blGo = new GameObject("Label");
             blGo.transform.SetParent(backGo.transform, false);
             var blText = blGo.AddComponent<TextMeshProUGUI>();
-            blText.text = "← Back";
+            blText.text = "< Back";
             blText.fontSize = 32;
             blText.alignment = TextAlignmentOptions.Center;
-            blText.color = Color.white;
+            blText.color = Phase2UiPalette.TextPrimary;
             blText.raycastTarget = false;
             var blR = blGo.GetComponent<RectTransform>();
             blR.anchorMin = Vector2.zero; blR.anchorMax = Vector2.one;
             blR.pivot = new Vector2(0.5f, 0.5f);
             blR.offsetMin = Vector2.zero; blR.offsetMax = Vector2.zero;
 
-            // Track grid container (VerticalLayoutGroup for auto-stacking)
+            // Scrollable track grid
+            var scrollGo = new GameObject("TrackScroll");
+            scrollGo.transform.SetParent(canvasGo.transform, false);
+            var scrollRectGo = scrollGo.GetComponent<RectTransform>();
+            scrollRectGo.anchorMin = new Vector2(0, 0);
+            scrollRectGo.anchorMax = new Vector2(1, 1);
+            scrollRectGo.pivot = new Vector2(0.5f, 0.5f);
+            scrollRectGo.offsetMin = new Vector2(0, 60);
+            scrollRectGo.offsetMax = new Vector2(0, -160);
+
+            var scroll = scrollGo.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+
             var gridGo = new GameObject("TrackGrid");
-            gridGo.transform.SetParent(canvasGo.transform, false);
+            gridGo.transform.SetParent(scrollGo.transform, false);
             var vlg = gridGo.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing = 20;
-            vlg.padding = new RectOffset(40, 40, 140, 40);
+            vlg.spacing = 16;
+            vlg.padding = new RectOffset(40, 40, 30, 30);
             vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            var fitter = gridGo.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             var gridRect = gridGo.GetComponent<RectTransform>();
-            gridRect.anchorMin = Vector2.zero;
-            gridRect.anchorMax = Vector2.one;
-            gridRect.offsetMin = Vector2.zero;
-            gridRect.offsetMax = Vector2.zero;
+            gridRect.anchorMin = new Vector2(0, 1);
+            gridRect.anchorMax = new Vector2(1, 1);
+            gridRect.pivot = new Vector2(0.5f, 1);
+            gridRect.sizeDelta = new Vector2(0, 0);
+
+            scroll.content = gridRect;
+            scroll.viewport = gridRect;
+
+            // --- Toast dialog (for locked track messages) ---
+            var toastRefs = BuildToastDialog(canvasGo.transform);
 
             // GameFlowManager
             var flowGo = new GameObject("[GameFlowManager]");
             flowGo.AddComponent<GameFlowManager>();
 
-            // AudioBootstrap (creates MusicPlayer + SfxPlayer, loads track.mp3)
+            // AudioBootstrap
             var audioGo = new GameObject("[AudioBootstrap]");
             audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
 
-            // TrackSelectController
+            // TrackSelectController — wire all the references
             var ctrlGo = new GameObject("[TrackSelectController]");
             var ctrl = ctrlGo.AddComponent<TrackSelectController>();
             var so = new SerializedObject(ctrl);
             so.FindProperty("trackGridContainer").objectReferenceValue = gridGo.transform;
             so.FindProperty("backButton").objectReferenceValue = backBtn;
             so.FindProperty("titleText").objectReferenceValue = titleText;
+            so.FindProperty("modeLabel").objectReferenceValue = modeLabel;
+            so.FindProperty("toastDialog").objectReferenceValue = toastRefs.Root;
+            so.FindProperty("toastText").objectReferenceValue = toastRefs.MessageText;
+            so.FindProperty("toastOkButton").objectReferenceValue = toastRefs.OkButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, SCENES_DIR + "TrackSelect.unity");
-            Debug.Log("[GameScenesBuilder] TrackSelect scene built.");
+            Debug.Log("[GameScenesBuilder] TrackSelect scene built (Phase 2 neon track cards + toast).");
+        }
+
+        /// <summary>Builds a small centered modal toast with a message + OK button.</summary>
+        private static ToastDialogRefs BuildToastDialog(Transform canvas)
+        {
+            var rootGo = new GameObject("ToastDialog");
+            rootGo.transform.SetParent(canvas, false);
+
+            // Dim background
+            var dimImg = rootGo.AddComponent<Image>();
+            dimImg.color = new Color(0f, 0f, 0f, 0.65f);
+            dimImg.raycastTarget = true;
+            var rootRect = rootGo.GetComponent<RectTransform>();
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.pivot = new Vector2(0.5f, 0.5f);
+            rootRect.offsetMin = Vector2.zero;
+            rootRect.offsetMax = Vector2.zero;
+
+            // Panel
+            var panelGo = new GameObject("Panel");
+            panelGo.transform.SetParent(rootGo.transform, false);
+            var panelImg = panelGo.AddComponent<Image>();
+            panelImg.color = Phase2UiPalette.PanelSurface;
+            var panelRect = panelGo.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = new Vector2(700, 360);
+
+            // Toast message
+            var msgGo = new GameObject("ToastText");
+            msgGo.transform.SetParent(panelGo.transform, false);
+            var msgText = msgGo.AddComponent<TextMeshProUGUI>();
+            msgText.text = "";
+            msgText.fontSize = 36;
+            msgText.alignment = TextAlignmentOptions.Center;
+            msgText.color = Phase2UiPalette.TextPrimary;
+            msgText.enableWordWrapping = true;
+            msgText.raycastTarget = false;
+            var msgR = msgGo.GetComponent<RectTransform>();
+            msgR.anchorMin = new Vector2(0.5f, 0.7f);
+            msgR.anchorMax = new Vector2(0.5f, 0.7f);
+            msgR.pivot = new Vector2(0.5f, 0.5f);
+            msgR.sizeDelta = new Vector2(620, 180);
+
+            // OK button
+            var okGo = new GameObject("OkButton");
+            okGo.transform.SetParent(panelGo.transform, false);
+            var okBtn = okGo.AddComponent<Button>();
+            var okImg = okGo.AddComponent<Image>();
+            okImg.color = Phase2UiPalette.AccentCyan;
+            okBtn.targetGraphic = okImg;
+            var okRect = okGo.GetComponent<RectTransform>();
+            okRect.anchorMin = new Vector2(0.5f, 0.18f);
+            okRect.anchorMax = new Vector2(0.5f, 0.18f);
+            okRect.pivot = new Vector2(0.5f, 0.5f);
+            okRect.sizeDelta = new Vector2(280, 80);
+
+            var okLabelGo = new GameObject("Label");
+            okLabelGo.transform.SetParent(okGo.transform, false);
+            var okLabel = okLabelGo.AddComponent<TextMeshProUGUI>();
+            okLabel.text = "OK";
+            okLabel.fontSize = 36;
+            okLabel.alignment = TextAlignmentOptions.Center;
+            okLabel.color = Phase2UiPalette.TextOnAccent;
+            okLabel.raycastTarget = false;
+            var okLabelR = okLabelGo.GetComponent<RectTransform>();
+            okLabelR.anchorMin = Vector2.zero; okLabelR.anchorMax = Vector2.one;
+            okLabelR.pivot = new Vector2(0.5f, 0.5f);
+            okLabelR.offsetMin = Vector2.zero; okLabelR.offsetMax = Vector2.zero;
+
+            rootGo.SetActive(false);
+            return new ToastDialogRefs { Root = rootGo, MessageText = msgText, OkButton = okBtn };
+        }
+
+        private struct ToastDialogRefs
+        {
+            public GameObject Root;
+            public TMP_Text MessageText;
+            public Button OkButton;
         }
 
         private static void BuildRaceScene()

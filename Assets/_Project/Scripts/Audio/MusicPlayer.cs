@@ -109,6 +109,9 @@ namespace QuickChecks.Audio
             _audioSource.volume = musicVolume;
         }
 
+        /// <summary>Returns the current music volume (0-1) — for UI sliders to read on init.</summary>
+        public float Volume => musicVolume;
+
         private void PlayClip(AudioClip clip)
         {
             if (clip == null) return;
