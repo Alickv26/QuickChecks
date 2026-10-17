@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using QuickChecks.Track;
 using QuickChecks.Racing;
+using QuickChecks.Ghost;
 
 namespace QuickChecks.Core
 {
@@ -34,6 +35,13 @@ namespace QuickChecks.Core
         public TrackDefinition selectedTrack;
         public KartStats selectedKart;
         public RaceMode selectedMode = RaceMode.Solo;
+
+        [Header("Pending External Ghost (set by Leaderboard 'Replay' button)")]
+        [Tooltip("If non-null, RaceSceneController loads this ghost into SoloGhostPlayer on race start, " +
+                 "replacing the player's local best. Cleared after the race ends.")]
+        public GhostData pendingExternalGhost;
+        [Tooltip("The trackId the external ghost belongs to — used to validate that the ghost matches the track being raced.")]
+        public string pendingExternalTrackId;
 
         [Header("Last Race Results (carried to Results scene)")]
         public int lastRaceSwipes;

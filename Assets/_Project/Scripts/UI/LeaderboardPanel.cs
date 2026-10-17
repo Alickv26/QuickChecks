@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using QuickChecks.Core;
+using QuickChecks.Racing;
+using QuickChecks.Track;
 using QuickChecks.Multiplayer;
 using QuickChecks.Audio;
 
@@ -224,7 +226,7 @@ namespace QuickChecks.UI
                     ? new Color(0.247f, 0.878f, 0.760f, 0.06f)
                     : new Color(1f, 1f, 1f, 0.02f);
 
-            // Horizontal layout: rank | name | swipes | time
+            // Horizontal layout: rank | name | swipes | time | replay button
             var hlg = go.AddComponent<HorizontalLayoutGroup>();
             hlg.padding = new RectOffset(20, 20, 6, 6);
             hlg.spacing = 16;
@@ -238,12 +240,172 @@ namespace QuickChecks.UI
                 top3 ? swipesColor : rankColor, 28);
             AddRowLabel(go.transform, TruncateName(entry.displayName), 0,
                 isYou ? yourColor : nameColor, 28);
-            AddRowLabel(go.transform, $"{entry.swipeCount}", 120,
+            AddRowLabel(go.transform, $"{entry.swipeCount}", 100,
                 isYou ? yourColor : swipesColor, 28);
-            AddRowLabel(go.transform, entry.TimeDisplay, 140,
+            AddRowLabel(go.transform, entry.TimeDisplay, 120,
                 isYou ? yourColor : timeColor, 24);
 
+            // Replay button (only if the entry has a ghost URL + isn't the requesting player)
+            if (entry.HasGhost && !isYou)
+            {
+                var replayGo = new GameObject("ReplayButton");
+                replayGo.transform.SetParent(go.transform, false);
+                var replayBtn = replayGo.AddComponent<Button>();
+                var replayImg = replayGo.AddComponent<Image>();
+                replayImg.color = new Color(0.42f, 0.58f, 1f, 0.85f);  // blue accent
+                replayBtn.targetGraphic = replayImg;
+                var replayLayout = replayGo.AddComponent<LayoutElement>();
+                replayLayout.preferredWidth = 130;
+                replayLayout.flexibleWidth = 0;
+
+                var rlGo = new GameObject("Label");
+                rlGo.transform.SetParent(replayGo.transform, false);
+                var rlText = rlGo.AddComponent<TextMeshProUGUI>();
+                rlText.text = "Replay";
+                rlText.fontSize = 22;
+                rlText.alignment = TextAlignmentOptions.Center;
+                rlText.color = Color.white;
+                rlText.raycastTarget = false;
+                var rlR = rlGo.GetComponent<RectTransform>();
+                rlR.anchorMin = Vector2.zero; rlR.anchorMax = Vector2.one;
+                rlR.pivot = new Vector2(0.5f, 0.5f);
+                rlR.offsetMin = Vector2.zero; rlR.offsetMax = Vector2.zero;
+
+                // Capture entry for closure
+                var capturedEntry = entry;
+                replayBtn.onClick.RemoveAllListeners();
+                replayBtn.onClick.AddListener(() => OnReplayClicked(capturedEntry));
+
+                // Auto-attach hover FX
+                if (replayBtn.GetComponent<ButtonHoverFx>() == null)
+                {
+                    replayBtn.gameObject.AddComponent<ButtonHoverFx>();
+                }
+            }
+
             return go;
+        }
+
+        /// <summary>
+        /// Called when the player taps 'Replay' on a leaderboard row.
+        /// Downloads the ghost JSON, stores it on GameFlowManager, and starts a Solo race
+        /// on the same track. The ghost will play back alongside the player.
+        /// </summary>
+        private void OnReplayClicked(SupabaseLeaderboard.LeaderboardEntry entry)
+        {
+            if (Audio.SfxPlayer.Instance != null) Audio.SfxPlayer.Instance.PlayMenuClick();
+            Debug.Log($"[LeaderboardPanel] Replay tapped: rank #{entry.rank}, " +
+                      $"{entry.displayName}, {entry.swipeCount} swipes");
+
+            if (loadingLabel != null)
+            {
+                loadingLabel.text = $"Downloading {entry.displayName}'s ghost...";
+                loadingLabel.color = Phase2UiPalette.AccentCyan;
+                loadingLabel.gameObject.SetActive(true);
+            }
+            if (errorLabel != null) errorLabel.gameObject.SetActive(false);
+
+            StartCoroutine(DownloadGhostAndStartRace(entry));
+        }
+
+        private System.Collections.IEnumerator DownloadGhostAndStartRace(
+            SupabaseLeaderboard.LeaderboardEntry entry)
+        {
+            if (SupabaseLeaderboard.Instance == null)
+            {
+                ShowError("Backend not available.");
+                yield break;
+            }
+
+            bool ok = false;
+            Ghost.GhostData ghost = null;
+            yield return SupabaseLeaderboard.Instance.FetchGhostAsync(entry.ghostUrl,
+                (success, downloadedGhost) =>
+                {
+                    ok = success;
+                    ghost = downloadedGhost;
+                });
+
+            if (loadingLabel != null) loadingLabel.gameObject.SetActive(false);
+
+            if (!ok || ghost == null)
+            {
+                ShowError($"Couldn't download the ghost.\nPlease try again.");
+                yield break;
+            }
+
+            // Find the track in the library so we can start a race on it.
+            var flow = GameFlowManager.Instance;
+            if (flow == null)
+            {
+                ShowError("Game flow not ready.");
+                yield break;
+            }
+
+            // Try to find the TrackDefinition by trackId.
+            Track.TrackDefinition track = FindTrackById(_trackId);
+            if (track == null)
+            {
+                ShowError($"Track '{_trackId}' not found in library.");
+                yield break;
+            }
+
+            // Store the external ghost + trackId on GameFlowManager + start a Solo race.
+            flow.pendingExternalGhost = ghost;
+            flow.pendingExternalTrackId = _trackId;
+            flow.selectedMode = RaceMode.Solo;
+            flow.selectedTrack = track;
+            flow.selectedKart = flow.selectedKart ?? GetDefaultKart();
+
+            Debug.Log($"[LeaderboardPanel] Starting Solo race against {entry.displayName}'s ghost " +
+                      $"on track {_trackId}.");
+
+            // Hide the leaderboard panel + start the race.
+            Hide();
+            flow.StartRace(track, flow.selectedKart);
+        }
+
+        private void ShowError(string message)
+        {
+            if (errorLabel != null)
+            {
+                errorLabel.text = message;
+                errorLabel.color = new Color(1f, 0.42f, 0.42f);
+                errorLabel.gameObject.SetActive(true);
+            }
+            else
+            {
+                Debug.LogError($"[LeaderboardPanel] {message}");
+            }
+        }
+
+        /// <summary>Finds a TrackDefinition by trackId via TrackLibrary or TrackFactory fallback.</summary>
+        private Track.TrackDefinition FindTrackById(string trackId)
+        {
+            // TrackLibrary is a ScriptableObject — load from Resources (or use the one wired
+            // into TrackSelectController if present in the scene).
+            var library = UnityEngine.Resources.Load<Track.TrackLibrary>("TrackLibrary");
+            if (library != null)
+            {
+                var track = library.FindById(trackId);
+                if (track != null) return track;
+            }
+
+            // Fallback: generate all tracks at runtime and search.
+            var allTracks = Track.TrackFactory.GenerateAllTracks();
+            foreach (var t in allTracks)
+            {
+                if (t != null && t.trackId == trackId) return t;
+            }
+            return null;
+        }
+
+        private Racing.KartStats GetDefaultKart()
+        {
+            // Try to load the KartLibrary from Resources (it's a ScriptableObject asset).
+            var kartLib = UnityEngine.Resources.Load<Racing.KartLibrary>("KartLibrary");
+            if (kartLib != null && kartLib.GetDefaultKart() != null) return kartLib.GetDefaultKart();
+            return Track.TrackFactory.GetDefaultKart();
         }
 
         private static string TruncateName(string name)

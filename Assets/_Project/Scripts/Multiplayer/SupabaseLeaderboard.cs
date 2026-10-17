@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace QuickChecks.Multiplayer
 {
@@ -153,7 +154,8 @@ namespace QuickChecks.Multiplayer
                         swipeCount = item["swipe_count"]?.ToObject<int>() ?? 0,
                         finishTimeMs = item["finish_time_ms"]?.ToObject<long>() ?? 0,
                         completedAt = item["completed_at"]?.ToString() ?? "",
-                        isRequester = item["is_requester"]?.ToObject<bool>() ?? false
+                        isRequester = item["is_requester"]?.ToObject<bool>() ?? false,
+                        ghostUrl = item["ghost_url"]?.ToString() ?? ""
                     };
                     entries.Add(entry);
                     if (entry.isRequester) playerRank = entry.rank;
@@ -196,7 +198,8 @@ namespace QuickChecks.Multiplayer
                                 swipeCount = rankArr[0]["swipe_count"]?.ToObject<int>() ?? 0,
                                 finishTimeMs = rankArr[0]["finish_time_ms"]?.ToObject<long>() ?? 0,
                                 completedAt = "",
-                                isRequester = true
+                                isRequester = true,
+                                ghostUrl = ""  // player's own ghost isn't included in get_player_rank
                             });
                         }
                     }
@@ -208,6 +211,83 @@ namespace QuickChecks.Multiplayer
             }
 
             onComplete?.Invoke(true, entries, playerRank);
+        }
+
+        // =====================================================================
+        // Ghost download (called by Leaderboard 'Replay' button)
+        // =====================================================================
+
+        /// <summary>
+        /// Downloads a ghost JSON from the 'ghosts' storage bucket and deserializes it
+        /// into a GhostData object. Used by the leaderboard 'Replay' button to let players
+        /// race against a top-10 ghost.
+        ///
+        /// The ghost_url is the public-facing storage path returned by the get_leaderboard RPC.
+        /// Format: https://{project}.supabase.co/storage/v1/object/ghosts/{player_id}/{filename}
+        /// or just the path: ghosts/{player_id}/{filename}
+        /// </summary>
+        public IEnumerator FetchGhostAsync(string ghostUrl, Action<bool, Ghost.GhostData> onComplete)
+        {
+            if (string.IsNullOrEmpty(ghostUrl))
+            {
+                Debug.LogWarning("[SupabaseLeaderboard] FetchGhostAsync called with empty URL.");
+                onComplete?.Invoke(false, null);
+                yield break;
+            }
+
+            // Normalize the URL: if it's a relative path, prepend the project URL.
+            // We assume ghostUrl is already a full https URL (from the get_leaderboard RPC).
+            string url = ghostUrl;
+            if (!url.StartsWith("http"))
+            {
+                url = $"{SupabaseRpcClient.Instance.SupabaseUrl()}/storage/v1/object/{ghostUrl}";
+            }
+
+            using var req = UnityWebRequest.Get(url);
+            req.downloadHandler = new DownloadHandlerBuffer();
+            req.SetRequestHeader("apikey", SupabaseRpcClient.Instance.PublishableKey());
+            // Ghosts bucket is private — needs auth bearer.
+            if (SupabaseRpcClient.Instance.IsAuthenticated)
+            {
+                req.SetRequestHeader("Authorization", $"Bearer {SupabaseRpcClient.Instance.AccessToken}");
+            }
+
+            yield return req.SendWebRequest();
+
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"[SupabaseLeaderboard] FetchGhost failed: {req.error} — {req.downloadHandler?.Text}");
+                onComplete?.Invoke(false, null);
+                yield break;
+            }
+
+            string json = req.downloadHandler.Text;
+            if (string.IsNullOrEmpty(json))
+            {
+                Debug.LogError("[SupabaseLeaderboard] FetchGhost returned empty body.");
+                onComplete?.Invoke(false, null);
+                yield break;
+            }
+
+            try
+            {
+                var ghost = JsonConvert.DeserializeObject<Ghost.GhostData>(json);
+                if (ghost == null || (ghost.positionSamples?.Count ?? 0) == 0)
+                {
+                    Debug.LogWarning("[SupabaseLeaderboard] Downloaded ghost has no position samples.");
+                    onComplete?.Invoke(false, null);
+                    yield break;
+                }
+                Debug.Log($"[SupabaseLeaderboard] Ghost downloaded: {ghost.swipeCount} swipes, " +
+                          $"{ghost.positionSamples.Count} position samples, " +
+                          $"{ghost.finishTimeMs / 1000f:F2}s.");
+                onComplete?.Invoke(true, ghost);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[SupabaseLeaderboard] Failed to deserialize ghost: {ex.Message}");
+                onComplete?.Invoke(false, null);
+            }
         }
 
         // =====================================================================
@@ -224,8 +304,10 @@ namespace QuickChecks.Multiplayer
             public long finishTimeMs;
             public string completedAt;
             public bool isRequester;
+            public string ghostUrl;  // populated from race_results.ghost_url
 
             public string TimeDisplay => $"{finishTimeMs / 1000f:F2}s";
+            public bool HasGhost => !string.IsNullOrEmpty(ghostUrl);
         }
     }
 }

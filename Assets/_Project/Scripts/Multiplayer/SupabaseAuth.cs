@@ -147,15 +147,9 @@ namespace QuickChecks.Multiplayer
 
             if (req.result == UnityWebRequest.Result.Success)
             {
-                // Also persist the email on the players row (so other clients can show it).
-                string updateBody = $"{{\"email\":\"{email}\"}}";
-                string userIdFilter = $"id=eq.{SupabaseRpcClient.Instance.UserId}";
-                yield return SupabaseRpcClient.Instance.PostAsync("players",
-                    $"?{userIdFilter}",  // Not used; we need PUT for update
-                    null);
-                // Actually we need to use PUT — let's do it via the raw GetAsync alternative.
-                // For v1 simplicity, we'll skip the players.email sync (the auth.users.email is the source of truth anyway).
-
+                // Note: we deliberately do NOT sync the email to public.players.email via a separate
+                // PATCH — auth.users.email is the canonical source of truth, and a future
+                // profile refresh can pull it if needed. This keeps LinkEmail atomic.
                 onComplete?.Invoke(true, null);
             }
             else

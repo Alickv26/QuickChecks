@@ -126,7 +126,7 @@ insert into storage.buckets (id, name, public)
 --   POST /rest/v1/rpc/get_leaderboard
 --   Body: { "p_track_id": "track_01_first_lap", "p_limit": 10 }
 --   Returns: array of { rank, player_id, display_name, swipe_count, finish_time_ms,
---                       completed_at, is_requester }
+--                       completed_at, is_requester, ghost_url }
 -- ----------------------------------------------------------------------------
 create or replace function public.get_leaderboard(p_track_id text, p_limit int default 10)
 returns table (
@@ -136,7 +136,8 @@ returns table (
     swipe_count      int,
     finish_time_ms   bigint,
     completed_at    timestamptz,
-    is_requester    boolean
+    is_requester    boolean,
+    ghost_url       text
 )
 language sql
 stable
@@ -149,6 +150,7 @@ as $$
             rr.swipe_count,
             rr.finish_time_ms,
             rr.completed_at,
+            rr.ghost_url,
             -- For each player, only their BEST run on this track counts (lowest swipes,
             -- tiebreaker fastest time).
             row_number() over (
@@ -169,6 +171,7 @@ as $$
             br.swipe_count,
             br.finish_time_ms,
             br.completed_at,
+            br.ghost_url,
             row_number() over (
                 order by br.swipe_count asc, br.finish_time_ms asc
             ) as rank
@@ -183,7 +186,8 @@ as $$
         l.finish_time_ms,
         l.completed_at,
         (l.player_id = coalesce(auth.uid(), '00000000-0000-0000-0000-000000000000'::uuid))
-            as is_requester
+            as is_requester,
+        l.ghost_url
     from leaderboard l
     order by l.rank
     limit p_limit;

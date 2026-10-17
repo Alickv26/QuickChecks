@@ -463,6 +463,28 @@ namespace QuickChecks.Prototype
                 SetField(_soloGhost, "playerRecorder", _ghostRecorder);
                 SetField(_soloGhost, "trackId", _trackDef.trackId);
                 SetField(_soloGhost, "playerKart", _kart);
+
+                // Phase 2: if GameFlowManager has a pending external ghost (e.g. downloaded
+                // from the leaderboard via the 'Replay' button), load it now so it overrides
+                // the player's local best for this race.
+                if (GameFlowManager.Instance != null &&
+                    GameFlowManager.Instance.pendingExternalGhost != null)
+                {
+                    var extGhost = GameFlowManager.Instance.pendingExternalGhost;
+                    string extTrackId = GameFlowManager.Instance.pendingExternalTrackId;
+                    if (extTrackId == _trackDef.trackId)
+                    {
+                        _soloGhost.LoadExternalGhost(extGhost);
+                        Debug.Log($"[RaceScene] Loaded external ghost for track {_trackDef.trackId}. " +
+                                  "Will replay against the player this race.");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[RaceScene] External ghost trackId mismatch — " +
+                                          $"ghost is for '{extTrackId}' but racing '{_trackDef.trackId}'. " +
+                                          "Ignoring external ghost.");
+                    }
+                }
             }
 
             // Entitlement + IAP (singletons)
@@ -1280,9 +1302,25 @@ namespace QuickChecks.Prototype
             // We upload every new best (Decision: auto-upload). Failed uploads are non-fatal —
             // the player still gets their local result + ghost. The ghost JSON is also uploaded
             // so other players can replay it from the leaderboard.
-            if (_raceMode.IsSolo() && isNewBest && !string.IsNullOrEmpty(_trackDef.trackId))
+            //
+            // Skip the upload if this race was started with an external ghost (e.g. a
+            // leaderboard replay) — we don't want to overwrite the player's local best with
+            // a worse run, and we definitely don't want to upload someone else's ghost back
+            // to the leaderboard.
+            bool wasExternalGhost = GameFlowManager.Instance?.pendingExternalGhost != null;
+            if (_raceMode.IsSolo() && isNewBest && !wasExternalGhost &&
+                !string.IsNullOrEmpty(_trackDef.trackId))
             {
                 UploadToLeaderboard(finishMs);
+            }
+
+            // Clear the external ghost after the race — future races use the player's
+            // local best again (unless the player taps 'Replay' on another leaderboard row).
+            if (wasExternalGhost && GameFlowManager.Instance != null)
+            {
+                GameFlowManager.Instance.pendingExternalGhost = null;
+                GameFlowManager.Instance.pendingExternalTrackId = null;
+                Debug.Log("[RaceScene] External ghost cleared after race.");
             }
 
             // Phase 2: build the full results payload and route through the new path.

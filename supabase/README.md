@@ -19,6 +19,13 @@ QuickChecks backend (hosted on Supabase, free tier).
 4. Verify: open Table Editor → you should see `players`, `race_results`, `daily_results`.
 5. Verify Storage → Buckets → you should see `ghosts` (private).
 
+## Updating an existing project
+
+If you ran an earlier version of `schema.sql` (before the `ghost_url` field was
+added to `get_leaderboard`), re-running `schema.sql` will safely `create or
+replace` the RPC. The `race_results.ghost_url` column was already in the
+original schema — only the RPC changed to include it in the result set.
+
 ## How the client talks to it
 
 The C# `SupabaseClient` (in `Assets/_Project/Scripts/Multiplayer/`) talks to:

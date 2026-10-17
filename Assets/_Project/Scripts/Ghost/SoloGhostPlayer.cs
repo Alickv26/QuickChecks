@@ -206,6 +206,38 @@ namespace QuickChecks.Ghost
             Debug.Log("[SoloGhost] Best run cleared.");
         }
 
+        /// <summary>
+        /// Loads an external ghost (e.g. downloaded from the leaderboard) and overrides
+        /// the player's local best ghost for the next race. The external ghost is NOT
+        /// saved to PlayerPrefs — the player's own best run is preserved.
+        ///
+        /// Called by RaceSceneController when the player taps "Replay" on a leaderboard
+        /// row. The race then plays back this ghost instead of (or alongside) the player's
+        /// local best.
+        /// </summary>
+        public void LoadExternalGhost(GhostData externalGhost)
+        {
+            if (externalGhost == null)
+            {
+                Debug.LogWarning("[SoloGhost] LoadExternalGhost called with null — ignoring.");
+                return;
+            }
+
+            int posCount = externalGhost.positionSamples?.Count ?? 0;
+            int stopCount = externalGhost.stopPositions?.Count ?? 0;
+            if (posCount == 0 || stopCount == 0)
+            {
+                Debug.LogWarning($"[SoloGhost] External ghost has {posCount} position samples + " +
+                                  $"{stopCount} stop positions — not enough to replay. Ignoring.");
+                return;
+            }
+
+            _bestGhost = externalGhost;
+            Debug.Log($"[SoloGhost] External ghost loaded: {externalGhost.swipeCount} swipes, " +
+                      $"{posCount} position samples, {stopCount} stop positions, " +
+                      $"{externalGhost.finishTimeMs / 1000f:F2}s. Will replay on next race start.");
+        }
+
         private string GetPrefsKey() => $"QuickChecks_BestGhost_{trackId}";
 
         private void LoadBestGhost()

@@ -184,9 +184,15 @@ namespace QuickChecks.Editor
 
             // Settings dialog refs
             so.FindProperty("settingsDialog").objectReferenceValue = settingsDialog.Root;
+            so.FindProperty("settingsCloseButton").objectReferenceValue = settingsDialog.CloseButton;
+            so.FindProperty("displayNameInput").objectReferenceValue = settingsDialog.DisplayNameInput;
+            so.FindProperty("saveDisplayNameButton").objectReferenceValue = settingsDialog.SaveDisplayNameButton;
+            so.FindProperty("accountStatusLabel").objectReferenceValue = settingsDialog.AccountStatusLabel;
+            so.FindProperty("emailInput").objectReferenceValue = settingsDialog.EmailInput;
+            so.FindProperty("passwordInput").objectReferenceValue = settingsDialog.PasswordInput;
+            so.FindProperty("linkAccountButton").objectReferenceValue = settingsDialog.LinkAccountButton;
             so.FindProperty("musicVolumeSlider").objectReferenceValue = settingsDialog.MusicSlider;
             so.FindProperty("sfxVolumeSlider").objectReferenceValue = settingsDialog.SfxSlider;
-            so.FindProperty("settingsCloseButton").objectReferenceValue = settingsDialog.CloseButton;
             so.FindProperty("restorePurchasesButton").objectReferenceValue = settingsDialog.RestoreButton;
             so.FindProperty("settingsStatusLabel").objectReferenceValue = settingsDialog.StatusLabel;
             so.ApplyModifiedPropertiesWithoutUndo();
@@ -197,7 +203,10 @@ namespace QuickChecks.Editor
 
         /// <summary>
         /// Builds the in-scene settings dialog used by the MainMenu.
-        /// Contains: title, music volume slider, SFX volume slider, restore purchases button, status text, close button.
+        /// Sections (top to bottom):
+        ///   - Account: display name input + save button + status + email/password inputs + link button
+        ///   - Audio:   music volume slider + SFX volume slider
+        ///   - IAP:     restore purchases button + status text
         /// Hidden by default — MainMenuController toggles visibility.
         /// </summary>
         private static SettingsDialogRefs BuildSettingsDialog(Transform canvas)
@@ -207,7 +216,7 @@ namespace QuickChecks.Editor
 
             // Full-screen dim overlay
             var dimImg = rootGo.AddComponent<Image>();
-            dimImg.color = new Color(0f, 0f, 0f, 0.7f);
+            dimImg.color = new Color(0f, 0f, 0f, 0.75f);
             dimImg.raycastTarget = true;
             var rootRect = rootGo.GetComponent<RectTransform>();
             rootRect.anchorMin = Vector2.zero;
@@ -216,7 +225,7 @@ namespace QuickChecks.Editor
             rootRect.offsetMin = Vector2.zero;
             rootRect.offsetMax = Vector2.zero;
 
-            // Center panel
+            // Center panel — taller now to fit account + audio + IAP sections
             var panelGo = new GameObject("Panel");
             panelGo.transform.SetParent(rootGo.transform, false);
             var panelImg = panelGo.AddComponent<Image>();
@@ -225,7 +234,7 @@ namespace QuickChecks.Editor
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(800, 700);
+            panelRect.sizeDelta = new Vector2(900, 1400);
 
             // Title
             var titleGo = new GameObject("DialogTitle");
@@ -243,55 +252,7 @@ namespace QuickChecks.Editor
             titleR.anchoredPosition = new Vector2(0, -30);
             titleR.sizeDelta = new Vector2(700, 80);
 
-            // Music volume slider
-            var musicSlider = BuildLabeledSlider(panelGo.transform, "MusicVolumeSlider",
-                "Music Volume", 0.42f);
-            // SFX volume slider
-            var sfxSlider = BuildLabeledSlider(panelGo.transform, "SfxVolumeSlider",
-                "SFX Volume", 0.28f);
-
-            // Restore purchases button
-            var restoreGo = new GameObject("RestorePurchasesButton");
-            restoreGo.transform.SetParent(panelGo.transform, false);
-            var restoreBtn = restoreGo.AddComponent<Button>();
-            var restoreImg = restoreGo.AddComponent<Image>();
-            restoreImg.color = Phase2UiPalette.AccentCyan;
-            restoreBtn.targetGraphic = restoreImg;
-            var restoreRect = restoreGo.GetComponent<RectTransform>();
-            restoreRect.anchorMin = new Vector2(0.5f, 0.20f);
-            restoreRect.anchorMax = new Vector2(0.5f, 0.20f);
-            restoreRect.pivot = new Vector2(0.5f, 0.5f);
-            restoreRect.sizeDelta = new Vector2(500, 80);
-
-            var rlGo = new GameObject("Label");
-            rlGo.transform.SetParent(restoreGo.transform, false);
-            var rlText = rlGo.AddComponent<TextMeshProUGUI>();
-            rlText.text = "Restore Purchases";
-            rlText.fontSize = 32;
-            rlText.alignment = TextAlignmentOptions.Center;
-            rlText.color = Phase2UiPalette.TextOnAccent;
-            rlText.raycastTarget = false;
-            var rlR = rlGo.GetComponent<RectTransform>();
-            rlR.anchorMin = Vector2.zero; rlR.anchorMax = Vector2.one;
-            rlR.pivot = new Vector2(0.5f, 0.5f);
-            rlR.offsetMin = Vector2.zero; rlR.offsetMax = Vector2.zero;
-
-            // Status text (shows restore result)
-            var statusGo = new GameObject("StatusLabel");
-            statusGo.transform.SetParent(panelGo.transform, false);
-            var statusText = statusGo.AddComponent<TextMeshProUGUI>();
-            statusText.text = "";
-            statusText.fontSize = 24;
-            statusText.alignment = TextAlignmentOptions.Center;
-            statusText.color = Phase2UiPalette.TextPrimary;
-            statusText.raycastTarget = false;
-            var statusR = statusGo.GetComponent<RectTransform>();
-            statusR.anchorMin = new Vector2(0.5f, 0.13f);
-            statusR.anchorMax = new Vector2(0.5f, 0.13f);
-            statusR.pivot = new Vector2(0.5f, 0.5f);
-            statusR.sizeDelta = new Vector2(700, 40);
-
-            // Close button (top-right of panel)
+            // Close button (top-right)
             var closeGo = new GameObject("CloseButton");
             closeGo.transform.SetParent(panelGo.transform, false);
             var closeBtn = closeGo.AddComponent<Button>();
@@ -318,12 +279,91 @@ namespace QuickChecks.Editor
             clR.pivot = new Vector2(0.5f, 0.5f);
             clR.offsetMin = Vector2.zero; clR.offsetMax = Vector2.zero;
 
+            // === ACCOUNT section ===
+            // Section label
+            var accountSectionLabel = CreateSettingsSectionLabel(panelGo.transform, "ACCOUNT", 0.88f);
+
+            // Display name input
+            CreateSettingsTextLabel(panelGo.transform, "Display Name", 0.82f);
+            var displayNameInput = CreateSettingsInputField(panelGo.transform, "DisplayNameInput",
+                "Enter display name", 0.77f);
+
+            // Save display name button
+            var saveNameBtn = CreateSettingsButton(panelGo.transform, "SaveNameButton",
+                "Save Display Name", 0.70f, 400, 60, Phase2UiPalette.AccentCyan, Phase2UiPalette.TextOnAccent);
+
+            // Account status (shows sign-in state + email link hint)
+            var accountStatusGo = new GameObject("AccountStatus");
+            accountStatusGo.transform.SetParent(panelGo.transform, false);
+            var accountStatus = accountStatusGo.AddComponent<TextMeshProUGUI>();
+            accountStatus.text = "";
+            accountStatus.fontSize = 22;
+            accountStatus.alignment = TextAlignmentOptions.Center;
+            accountStatus.color = Phase2UiPalette.TextDim;
+            accountStatus.enableWordWrapping = true;
+            accountStatus.raycastTarget = false;
+            var accountStatusR = accountStatusGo.GetComponent<RectTransform>();
+            accountStatusR.anchorMin = new Vector2(0.1f, 0.58f);
+            accountStatusR.anchorMax = new Vector2(0.9f, 0.58f);
+            accountStatusR.pivot = new Vector2(0.5f, 0.5f);
+            accountStatusR.sizeDelta = new Vector2(0, 70);
+
+            // Email input
+            CreateSettingsTextLabel(panelGo.transform, "Link Email (optional — recovers progress on new device)", 0.50f);
+            var emailInput = CreateSettingsInputField(panelGo.transform, "EmailInput",
+                "email@example.com", 0.45f, keyboardType: TMP_InputField.KeyboardType.EmailAddress);
+
+            // Password input
+            CreateSettingsTextLabel(panelGo.transform, "Password (min 6 chars)", 0.38f);
+            var passwordInput = CreateSettingsInputField(panelGo.transform, "PasswordInput",
+                "••••••", 0.33f, isPassword: true);
+
+            // Link account button
+            var linkBtn = CreateSettingsButton(panelGo.transform, "LinkAccountButton",
+                "Link Email", 0.26f, 400, 60, new Color(0.42f, 0.58f, 1f, 0.9f), Color.white);
+
+            // === AUDIO section ===
+            CreateSettingsSectionLabel(panelGo.transform, "AUDIO", 0.19f);
+            var musicSlider = BuildLabeledSlider(panelGo.transform, "MusicVolumeSlider",
+                "Music Volume", 0.13f);
+            var sfxSlider = BuildLabeledSlider(panelGo.transform, "SfxVolumeSlider",
+                "SFX Volume", 0.04f);
+
+            // === IAP section ===
+            CreateSettingsSectionLabel(panelGo.transform, "PURCHASES", -0.04f);
+            var restoreBtn = CreateSettingsButton(panelGo.transform, "RestorePurchasesButton",
+                "Restore Purchases", -0.12f, 500, 70, Phase2UiPalette.AccentCyan, Phase2UiPalette.TextOnAccent);
+
+            // IAP status text
+            var statusGo = new GameObject("StatusLabel");
+            statusGo.transform.SetParent(panelGo.transform, false);
+            var statusText = statusGo.AddComponent<TextMeshProUGUI>();
+            statusText.text = "";
+            statusText.fontSize = 24;
+            statusText.alignment = TextAlignmentOptions.Center;
+            statusText.color = Phase2UiPalette.TextPrimary;
+            statusText.enableWordWrapping = true;
+            statusText.raycastTarget = false;
+            var statusR = statusGo.GetComponent<RectTransform>();
+            statusR.anchorMin = new Vector2(0.1f, -0.21f);
+            statusR.anchorMax = new Vector2(0.9f, -0.21f);
+            statusR.pivot = new Vector2(0.5f, 0.5f);
+            statusR.sizeDelta = new Vector2(0, 50);
+
+            rootGo.SetActive(false);
+
             return new SettingsDialogRefs
             {
                 Root = rootGo,
+                CloseButton = closeBtn,
+                DisplayNameInput = displayNameInput,
+                SaveDisplayNameButton = saveNameBtn,
+                AccountStatusLabel = accountStatus,
+                EmailInput = emailInput,
+                PasswordInput = passwordInput,
+                LinkAccountButton = linkBtn,
                 MusicSlider = musicSlider,
                 SfxSlider = sfxSlider,
-                CloseButton = closeBtn,
                 RestoreButton = restoreBtn,
                 StatusLabel = statusText
             };
@@ -332,11 +372,177 @@ namespace QuickChecks.Editor
         private struct SettingsDialogRefs
         {
             public GameObject Root;
+            public Button CloseButton;
+            public TMP_InputField DisplayNameInput;
+            public Button SaveDisplayNameButton;
+            public TMP_Text AccountStatusLabel;
+            public TMP_InputField EmailInput;
+            public TMP_InputField PasswordInput;
+            public Button LinkAccountButton;
             public Slider MusicSlider;
             public Slider SfxSlider;
-            public Button CloseButton;
             public Button RestoreButton;
             public TMP_Text StatusLabel;
+        }
+
+        /// <summary>Creates a section label (e.g. "ACCOUNT", "AUDIO").</summary>
+        private static TMP_Text CreateSettingsSectionLabel(Transform parent, string text, float anchorY)
+        {
+            var go = new GameObject($"SectionLabel_{text}");
+            go.transform.SetParent(parent, false);
+            var t = go.AddComponent<TextMeshProUGUI>();
+            t.text = text;
+            t.fontSize = 28;
+            t.alignment = TextAlignmentOptions.Left;
+            t.color = Phase2UiPalette.AccentCyan;
+            t.raycastTarget = false;
+            var r = go.GetComponent<RectTransform>();
+            r.anchorMin = new Vector2(0.1f, anchorY);
+            r.anchorMax = new Vector2(0.9f, anchorY);
+            r.pivot = new Vector2(0.5f, 0.5f);
+            r.sizeDelta = new Vector2(0, 40);
+            return t;
+        }
+
+        /// <summary>Creates a small text label above an input field.</summary>
+        private static TMP_Text CreateSettingsTextLabel(Transform parent, string text, float anchorY)
+        {
+            var go = new GameObject($"Label_{text}");
+            go.transform.SetParent(parent, false);
+            var t = go.AddComponent<TextMeshProUGUI>();
+            t.text = text;
+            t.fontSize = 22;
+            t.alignment = TextAlignmentOptions.Left;
+            t.color = Phase2UiPalette.TextDim;
+            t.raycastTarget = false;
+            var r = go.GetComponent<RectTransform>();
+            r.anchorMin = new Vector2(0.1f, anchorY);
+            r.anchorMax = new Vector2(0.9f, anchorY);
+            r.pivot = new Vector2(0.5f, 0.5f);
+            r.sizeDelta = new Vector2(0, 30);
+            return t;
+        }
+
+        /// <summary>Creates a TMP_InputField with a label-area + caret.</summary>
+        private static TMP_InputField CreateSettingsInputField(Transform parent, string name,
+            string placeholder, float anchorY, bool isPassword = false,
+            TMP_InputField.KeyboardType keyboardType = TMP_InputField.KeyboardType.Default)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.15f, anchorY);
+            rect.anchorMax = new Vector2(0.85f, anchorY);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(0, 55);
+
+            // Background
+            var bgGo = new GameObject("Background");
+            bgGo.transform.SetParent(go.transform, false);
+            var bgImg = bgGo.AddComponent<Image>();
+            bgImg.color = new Color(0.05f, 0.07f, 0.07f, 1f);
+            var bgRect = bgGo.GetComponent<RectTransform>();
+            bgRect.anchorMin = Vector2.zero; bgRect.anchorMax = Vector2.one;
+            bgRect.pivot = new Vector2(0.5f, 0.5f);
+            bgRect.offsetMin = Vector2.zero; bgRect.offsetMax = Vector2.zero;
+
+            // Text area (where the user-typed text appears)
+            var textAreaGo = new GameObject("TextArea");
+            textAreaGo.transform.SetParent(go.transform, false);
+            var textAreaRect = textAreaGo.GetComponent<RectTransform>();
+            textAreaRect.anchorMin = Vector2.zero; textAreaRect.anchorMax = Vector2.one;
+            textAreaRect.pivot = new Vector2(0.5f, 0.5f);
+            textAreaRect.offsetMin = new Vector2(10, 5); textAreaRect.offsetMax = new Vector2(-10, -5);
+
+            // User-typed text
+            var textGo = new GameObject("Text");
+            textGo.transform.SetParent(textAreaGo.transform, false);
+            var text = textGo.AddComponent<TextMeshProUGUI>();
+            text.text = "";
+            text.fontSize = 28;
+            text.alignment = TextAlignmentOptions.Left;
+            text.color = Phase2UiPalette.TextPrimary;
+            text.raycastTarget = false;
+            text.supportRichText = false;
+            var textR = textGo.GetComponent<RectTransform>();
+            textR.anchorMin = Vector2.zero; textR.anchorMax = Vector2.one;
+            textR.pivot = new Vector2(0.5f, 0.5f);
+            textR.offsetMin = Vector2.zero; textR.offsetMax = Vector2.zero;
+
+            // Placeholder
+            var phGo = new GameObject("Placeholder");
+            phGo.transform.SetParent(textAreaGo.transform, false);
+            var ph = phGo.AddComponent<TextMeshProUGUI>();
+            ph.text = placeholder;
+            ph.fontSize = 28;
+            ph.alignment = TextAlignmentOptions.Left;
+            ph.color = Phase2UiPalette.TextDim;
+            ph.fontStyle = FontStyles.Italic;
+            ph.raycastTarget = false;
+            var phR = phGo.GetComponent<RectTransform>();
+            phR.anchorMin = Vector2.zero; phR.anchorMax = Vector2.one;
+            phR.pivot = new Vector2(0.5f, 0.5f);
+            phR.offsetMin = Vector2.zero; phR.offsetMax = Vector2.zero;
+
+            // Caret blinker (Unity provides a default one but TMP needs an explicit child)
+            var caretGo = new GameObject("Caret");
+            caretGo.transform.SetParent(textAreaGo.transform, false);
+            var caretImg = caretGo.AddComponent<Image>();
+            caretImg.color = Phase2UiPalette.AccentCyan;
+            var caretRect = caretGo.GetComponent<RectTransform>();
+            caretRect.anchorMin = new Vector2(0, 0); caretRect.anchorMax = new Vector2(0, 1);
+            caretRect.pivot = new Vector2(0, 0.5f);
+            caretRect.sizeDelta = new Vector2(2, 0);
+
+            // InputField component itself
+            var input = go.AddComponent<TMP_InputField>();
+            input.textViewport = textAreaRect;
+            input.textComponent = text;
+            input.placeholder = ph;
+            input.caretColor = Phase2UiPalette.AccentCyan;
+            input.selectionColor = new Color(0.247f, 0.878f, 0.760f, 0.4f);
+            input.keyboardType = keyboardType;
+            input.characterLimit = isPassword ? 64 : 24;
+            input.contentType = isPassword
+                ? TMP_InputField.ContentType.Password
+                : (keyboardType == TMP_InputField.KeyboardType.EmailAddress
+                    ? TMP_InputField.ContentType.EmailAddress
+                    : TMP_InputField.ContentType.Standard);
+
+            return input;
+        }
+
+        /// <summary>Creates a button with a centered label.</summary>
+        private static Button CreateSettingsButton(Transform parent, string name,
+            string label, float anchorY, float width, float height,
+            Color bg, Color labelColor)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var btn = go.AddComponent<Button>();
+            var img = go.AddComponent<Image>();
+            img.color = bg;
+            btn.targetGraphic = img;
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, anchorY);
+            rect.anchorMax = new Vector2(0.5f, anchorY);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(width, height);
+
+            var labelGo = new GameObject("Label");
+            labelGo.transform.SetParent(go.transform, false);
+            var labelT = labelGo.AddComponent<TextMeshProUGUI>();
+            labelT.text = label;
+            labelT.fontSize = 28;
+            labelT.alignment = TextAlignmentOptions.Center;
+            labelT.color = labelColor;
+            labelT.raycastTarget = false;
+            var labelR = labelGo.GetComponent<RectTransform>();
+            labelR.anchorMin = Vector2.zero; labelR.anchorMax = Vector2.one;
+            labelR.pivot = new Vector2(0.5f, 0.5f);
+            labelR.offsetMin = Vector2.zero; labelR.offsetMax = Vector2.zero;
+
+            return btn;
         }
 
         /// <summary>Builds a labeled slider for the settings dialog.</summary>
