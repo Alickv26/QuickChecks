@@ -462,7 +462,7 @@ namespace QuickChecks.Editor
             text.alignment = TextAlignmentOptions.Left;
             text.color = Phase2UiPalette.TextPrimary;
             text.raycastTarget = false;
-            text.supportRichText = false;
+            text.richText = false;
             var textR = textGo.GetComponent<RectTransform>();
             textR.anchorMin = Vector2.zero; textR.anchorMax = Vector2.one;
             textR.pivot = new Vector2(0.5f, 0.5f);
