@@ -1388,7 +1388,12 @@ namespace QuickChecks.Prototype
             if (GameFlowManager.Instance != null)
             {
                 GameFlowManager.Instance.OnTrackCompleted(_trackDef.trackId, _swipeCount, finishMs);
-                if (isNewBest) GameFlowManager.Instance.profile?.UnlockNextTrack(_trackDef.trackIndex);
+                // Only unlock the next track if this is a real (non-custom) track — custom
+                // tracks have trackIndex == -1 and shouldn't affect progression.
+                if (isNewBest && _trackDef.trackIndex >= 0)
+                {
+                    GameFlowManager.Instance.profile?.UnlockNextTrack(_trackDef.trackIndex);
+                }
             }
 
             // Phase 2 Supabase: auto-upload new best to global leaderboard (Solo only).

@@ -35,19 +35,23 @@ namespace QuickChecks.Editor
             BuildKartSelectScene();
             BuildRaceScene();
             BuildResultsScene();
+            BuildCustomTrackSelectScene();
+            BuildCustomTrackBuilderScene();
 
             // Add scenes to Build Settings
             AddScenesToBuildSettings();
 
             EditorUtility.DisplayDialog(
                 "Game Scenes Built",
-                "All 6 game scenes created:\n\n" +
+                "All 8 game scenes created:\n\n" +
                 "• MainMenu.unity\n" +
                 "• ModeSelect.unity\n" +
                 "• TrackSelect.unity\n" +
                 "• KartSelect.unity\n" +
                 "• Race.unity\n" +
-                "• Results.unity\n\n" +
+                "• Results.unity\n" +
+                "• CustomTrackSelect.unity\n" +
+                "• CustomTrackBuilder.unity\n\n" +
                 "Added to Build Settings.\n" +
                 "Open MainMenu to start the game flow.",
                 "OK"
@@ -138,8 +142,8 @@ namespace QuickChecks.Editor
             settingsImg.raycastTarget = true;
             settingsBtn.targetGraphic = settingsImg;
             var settingsRect = settingsGo.GetComponent<RectTransform>();
-            settingsRect.anchorMin = new Vector2(0.5f, 0.25f);
-            settingsRect.anchorMax = new Vector2(0.5f, 0.25f);
+            settingsRect.anchorMin = new Vector2(0.3f, 0.25f);
+            settingsRect.anchorMax = new Vector2(0.3f, 0.25f);
             settingsRect.pivot = new Vector2(0.5f, 0.5f);
             settingsRect.sizeDelta = new Vector2(340, 90);
 
@@ -155,6 +159,33 @@ namespace QuickChecks.Editor
             slR.anchorMin = Vector2.zero; slR.anchorMax = Vector2.one;
             slR.pivot = new Vector2(0.5f, 0.5f);
             slR.offsetMin = Vector2.zero; slR.offsetMax = Vector2.zero;
+
+            // Custom Tracks button (same row as Settings, right side)
+            var customGo = new GameObject("CustomTracksButton");
+            customGo.transform.SetParent(canvasGo.transform, false);
+            var customBtn = customGo.AddComponent<Button>();
+            var customImg = customGo.AddComponent<Image>();
+            customImg.color = new Color(0.42f, 0.58f, 1f, 0.9f);  // blue accent for custom tracks
+            customImg.raycastTarget = true;
+            customBtn.targetGraphic = customImg;
+            var customRect = customGo.GetComponent<RectTransform>();
+            customRect.anchorMin = new Vector2(0.7f, 0.25f);
+            customRect.anchorMax = new Vector2(0.7f, 0.25f);
+            customRect.pivot = new Vector2(0.5f, 0.5f);
+            customRect.sizeDelta = new Vector2(340, 90);
+
+            var ctlGo = new GameObject("Label");
+            ctlGo.transform.SetParent(customGo.transform, false);
+            var ctlLabel = ctlGo.AddComponent<TextMeshProUGUI>();
+            ctlLabel.text = "Custom Tracks";
+            ctlLabel.fontSize = 34;
+            ctlLabel.alignment = TextAlignmentOptions.Center;
+            ctlLabel.color = Color.white;
+            ctlLabel.raycastTarget = false;
+            var ctlR = ctlGo.GetComponent<RectTransform>();
+            ctlR.anchorMin = Vector2.zero; ctlR.anchorMax = Vector2.one;
+            ctlR.pivot = new Vector2(0.5f, 0.5f);
+            ctlR.offsetMin = Vector2.zero; ctlR.offsetMax = Vector2.zero;
 
             // Footer (player display name + premium status)
             var footerText = Phase2UiPalette.CreateText("Footer", "", 22,
@@ -179,6 +210,7 @@ namespace QuickChecks.Editor
             var so = new SerializedObject(controller);
             so.FindProperty("playButton").objectReferenceValue = playBtn;
             so.FindProperty("settingsButton").objectReferenceValue = settingsBtn;
+            so.FindProperty("customTracksButton").objectReferenceValue = customBtn;
             so.FindProperty("titleText").objectReferenceValue = titleText;
             so.FindProperty("subtitleText").objectReferenceValue = subtitleText;
 
@@ -976,7 +1008,7 @@ namespace QuickChecks.Editor
             msgR.pivot = new Vector2(0.5f, 0.5f);
             msgR.sizeDelta = new Vector2(620, 180);
 
-            // OK button
+            // OK button (right)
             var okGo = new GameObject("OkButton");
             okGo.transform.SetParent(panelGo.transform, false);
             var okBtn = okGo.AddComponent<Button>();
@@ -984,10 +1016,10 @@ namespace QuickChecks.Editor
             okImg.color = Phase2UiPalette.AccentCyan;
             okBtn.targetGraphic = okImg;
             var okRect = okGo.GetComponent<RectTransform>();
-            okRect.anchorMin = new Vector2(0.5f, 0.18f);
-            okRect.anchorMax = new Vector2(0.5f, 0.18f);
+            okRect.anchorMin = new Vector2(0.7f, 0.18f);
+            okRect.anchorMax = new Vector2(0.7f, 0.18f);
             okRect.pivot = new Vector2(0.5f, 0.5f);
-            okRect.sizeDelta = new Vector2(280, 80);
+            okRect.sizeDelta = new Vector2(220, 80);
 
             var okLabelGo = new GameObject("Label");
             okLabelGo.transform.SetParent(okGo.transform, false);
@@ -1002,8 +1034,34 @@ namespace QuickChecks.Editor
             okLabelR.pivot = new Vector2(0.5f, 0.5f);
             okLabelR.offsetMin = Vector2.zero; okLabelR.offsetMax = Vector2.zero;
 
+            // Cancel button (left) — used by delete confirmation in CustomTrackSelect
+            var cancelGo = new GameObject("CancelButton");
+            cancelGo.transform.SetParent(panelGo.transform, false);
+            var cancelBtn = cancelGo.AddComponent<Button>();
+            var cancelImg = cancelGo.AddComponent<Image>();
+            cancelImg.color = new Color(0.15f, 0.2f, 0.2f, 0.9f);
+            cancelBtn.targetGraphic = cancelImg;
+            var cancelRect = cancelGo.GetComponent<RectTransform>();
+            cancelRect.anchorMin = new Vector2(0.3f, 0.18f);
+            cancelRect.anchorMax = new Vector2(0.3f, 0.18f);
+            cancelRect.pivot = new Vector2(0.5f, 0.5f);
+            cancelRect.sizeDelta = new Vector2(220, 80);
+
+            var cancelLabelGo = new GameObject("Label");
+            cancelLabelGo.transform.SetParent(cancelGo.transform, false);
+            var cancelLabel = cancelLabelGo.AddComponent<TextMeshProUGUI>();
+            cancelLabel.text = "Cancel";
+            cancelLabel.fontSize = 32;
+            cancelLabel.alignment = TextAlignmentOptions.Center;
+            cancelLabel.color = Color.white;
+            cancelLabel.raycastTarget = false;
+            var cancelLabelR = cancelLabelGo.GetComponent<RectTransform>();
+            cancelLabelR.anchorMin = Vector2.zero; cancelLabelR.anchorMax = Vector2.one;
+            cancelLabelR.pivot = new Vector2(0.5f, 0.5f);
+            cancelLabelR.offsetMin = Vector2.zero; cancelLabelR.offsetMax = Vector2.zero;
+
             rootGo.SetActive(false);
-            return new ToastDialogRefs { Root = rootGo, MessageText = msgText, OkButton = okBtn };
+            return new ToastDialogRefs { Root = rootGo, MessageText = msgText, OkButton = okBtn, CancelButton = cancelBtn };
         }
 
         private struct ToastDialogRefs
@@ -1011,6 +1069,7 @@ namespace QuickChecks.Editor
             public GameObject Root;
             public TMP_Text MessageText;
             public Button OkButton;
+            public Button CancelButton;
         }
 
         /// <summary>
@@ -1695,6 +1754,414 @@ namespace QuickChecks.Editor
             Debug.Log("[GameScenesBuilder] Results scene built (Phase 2 mode-aware layout).");
         }
 
+        // =====================================================================
+        // Custom Track scenes
+        // =====================================================================
+
+        private static void BuildCustomTrackSelectScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            // Camera
+            var camGo = new GameObject("Main Camera");
+            var cam = camGo.AddComponent<UnityEngine.Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = 10;
+            cam.backgroundColor = Phase2UiPalette.Background;
+            camGo.transform.position = new Vector3(0, 0, -10);
+            camGo.tag = "MainCamera";
+            camGo.AddComponent<AudioListener>();
+
+            // Canvas
+            var canvasGo = new GameObject("Canvas");
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            var scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080, 1920);
+            canvasGo.AddComponent<GraphicRaycaster>();
+
+            if (UnityEngine.EventSystems.EventSystem.current == null)
+            {
+                var esGo = new GameObject("EventSystem");
+                esGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            }
+
+            // Title
+            var titleText = Phase2UiPalette.CreateText("Title", "Custom Tracks", 56, Phase2UiPalette.AccentCyan,
+                new Vector2(0.5f, 0.96f), new Vector2(900, 80));
+
+            // Back button (top-left)
+            var backBtn = CreateSimpleButton(canvasGo.transform, "BackButton", "< Back",
+                new Vector2(0, 1), new Vector2(40, -40), new Vector2(220, 80),
+                Phase2UiPalette.PanelSurface, Phase2UiPalette.TextPrimary, anchorPivot: new Vector2(0, 1));
+
+            // New Track button (top-right)
+            var newTrackBtn = CreateSimpleButton(canvasGo.transform, "NewTrackButton", "+ New Track",
+                new Vector2(1, 1), new Vector2(-40, -40), new Vector2(280, 80),
+                Phase2UiPalette.AccentCyan, Phase2UiPalette.TextOnAccent, anchorPivot: new Vector2(1, 1));
+
+            // Empty state label
+            var emptyLabel = Phase2UiPalette.CreateText("EmptyState", "", 28, Phase2UiPalette.TextDim,
+                new Vector2(0.5f, 0.5f), new Vector2(800, 100));
+            emptyLabel.gameObject.SetActive(false);
+
+            // Scrollable track list
+            var scrollGo = new GameObject("TrackScroll");
+            scrollGo.transform.SetParent(canvasGo.transform, false);
+            var scrollRectGo = scrollGo.GetComponent<RectTransform>();
+            scrollRectGo.anchorMin = new Vector2(0, 0);
+            scrollRectGo.anchorMax = new Vector2(1, 1);
+            scrollRectGo.pivot = new Vector2(0.5f, 0.5f);
+            scrollRectGo.offsetMin = new Vector2(0, 80);
+            scrollRectGo.offsetMax = new Vector2(0, -160);
+
+            var scroll = scrollGo.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+
+            var contentGo = new GameObject("Content");
+            contentGo.transform.SetParent(scrollGo.transform, false);
+            var vlg = contentGo.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 16;
+            vlg.padding = new RectOffset(40, 40, 30, 30);
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            var fitter = contentGo.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var contentRect = contentGo.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0, 1);
+            contentRect.anchorMax = new Vector2(1, 1);
+            contentRect.pivot = new Vector2(0.5f, 1);
+            contentRect.sizeDelta = new Vector2(0, 0);
+
+            scroll.content = contentRect;
+            scroll.viewport = contentRect;
+
+            // Toast dialog (for delete confirmation)
+            var toastRefs = BuildToastDialog(canvasGo.transform);
+
+            // GameFlowManager
+            var flowGo = new GameObject("[GameFlowManager]");
+            flowGo.AddComponent<GameFlowManager>();
+
+            // AudioBootstrap
+            var audioGo = new GameObject("[AudioBootstrap]");
+            audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
+
+            // CustomTrackSelectController — wire refs
+            var ctrlGo = new GameObject("[CustomTrackSelectController]");
+            var ctrl = ctrlGo.AddComponent<CustomTrackSelectController>();
+            var so = new SerializedObject(ctrl);
+            so.FindProperty("trackListContainer").objectReferenceValue = contentGo.transform;
+            so.FindProperty("newTrackButton").objectReferenceValue = newTrackBtn;
+            so.FindProperty("backButton").objectReferenceValue = backBtn;
+            so.FindProperty("titleText").objectReferenceValue = titleText;
+            so.FindProperty("emptyStateLabel").objectReferenceValue = emptyLabel;
+            so.FindProperty("toastDialog").objectReferenceValue = toastRefs.Root;
+            so.FindProperty("toastText").objectReferenceValue = toastRefs.MessageText;
+            so.FindProperty("toastConfirmButton").objectReferenceValue = toastRefs.OkButton;
+            so.FindProperty("toastCancelButton").objectReferenceValue = toastRefs.CancelButton;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorSceneManager.SaveScene(scene, SCENES_DIR + "CustomTrackSelect.unity");
+            Debug.Log("[GameScenesBuilder] CustomTrackSelect scene built.");
+        }
+
+        private static void BuildCustomTrackBuilderScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            // Builder camera (orthographic, draggable, zoomable — the controller manages it)
+            var camGo = new GameObject("Main Camera");
+            var cam = camGo.AddComponent<UnityEngine.Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = 16f;
+            cam.backgroundColor = new Color(0.055f, 0.078f, 0.078f);
+            camGo.transform.position = new Vector3(0, 0, -10);
+            camGo.tag = "MainCamera";
+            camGo.AddComponent<AudioListener>();
+
+            // Canvas
+            var canvasGo = new GameObject("Canvas");
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            var scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080, 1920);
+            canvasGo.AddComponent<GraphicRaycaster>();
+
+            if (UnityEngine.EventSystems.EventSystem.current == null)
+            {
+                var esGo = new GameObject("EventSystem");
+                esGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            }
+
+            // --- Top bar: name input + Save + Test + Back ---
+            var trackNameInput = CreateSimpleInputField(canvasGo.transform, "TrackNameInput",
+                "Track name…", new Vector2(0.5f, 0.96f), new Vector2(800, 60));
+
+            var saveBtn = CreateSimpleButton(canvasGo.transform, "SaveButton", "Save",
+                new Vector2(0.3f, 0.89f), new Vector2(0, 0), new Vector2(200, 70),
+                Phase2UiPalette.AccentCyan, Phase2UiPalette.TextOnAccent);
+
+            var testBtn = CreateSimpleButton(canvasGo.transform, "TestButton", "Test",
+                new Vector2(0.5f, 0.89f), new Vector2(0, 0), new Vector2(200, 70),
+                new Color(0.42f, 0.79f, 0.47f, 0.9f), Color.white);
+
+            var backBtn = CreateSimpleButton(canvasGo.transform, "BackButton", "< Back",
+                new Vector2(0.7f, 0.89f), new Vector2(0, 0), new Vector2(200, 70),
+                Phase2UiPalette.PanelSurface, Phase2UiPalette.TextPrimary);
+
+            var clearBtn = CreateSimpleButton(canvasGo.transform, "ClearAllButton", "Clear",
+                new Vector2(0.9f, 0.89f), new Vector2(0, 0), new Vector2(160, 70),
+                new Color(1f, 0.42f, 0.42f, 0.9f), Color.white);
+
+            // --- Bottom bar: tool palette ---
+            var paletteGo = new GameObject("ToolPalette");
+            paletteGo.transform.SetParent(canvasGo.transform, false);
+            var paletteRect = paletteGo.GetComponent<RectTransform>();
+            paletteRect.anchorMin = new Vector2(0, 0);
+            paletteRect.anchorMax = new Vector2(1, 0);
+            paletteRect.pivot = new Vector2(0.5f, 0);
+            paletteRect.offsetMin = new Vector2(0, 0);
+            paletteRect.offsetMax = new Vector2(0, 120);
+            var paletteImg = paletteGo.AddComponent<Image>();
+            paletteImg.color = new Color(0.05f, 0.08f, 0.08f, 0.95f);
+            paletteImg.raycastTarget = false;
+
+            var paletteHlg = paletteGo.AddComponent<HorizontalLayoutGroup>();
+            paletteHlg.spacing = 8;
+            paletteHlg.padding = new RectOffset(20, 20, 20, 20);
+            paletteHlg.childAlignment = TextAnchor.MiddleCenter;
+            paletteHlg.childControlWidth = true;
+            paletteHlg.childControlHeight = false;
+            paletteHlg.childForceExpandWidth = true;
+            paletteHlg.childForceExpandHeight = false;
+
+            var drawBtn = CreatePaletteButton(paletteGo.transform, "DrawBtn", "Draw");
+            var wallBtn = CreatePaletteButton(paletteGo.transform, "WallBtn", "Wall");
+            var gravelBtn = CreatePaletteButton(paletteGo.transform, "GravelBtn", "Gravel");
+            var blackHoleBtn = CreatePaletteButton(paletteGo.transform, "BlackHoleBtn", "Black Hole");
+            var boostBtn = CreatePaletteButton(paletteGo.transform, "BoostBtn", "Boost");
+            var shieldBtn = CreatePaletteButton(paletteGo.transform, "ShieldBtn", "Shield");
+            var magnetBtn = CreatePaletteButton(paletteGo.transform, "MagnetBtn", "Magnet");
+            var slingshotBtn = CreatePaletteButton(paletteGo.transform, "SlingshotBtn", "Slingshot");
+            var selectBtn = CreatePaletteButton(paletteGo.transform, "SelectBtn", "Select");
+
+            // --- Selected item panel (right side, hidden by default) ---
+            var selectedPanelGo = new GameObject("SelectedItemPanel");
+            selectedPanelGo.transform.SetParent(canvasGo.transform, false);
+            var selectedRect = selectedPanelGo.GetComponent<RectTransform>();
+            selectedRect.anchorMin = new Vector2(1, 0.5f);
+            selectedRect.anchorMax = new Vector2(1, 0.5f);
+            selectedRect.pivot = new Vector2(1, 0.5f);
+            selectedRect.anchoredPosition = new Vector2(-20, 60);
+            selectedRect.sizeDelta = new Vector2(280, 220);
+            var selectedImg = selectedPanelGo.AddComponent<Image>();
+            selectedImg.color = new Color(0.086f, 0.110f, 0.110f, 0.95f);
+            selectedImg.raycastTarget = false;
+
+            var selectedVlg = selectedPanelGo.AddComponent<VerticalLayoutGroup>();
+            selectedVlg.spacing = 12;
+            selectedVlg.padding = new RectOffset(20, 20, 20, 20);
+            selectedVlg.childAlignment = TextAnchor.UpperCenter;
+            selectedVlg.childControlWidth = true;
+            selectedVlg.childControlHeight = false;
+            selectedVlg.childForceExpandWidth = true;
+            selectedVlg.childForceExpandHeight = false;
+
+            var sizeLabel = new GameObject("SizeLabel");
+            sizeLabel.transform.SetParent(selectedPanelGo.transform, false);
+            var sizeLabelT = sizeLabel.AddComponent<TextMeshProUGUI>();
+            sizeLabelT.text = "Size";
+            sizeLabelT.fontSize = 22;
+            sizeLabelT.alignment = TextAlignmentOptions.Left;
+            sizeLabelT.color = Phase2UiPalette.TextPrimary;
+            sizeLabelT.raycastTarget = false;
+
+            var sizeSliderGo = new GameObject("SizeSlider");
+            sizeSliderGo.transform.SetParent(selectedPanelGo.transform, false);
+            var sizeSliderRect = sizeSliderGo.AddComponent<RectTransform>();
+            sizeSliderRect.sizeDelta = new Vector2(0, 40);
+            var sizeSliderBg = sizeSliderGo.AddComponent<Image>();
+            sizeSliderBg.color = new Color(0.05f, 0.07f, 0.07f, 1f);
+            sizeSliderBg.raycastTarget = true;
+            var sizeSlider = sizeSliderGo.AddComponent<Slider>();
+            var sizeFill = new GameObject("Fill");
+            sizeFill.transform.SetParent(sizeSliderGo.transform, false);
+            var sizeFillImg = sizeFill.AddComponent<Image>();
+            sizeFillImg.color = Phase2UiPalette.AccentCyan;
+            sizeFillImg.raycastTarget = false;
+            var sizeFillRect = sizeFill.GetComponent<RectTransform>();
+            sizeFillRect.anchorMin = Vector2.zero; sizeFillRect.anchorMax = Vector2.one;
+            sizeFillRect.offsetMin = Vector2.zero; sizeFillRect.offsetMax = Vector2.zero;
+            var sizeHandle = new GameObject("Handle");
+            sizeHandle.transform.SetParent(sizeSliderGo.transform, false);
+            var sizeHandleImg = sizeHandle.AddComponent<Image>();
+            sizeHandleImg.color = Phase2UiPalette.TextPrimary;
+            sizeHandleImg.raycastTarget = true;
+            var sizeHandleRect = sizeHandle.GetComponent<RectTransform>();
+            sizeHandleRect.sizeDelta = new Vector2(20, 40);
+            sizeSlider.targetGraphic = sizeHandleImg;
+            sizeSlider.fillRect = sizeFillRect;
+            sizeSlider.handleRect = sizeHandleRect;
+            sizeSlider.minValue = 0.5f;
+            sizeSlider.maxValue = 6f;
+            sizeSlider.value = 2f;
+            sizeSlider.direction = Slider.Direction.LeftToRight;
+
+            var deleteItemBtn = CreateSimpleButton(selectedPanelGo.transform, "DeleteItemButton",
+                "Delete Item", new Vector2(0.5f, 0), new Vector2(0, 20), new Vector2(240, 60),
+                new Color(1f, 0.42f, 0.42f, 0.9f), Color.white, anchorPivot: new Vector2(0.5f, 0));
+
+            selectedPanelGo.SetActive(false);
+
+            // --- Status text (just above palette) ---
+            var statusText = Phase2UiPalette.CreateText("StatusText", "", 24,
+                Phase2UiPalette.TextPrimary,
+                new Vector2(0.5f, 0.13f), new Vector2(1000, 40));
+
+            // GameFlowManager
+            var flowGo = new GameObject("[GameFlowManager]");
+            flowGo.AddComponent<GameFlowManager>();
+
+            // AudioBootstrap
+            var audioGo = new GameObject("[AudioBootstrap]");
+            audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
+
+            // CustomTrackBuilderController — wire all refs
+            var ctrlGo = new GameObject("[CustomTrackBuilderController]");
+            var ctrl = ctrlGo.AddComponent<CustomTrackBuilderController>();
+            var so = new SerializedObject(ctrl);
+            so.FindProperty("trackNameInput").objectReferenceValue = trackNameInput;
+            so.FindProperty("saveButton").objectReferenceValue = saveBtn;
+            so.FindProperty("testButton").objectReferenceValue = testBtn;
+            so.FindProperty("backButton").objectReferenceValue = backBtn;
+            so.FindProperty("clearAllButton").objectReferenceValue = clearBtn;
+            so.FindProperty("drawModeButton").objectReferenceValue = drawBtn;
+            so.FindProperty("wallModeButton").objectReferenceValue = wallBtn;
+            so.FindProperty("gravelModeButton").objectReferenceValue = gravelBtn;
+            so.FindProperty("blackHoleModeButton").objectReferenceValue = blackHoleBtn;
+            so.FindProperty("boostModeButton").objectReferenceValue = boostBtn;
+            so.FindProperty("shieldModeButton").objectReferenceValue = shieldBtn;
+            so.FindProperty("magnetModeButton").objectReferenceValue = magnetBtn;
+            so.FindProperty("slingshotModeButton").objectReferenceValue = slingshotBtn;
+            so.FindProperty("selectModeButton").objectReferenceValue = selectBtn;
+            so.FindProperty("selectedItemPanel").objectReferenceValue = selectedPanelGo;
+            so.FindProperty("sizeSlider").objectReferenceValue = sizeSlider;
+            so.FindProperty("deleteSelectedItemButton").objectReferenceValue = deleteItemBtn;
+            so.FindProperty("statusText").objectReferenceValue = statusText;
+            so.FindProperty("builderCamera").objectReferenceValue = cam;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorSceneManager.SaveScene(scene, SCENES_DIR + "CustomTrackBuilder.unity");
+            Debug.Log("[GameScenesBuilder] CustomTrackBuilder scene built.");
+        }
+
+        private static Button CreatePaletteButton(Transform parent, string name, string label)
+        {
+            return CreateSimpleButton(parent, name, label,
+                new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 80),
+                new Color(0.086f, 0.110f, 0.110f, 0.9f), Phase2UiPalette.TextPrimary);
+        }
+
+        /// <summary>Helper to build a simple Button with a label. Anchored + sized via parameters.</summary>
+        private static Button CreateSimpleButton(Transform parent, string name, string label,
+            Vector2 anchor, Vector2 anchoredPos, Vector2 size,
+            Color bg, Color labelColor, Vector2? anchorPivot = null)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var btn = go.AddComponent<Button>();
+            var img = go.AddComponent<Image>();
+            img.color = bg;
+            img.raycastTarget = true;
+            btn.targetGraphic = img;
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = anchor;
+            rect.anchorMax = anchor;
+            rect.pivot = anchorPivot ?? new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = anchoredPos;
+            rect.sizeDelta = size;
+
+            var labelGo = new GameObject("Label");
+            labelGo.transform.SetParent(go.transform, false);
+            var labelT = labelGo.AddComponent<TextMeshProUGUI>();
+            labelT.text = label;
+            labelT.fontSize = 28;
+            labelT.alignment = TextAlignmentOptions.Center;
+            labelT.color = labelColor;
+            labelT.raycastTarget = false;
+            var labelR = labelGo.GetComponent<RectTransform>();
+            labelR.anchorMin = Vector2.zero; labelR.anchorMax = Vector2.one;
+            labelR.pivot = new Vector2(0.5f, 0.5f);
+            labelR.offsetMin = Vector2.zero; labelR.offsetMax = Vector2.zero;
+            return btn;
+        }
+
+        /// <summary>Helper to build a simple TMP_InputField at an anchored position.</summary>
+        private static TMP_InputField CreateSimpleInputField(Transform parent, string name,
+            string placeholder, Vector2 anchor, Vector2 size)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = anchor; rect.anchorMax = anchor;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = size;
+            var bgImg = go.AddComponent<Image>();
+            bgImg.color = new Color(0.05f, 0.07f, 0.07f, 1f);
+            bgImg.raycastTarget = true;
+
+            var textAreaGo = new GameObject("TextArea");
+            textAreaGo.transform.SetParent(go.transform, false);
+            var textAreaRect = textAreaGo.AddComponent<RectTransform>();
+            textAreaRect.anchorMin = Vector2.zero; textAreaRect.anchorMax = Vector2.one;
+            textAreaRect.pivot = new Vector2(0.5f, 0.5f);
+            textAreaRect.offsetMin = new Vector2(10, 5); textAreaRect.offsetMax = new Vector2(-10, -5);
+
+            var textGo = new GameObject("Text");
+            textGo.transform.SetParent(textAreaGo.transform, false);
+            var text = textGo.AddComponent<TextMeshProUGUI>();
+            text.text = "";
+            text.fontSize = 28;
+            text.alignment = TextAlignmentOptions.Left;
+            text.color = Phase2UiPalette.TextPrimary;
+            text.raycastTarget = false;
+            text.richText = false;
+            var textR = textGo.GetComponent<RectTransform>();
+            textR.anchorMin = Vector2.zero; textR.anchorMax = Vector2.one;
+            textR.offsetMin = Vector2.zero; textR.offsetMax = Vector2.zero;
+
+            var phGo = new GameObject("Placeholder");
+            phGo.transform.SetParent(textAreaGo.transform, false);
+            var ph = phGo.AddComponent<TextMeshProUGUI>();
+            ph.text = placeholder;
+            ph.fontSize = 28;
+            ph.alignment = TextAlignmentOptions.Left;
+            ph.color = Phase2UiPalette.TextDim;
+            ph.fontStyle = FontStyles.Italic;
+            ph.raycastTarget = false;
+            var phR = phGo.GetComponent<RectTransform>();
+            phR.anchorMin = Vector2.zero; phR.anchorMax = Vector2.one;
+            phR.offsetMin = Vector2.zero; phR.offsetMax = Vector2.zero;
+
+            var input = go.AddComponent<TMP_InputField>();
+            input.textViewport = textAreaRect;
+            input.textComponent = text;
+            input.placeholder = ph;
+            input.caretColor = Phase2UiPalette.AccentCyan;
+            input.characterLimit = 32;
+            input.contentType = TMP_InputField.ContentType.Standard;
+            return input;
+        }
+
         private static void AddScenesToBuildSettings()
         {
             var scenes = new[]
@@ -1705,9 +2172,11 @@ namespace QuickChecks.Editor
                 new EditorBuildSettingsScene(SCENES_DIR + "KartSelect.unity", true),
                 new EditorBuildSettingsScene(SCENES_DIR + "Race.unity", true),
                 new EditorBuildSettingsScene(SCENES_DIR + "Results.unity", true),
+                new EditorBuildSettingsScene(SCENES_DIR + "CustomTrackSelect.unity", true),
+                new EditorBuildSettingsScene(SCENES_DIR + "CustomTrackBuilder.unity", true),
             };
             EditorBuildSettings.scenes = scenes;
-            Debug.Log("[GameScenesBuilder] Scenes added to Build Settings (6 scenes).");
+            Debug.Log("[GameScenesBuilder] Scenes added to Build Settings (8 scenes).");
         }
     }
 }

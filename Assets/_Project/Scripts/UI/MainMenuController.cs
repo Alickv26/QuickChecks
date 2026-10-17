@@ -27,6 +27,7 @@ namespace QuickChecks.UI
         [Header("UI References")]
         [SerializeField] private Button playButton;
         [SerializeField] private Button settingsButton;
+        [SerializeField] private Button customTracksButton;
         [SerializeField] private TMP_Text titleText;
         [SerializeField] private TMP_Text subtitleText;
 
@@ -110,6 +111,13 @@ namespace QuickChecks.UI
                 EnsureHoverFx(settingsButton);
             }
 
+            if (customTracksButton != null)
+            {
+                customTracksButton.onClick.RemoveAllListeners();
+                customTracksButton.onClick.AddListener(OnCustomTracksClicked);
+                EnsureHoverFx(customTracksButton);
+            }
+
             WireSettingsDialog();
 
             Debug.Log("[MainMenu] Ready. Tap PLAY to go to mode select.");
@@ -174,6 +182,20 @@ namespace QuickChecks.UI
             if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
             Debug.Log("[MainMenu] PLAY clicked — going to mode select.");
             SceneManager.LoadScene("ModeSelect");
+        }
+
+        private void OnCustomTracksClicked()
+        {
+            if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+            Debug.Log("[MainMenu] CUSTOM TRACKS clicked.");
+            if (GameFlowManager.Instance != null)
+            {
+                GameFlowManager.Instance.GoToCustomTrackSelect();
+            }
+            else
+            {
+                SceneManager.LoadScene("CustomTrackSelect");
+            }
         }
 
         private void OnSettingsClicked()

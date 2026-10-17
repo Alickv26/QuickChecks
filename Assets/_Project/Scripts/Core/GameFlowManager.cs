@@ -30,6 +30,8 @@ namespace QuickChecks.Core
         [SerializeField] private string kartSelectScene = "KartSelect";
         [SerializeField] private string raceScene = "Race";
         [SerializeField] private string resultsScene = "Results";
+        [SerializeField] private string customTrackSelectScene = "CustomTrackSelect";
+        [SerializeField] private string customTrackBuilderScene = "CustomTrackBuilder";
 
         [Header("Current Selection (carried between scenes)")]
         public TrackDefinition selectedTrack;
@@ -42,6 +44,11 @@ namespace QuickChecks.Core
         public GhostData pendingExternalGhost;
         [Tooltip("The trackId the external ghost belongs to — used to validate that the ghost matches the track being raced.")]
         public string pendingExternalTrackId;
+
+        [Header("Pending Custom Track (set by Custom Track Select/Edit/Builder)")]
+        [Tooltip("If non-null, the Custom Track Builder scene loads this track for editing. " +
+                 "Set to null to start a fresh track.")]
+        public Track.CustomTrackData pendingCustomTrack;
 
         [Header("Last Race Results (carried to Results scene)")]
         public int lastRaceSwipes;
@@ -99,6 +106,18 @@ namespace QuickChecks.Core
         public void GoToKartSelect()
         {
             SceneManager.LoadScene(kartSelectScene);
+        }
+
+        /// <summary>Goes to the Custom Track Select screen (lists saved custom tracks).</summary>
+        public void GoToCustomTrackSelect()
+        {
+            SceneManager.LoadScene(customTrackSelectScene);
+        }
+
+        /// <summary>Goes to the Custom Track Builder scene. Set pendingCustomTrack first.</summary>
+        public void GoToCustomTrackBuilder()
+        {
+            SceneManager.LoadScene(customTrackBuilderScene);
         }
 
         public void StartRace(TrackDefinition track, KartStats kart)
