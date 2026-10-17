@@ -22,3 +22,7 @@ MonoBehaviour:
   boostMultiplier: 1.8
   boostDurationSec: 1.5
   unlockAfterTrackIndex: -1
+  archetypeLabel: Balanced
+  description: A balanced all-rounder kart — good at everything, exceptional at nothing.
+  isFree: 1
+  kartColor: {r: 1, g: 0.82, b: 0.4, a: 1}

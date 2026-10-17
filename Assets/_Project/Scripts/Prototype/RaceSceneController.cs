@@ -112,9 +112,17 @@ namespace QuickChecks.Prototype
             {
                 ghostSwipeEvent = ScriptableObject.CreateInstance<GhostSwipeEvent>();
             }
+            // Phase 2: prefer the kart the player selected in Kart Select over the hardcoded default.
+            if (kartStats == null && GameFlowManager.Instance != null
+                && GameFlowManager.Instance.selectedKart != null)
+            {
+                kartStats = GameFlowManager.Instance.selectedKart;
+                Debug.Log($"[RaceScene] Using selected kart: {kartStats.displayName} ({kartStats.kartId})");
+            }
             if (kartStats == null)
             {
                 kartStats = TrackFactory.GetDefaultKart();
+                Debug.Log("[RaceScene] No selectedKart — falling back to Starter.");
             }
         }
 
@@ -182,7 +190,7 @@ namespace QuickChecks.Prototype
             kartGo.transform.localScale = Vector3.one;
 
             var sr = kartGo.AddComponent<SpriteRenderer>();
-            sr.color = new Color(1f, 0.82f, 0.4f);
+            sr.color = kartStats != null ? kartStats.kartColor : new Color(1f, 0.82f, 0.4f);
             sr.sprite = CreateSquareSprite();
             sr.drawMode = SpriteDrawMode.Sliced;
             sr.size = new Vector2(1.5f, 1.5f);

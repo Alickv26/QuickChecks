@@ -297,18 +297,18 @@ namespace QuickChecks.UI
             }
 
             if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
-            Debug.Log($"[TrackSelect] Track '{track.displayName}' selected — starting race.");
+            Debug.Log($"[TrackSelect] Track '{track.displayName}' selected — going to kart select.");
 
-            // Use default kart for now (Track 1's kart)
-            KartStats kart = TrackFactory.GetDefaultKart();
-
+            // Store the selected track on GameFlowManager and go to the Kart Select scene.
+            // The player picks their kart next, then race starts.
             if (GameFlowManager.Instance != null)
             {
-                GameFlowManager.Instance.StartRace(track, kart);
+                GameFlowManager.Instance.selectedTrack = track;
+                GameFlowManager.Instance.GoToKartSelect();
             }
             else
             {
-                SceneManager.LoadScene("Race");
+                SceneManager.LoadScene("KartSelect");
             }
         }
 

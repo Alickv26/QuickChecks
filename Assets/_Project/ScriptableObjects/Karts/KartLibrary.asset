@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ddf7aaa668a45f983e7b980219e42b2, type: 3}
+  m_Name: KartLibrary
+  m_EditorClassIdentifier:
+  karts:
+  - {fileID: 11400000, guid: 666fe6d7e95cfd9dfa0baba7e7c4ad9e, type: 2}
+  - {fileID: 11400000, guid: 81b89cbe3d1b47bc9dcf31f242bdf2a3, type: 2}
+  - {fileID: 11400000, guid: 02d432c822e94c559c3a0063de310e77, type: 2}
+  - {fileID: 11400000, guid: 7d3da7e28e864ca1a150d8e5876ca491, type: 2}
+  - {fileID: 11400000, guid: ab0faf57751f416a8a5b63eed42ba60e, type: 2}
+  - {fileID: 11400000, guid: 39b285cb7ba0481489ba7f5b500f841b, type: 2}
+  - {fileID: 11400000, guid: f1663f1f7c9c426daf117ff5e300c4d1, type: 2}
+  - {fileID: 11400000, guid: c20992c68a8940678ff7595fcc126389, type: 2}

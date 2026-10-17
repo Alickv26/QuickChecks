@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ab77ec124820e1a3b1c5eaef334e649, type: 3}
+  m_Name: Kart_Speedster
+  m_EditorClassIdentifier: 
+  kartId: kart_speedster
+  displayName: Speedster
+  previewSprite: {fileID: 0}
+  impulseMultiplier: 1.3
+  frictionPerSecond: 0.28
+  stopThreshold: 9
+  maxSpeed: 300
+  boostMultiplier: 2.2
+  boostDurationSec: 1.8
+  unlockAfterTrackIndex: 2
+  archetypeLabel: Punchy
+  description: High impulse + max speed, but high friction. Pays for parking.
+  isFree: 0
+  kartColor: {r: 1, g: 0.42, b: 0.42, a: 1}

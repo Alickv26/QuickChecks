@@ -32,6 +32,7 @@ namespace QuickChecks.Editor
             BuildMainMenuScene();
             BuildModeSelectScene();
             BuildTrackSelectScene();
+            BuildKartSelectScene();
             BuildRaceScene();
             BuildResultsScene();
 
@@ -40,10 +41,11 @@ namespace QuickChecks.Editor
 
             EditorUtility.DisplayDialog(
                 "Game Scenes Built",
-                "All 5 game scenes created:\n\n" +
+                "All 6 game scenes created:\n\n" +
                 "• MainMenu.unity\n" +
                 "• ModeSelect.unity\n" +
                 "• TrackSelect.unity\n" +
+                "• KartSelect.unity\n" +
                 "• Race.unity\n" +
                 "• Results.unity\n\n" +
                 "Added to Build Settings.\n" +
@@ -797,6 +799,175 @@ namespace QuickChecks.Editor
             public Button OkButton;
         }
 
+        private static void BuildKartSelectScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            // Camera
+            var camGo = new GameObject("Main Camera");
+            var cam = camGo.AddComponent<UnityEngine.Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = 10;
+            cam.backgroundColor = Phase2UiPalette.Background;
+            camGo.transform.position = new Vector3(0, 0, -10);
+            camGo.tag = "MainCamera";
+            camGo.AddComponent<AudioListener>();
+
+            // Canvas
+            var canvasGo = new GameObject("Canvas");
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            var scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080, 1920);
+            canvasGo.AddComponent<GraphicRaycaster>();
+
+            if (UnityEngine.EventSystems.EventSystem.current == null)
+            {
+                var esGo = new GameObject("EventSystem");
+                esGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            }
+
+            // Title (top center)
+            var titleText = Phase2UiPalette.CreateText("Title", "Select Kart", 56, Phase2UiPalette.AccentCyan,
+                new Vector2(0.5f, 0.96f), new Vector2(900, 80));
+
+            // Track label (small, below title — shows the selected track)
+            var trackLabel = Phase2UiPalette.CreateText("TrackLabel", "", 26, Phase2UiPalette.TextDim,
+                new Vector2(0.5f, 0.91f), new Vector2(800, 36));
+
+            // Back button (top-left)
+            var backGo = new GameObject("BackButton");
+            backGo.transform.SetParent(canvasGo.transform, false);
+            var backBtn = backGo.AddComponent<Button>();
+            var backImg = backGo.AddComponent<Image>();
+            backImg.color = Phase2UiPalette.PanelSurface;
+            backBtn.targetGraphic = backImg;
+            var backRect = backGo.GetComponent<RectTransform>();
+            backRect.anchorMin = new Vector2(0, 1);
+            backRect.anchorMax = new Vector2(0, 1);
+            backRect.pivot = new Vector2(0, 1);
+            backRect.anchoredPosition = new Vector2(40, -40);
+            backRect.sizeDelta = new Vector2(220, 80);
+
+            var blGo = new GameObject("Label");
+            blGo.transform.SetParent(backGo.transform, false);
+            var blText = blGo.AddComponent<TextMeshProUGUI>();
+            blText.text = "< Back";
+            blText.fontSize = 32;
+            blText.alignment = TextAlignmentOptions.Center;
+            blText.color = Phase2UiPalette.TextPrimary;
+            blText.raycastTarget = false;
+            var blR = blGo.GetComponent<RectTransform>();
+            blR.anchorMin = Vector2.zero; blR.anchorMax = Vector2.one;
+            blR.pivot = new Vector2(0.5f, 0.5f);
+            blR.offsetMin = Vector2.zero; blR.offsetMax = Vector2.zero;
+
+            // Scrollable kart grid
+            var scrollGo = new GameObject("KartScroll");
+            scrollGo.transform.SetParent(canvasGo.transform, false);
+            var scrollRectGo = scrollGo.GetComponent<RectTransform>();
+            scrollRectGo.anchorMin = new Vector2(0, 0);
+            scrollRectGo.anchorMax = new Vector2(1, 1);
+            scrollRectGo.pivot = new Vector2(0.5f, 0.5f);
+            scrollRectGo.offsetMin = new Vector2(0, 160);  // leaves room for START RACE button
+            scrollRectGo.offsetMax = new Vector2(0, -160);
+
+            var scroll = scrollGo.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+
+            var gridGo = new GameObject("KartGrid");
+            gridGo.transform.SetParent(scrollGo.transform, false);
+            var vlg = gridGo.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 16;
+            vlg.padding = new RectOffset(40, 40, 30, 30);
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            var fitter = gridGo.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var gridRect = gridGo.GetComponent<RectTransform>();
+            gridRect.anchorMin = new Vector2(0, 1);
+            gridRect.anchorMax = new Vector2(1, 1);
+            gridRect.pivot = new Vector2(0.5f, 1);
+            gridRect.sizeDelta = new Vector2(0, 0);
+
+            scroll.content = gridRect;
+            scroll.viewport = gridRect;
+
+            // START RACE button (bottom — large CTA, cyan)
+            var raceGo = new GameObject("RaceButton");
+            raceGo.transform.SetParent(canvasGo.transform, false);
+            var raceBtn = raceGo.AddComponent<Button>();
+            var raceImg = raceGo.AddComponent<Image>();
+            raceImg.color = Phase2UiPalette.AccentCyan;
+            raceImg.raycastTarget = true;
+            raceBtn.targetGraphic = raceImg;
+            var raceRect = raceGo.GetComponent<RectTransform>();
+            raceRect.anchorMin = new Vector2(0.5f, 0.04f);
+            raceRect.anchorMax = new Vector2(0.5f, 0.04f);
+            raceRect.pivot = new Vector2(0.5f, 0.5f);
+            raceRect.sizeDelta = new Vector2(700, 100);
+
+            var rlGo = new GameObject("Label");
+            rlGo.transform.SetParent(raceGo.transform, false);
+            var rlText = rlGo.AddComponent<TextMeshProUGUI>();
+            rlText.text = "SELECT A KART";
+            rlText.fontSize = 42;
+            rlText.alignment = TextAlignmentOptions.Center;
+            rlText.color = Phase2UiPalette.TextOnAccent;
+            rlText.raycastTarget = false;
+            var rlR = rlGo.GetComponent<RectTransform>();
+            rlR.anchorMin = Vector2.zero; rlR.anchorMax = Vector2.one;
+            rlR.pivot = new Vector2(0.5f, 0.5f);
+            rlR.offsetMin = Vector2.zero; rlR.offsetMax = Vector2.zero;
+
+            // Toast dialog
+            var toastRefs = BuildToastDialog(canvasGo.transform);
+
+            // GameFlowManager
+            var flowGo = new GameObject("[GameFlowManager]");
+            flowGo.AddComponent<GameFlowManager>();
+
+            // AudioBootstrap
+            var audioGo = new GameObject("[AudioBootstrap]");
+            audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
+
+            // Try to load the KartLibrary asset from ScriptableObjects/Karts/
+            var kartLib = AssetDatabase.LoadAssetAtPath<Racing.KartLibrary>(
+                "Assets/_Project/ScriptableObjects/Karts/KartLibrary.asset");
+
+            // KartSelectController — wire all the references
+            var ctrlGo = new GameObject("[KartSelectController]");
+            var ctrl = ctrlGo.AddComponent<KartSelectController>();
+            var so = new SerializedObject(ctrl);
+            so.FindProperty("kartGridContainer").objectReferenceValue = gridGo.transform;
+            so.FindProperty("backButton").objectReferenceValue = backBtn;
+            so.FindProperty("raceButton").objectReferenceValue = raceBtn;
+            so.FindProperty("raceButtonText").objectReferenceValue = rlText;
+            so.FindProperty("titleText").objectReferenceValue = titleText;
+            so.FindProperty("trackLabel").objectReferenceValue = trackLabel;
+            so.FindProperty("kartLibrary").objectReferenceValue = kartLib;
+            so.FindProperty("toastDialog").objectReferenceValue = toastRefs.Root;
+            so.FindProperty("toastText").objectReferenceValue = toastRefs.MessageText;
+            so.FindProperty("toastOkButton").objectReferenceValue = toastRefs.OkButton;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            if (kartLib == null)
+            {
+                Debug.LogWarning("[GameScenesBuilder] KartLibrary.asset not found at " +
+                                  "Assets/_Project/ScriptableObjects/Karts/KartLibrary.asset — " +
+                                  "KartSelectController will fall back to Resources or runtime default.");
+            }
+
+            EditorSceneManager.SaveScene(scene, SCENES_DIR + "KartSelect.unity");
+            Debug.Log("[GameScenesBuilder] KartSelect scene built (Phase 2 neon kart cards).");
+        }
+
         private static void BuildRaceScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -1115,11 +1286,12 @@ namespace QuickChecks.Editor
                 new EditorBuildSettingsScene(SCENES_DIR + "MainMenu.unity", true),
                 new EditorBuildSettingsScene(SCENES_DIR + "ModeSelect.unity", true),
                 new EditorBuildSettingsScene(SCENES_DIR + "TrackSelect.unity", true),
+                new EditorBuildSettingsScene(SCENES_DIR + "KartSelect.unity", true),
                 new EditorBuildSettingsScene(SCENES_DIR + "Race.unity", true),
                 new EditorBuildSettingsScene(SCENES_DIR + "Results.unity", true),
             };
             EditorBuildSettings.scenes = scenes;
-            Debug.Log("[GameScenesBuilder] Scenes added to Build Settings.");
+            Debug.Log("[GameScenesBuilder] Scenes added to Build Settings (6 scenes).");
         }
     }
 }

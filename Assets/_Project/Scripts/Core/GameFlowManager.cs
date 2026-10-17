@@ -26,6 +26,7 @@ namespace QuickChecks.Core
         [Header("Scene Names")]
         [SerializeField] private string mainMenuScene = "MainMenu";
         [SerializeField] private string trackSelectScene = "TrackSelect";
+        [SerializeField] private string kartSelectScene = "KartSelect";
         [SerializeField] private string raceScene = "Race";
         [SerializeField] private string resultsScene = "Results";
 
@@ -81,6 +82,15 @@ namespace QuickChecks.Core
         public void GoToTrackSelect()
         {
             SceneManager.LoadScene(trackSelectScene);
+        }
+
+        /// <summary>
+        /// Goes to the Kart Select scene after the player has chosen a track.
+        /// The selected track is carried via `selectedTrack`.
+        /// </summary>
+        public void GoToKartSelect()
+        {
+            SceneManager.LoadScene(kartSelectScene);
         }
 
         public void StartRace(TrackDefinition track, KartStats kart)
