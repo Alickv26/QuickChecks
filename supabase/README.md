@@ -16,8 +16,13 @@ QuickChecks backend (hosted on Supabase, free tier).
 1. Open Supabase Dashboard → SQL Editor → New query.
 2. Paste the contents of `schema.sql` → Run. Should complete in ~1s.
 3. Open a new query tab, paste `policies.sql` → Run.
-4. Verify: open Table Editor → you should see `players`, `race_results`, `daily_results`.
+4. Verify: open Table Editor → you should see `players`, `race_results`, `daily_results`,
+   `match_sessions`, `match_events`.
 5. Verify Storage → Buckets → you should see `ghosts` (private).
+6. **Enable Realtime on match_events** (required for online multiplayer in v1.1):
+   - Supabase Dashboard → Database → Replication → find `supabase_realtime` publication
+   - Add the `match_events` table to it
+   - (Or run `alter publication supabase_realtime add table public.match_events;` as postgres)
 
 ## Updating an existing project
 

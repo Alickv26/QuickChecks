@@ -125,6 +125,55 @@ create policy "ghosts: owner delete"
         and (storage.foldername(name))[1] = auth.uid()::text
     );
 
+-- ----------------------------------------------------------------------------
+-- Online Multiplayer (v1.1 — schema ready, client impl TBD)
+-- ----------------------------------------------------------------------------
+-- match_sessions: both players in a match can read it. Inserts are done via
+-- the find_or_create_match RPC (security definer), so we don't need a public
+-- insert policy. Updates are also done via RPCs (submit_match_event), so
+-- direct updates are blocked at the client level.
+-- ----------------------------------------------------------------------------
+alter table public.match_sessions enable row level security;
+
+-- Self read: a player can only see matches they're in (player_a OR player_b).
+drop policy if exists "match_sessions: self read" on public.match_sessions;
+create policy "match_sessions: self read"
+    on public.match_sessions for select
+    using (auth.uid() = player_a or auth.uid() = player_b);
+
+-- No direct insert/update/delete from clients — all mutations go through RPCs.
+-- (RLS blocks by default when no policy exists for an operation.)
+
+-- ----------------------------------------------------------------------------
+-- match_events: both players can read events for matches they're in.
+-- Direct inserts are blocked — clients must use submit_match_event RPC
+-- (which validates turn order server-side).
+-- ----------------------------------------------------------------------------
+alter table public.match_events enable row level security;
+
+-- Self read: a player can only see events for matches they're in.
+drop policy if exists "match_events: self read" on public.match_events;
+create policy "match_events: self read"
+    on public.match_events for select
+    using (
+        exists (
+            select 1 from public.match_sessions ms
+            where ms.id = match_events.match_id
+              and (ms.player_a = auth.uid() or ms.player_b = auth.uid())
+        )
+    );
+
+-- ----------------------------------------------------------------------------
+-- Realtime publication: enable match_events for live subscriptions.
+-- Without this, Supabase Realtime won't broadcast inserts to subscribed clients.
+-- ----------------------------------------------------------------------------
+-- Note: this needs to be run with service_role key (admin) — do it via the
+-- Supabase Dashboard → Database → Replication, OR run via psql as postgres.
+-- The SQL is:
+--   alter publication supabase_realtime add table public.match_events;
+-- We DON'T add it here because the publishable key doesn't have permission.
+-- The Dashboard approach is documented in supabase/README.md.
+
 -- ============================================================================
 -- End of policies.sql
 -- ============================================================================

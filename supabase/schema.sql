@@ -267,5 +267,212 @@ create trigger on_players_updated
     for each row execute function public.touch_updated_at();
 
 -- ============================================================================
+-- Online Multiplayer (v1.1 — schema ready, client impl TBD)
+-- ----------------------------------------------------------------------------
+-- Real-time turn-based matches between two players over Supabase Realtime
+-- (Postgres Changes). The client subscribes to match_events inserts; when a
+-- row is inserted (by either player), both clients get a notification with
+-- the event payload. This avoids building a separate WebSocket server.
+--
+-- Match lifecycle:
+--   1. Player A calls find_or_create_match(track_id) → joins or creates a match
+--   2. Player B calls find_or_create_match(track_id) → joins A's match
+--   3. Both clients subscribe to match_events where match_id = X
+--   4. On each turn, the active player INSERTs a 'swipe' event; opponent sees it
+--   5. After kart stops, active player INSERTs a 'turn_end' event; RPC flips
+--      current_turn_player server-side
+--   6. First to finish INSERTs a 'race_end' event; opponent sees it + loses
+--   7. Concede → INSERT 'concede' event + update match_sessions.status
+-- ============================================================================
+
+create table if not exists public.match_sessions (
+    id                      uuid primary key default gen_random_uuid(),
+    track_id                text not null,
+    player_a                uuid not null references public.players(id) on delete cascade,
+    player_b                uuid references public.players(id) on delete set null,  -- null during matchmaking
+    current_turn_player     uuid not null,            -- alternates between A and B
+    status                  text not null default 'matchmaking',  -- 'matchmaking' | 'active' | 'finished' | 'conceded' | 'abandoned'
+    winner                  uuid,                    -- null until race ends
+    player_a_swipe_count    integer not null default 0,
+    player_b_swipe_count    integer not null default 0,
+    player_a_finish_time_ms bigint,                  -- null until A finishes
+    player_b_finish_time_ms bigint,
+    created_at              timestamptz not null default now(),
+    last_activity_at        timestamptz not null default now(),
+    finished_at             timestamptz
+);
+
+create index if not exists idx_match_sessions_matchmaking
+    on public.match_sessions (status, track_id)
+    where status = 'matchmaking';
+create index if not exists idx_match_sessions_player_a on public.match_sessions (player_a);
+create index if not exists idx_match_sessions_player_b on public.match_sessions (player_b);
+
+-- Append-only log of every event in a match. Each row = one swipe, turn_end,
+-- turn_skip, race_end, or concede. Clients subscribe to inserts on this table
+-- (filtered by match_id) to receive opponent events in real time.
+create table if not exists public.match_events (
+    id              bigint primary key generated always as identity,
+    match_id        uuid not null references public.match_sessions(id) on delete cascade,
+    player_id       uuid not null references public.players(id) on delete cascade,
+    event_type      text not null,                  -- 'swipe' | 'turn_end' | 'turn_skip' | 'race_end' | 'concede'
+    swipe_data      jsonb,                          -- {dx, dy, mag, t} — null for non-swipe events
+    final_position  jsonb,                          -- {x, y, rot} — for turn_end events
+    sequence_num    integer not null,               -- 0-based, increments per match
+    created_at      timestamptz not null default now()
+);
+
+create index if not exists idx_match_events_match_seq
+    on public.match_events (match_id, sequence_num);
+create index if not exists idx_match_events_match_created
+    on public.match_events (match_id, created_at);
+
+-- ----------------------------------------------------------------------------
+-- find_or_create_match RPC: idempotent matchmaking.
+-- If there's an open match (status='matchmaking', player_b is null) for the
+-- same track, join it as player B. Otherwise create a new match as player A.
+-- Returns the match_id + which player you are ('A' or 'B').
+-- ----------------------------------------------------------------------------
+create or replace function public.find_or_create_match(p_track_id text)
+returns table (
+    match_id    uuid,
+    player_role text,            -- 'A' or 'B'
+    opponent_id uuid
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    open_match uuid;
+    my_id      uuid := auth.uid();
+begin
+    if my_id is null then
+        return;
+    end if;
+
+    -- Try to find an open match for this track (not created by us)
+    select id into open_match
+    from public.match_sessions
+    where track_id = p_track_id
+      and status = 'matchmaking'
+      and player_b is null
+      and player_a <> my_id
+    order by created_at asc
+    limit 1
+    for update skip locked;  -- avoid race: two players joining the same match
+
+    if open_match is not null then
+        -- Join as player B
+        update public.match_sessions
+        set player_b = my_id,
+            status = 'active',
+            last_activity_at = now()
+        where id = open_match and player_b is null;
+
+        return query select open_match, 'B'::text, player_a from public.match_sessions where id = open_match;
+    else
+        -- Create a new match as player A
+        insert into public.match_sessions (track_id, player_a, current_turn_player, status)
+        values (p_track_id, my_id, my_id, 'matchmaking')
+        returning id into open_match;
+
+        return query select open_match, 'A'::text, null::uuid;
+    end if;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- submit_match_event RPC: validates turn order before inserting an event.
+-- Returns false (no-op) if it's not the requesting player's turn.
+-- This is the server-side authority — clients can't spoof opponent turns.
+-- ----------------------------------------------------------------------------
+create or replace function public.submit_match_event(
+    p_match_id   uuid,
+    p_event_type text,
+    p_swipe_data jsonb default null,
+    p_final_pos  jsonb default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    match_rec   record;
+    my_id       uuid := auth.uid();
+    next_seq    integer;
+    next_player uuid;
+begin
+    if my_id is null then return false; end if;
+
+    select * into match_rec from public.match_sessions where id = p_match_id for update;
+    if not found then return false; end if;
+    if match_rec.status <> 'active' then return false; end if;
+    if match_rec.current_turn_player <> my_id then return false; end if;
+
+    -- Compute next sequence number for this match
+    select coalesce(max(sequence_num), -1) + 1 into next_seq
+    from public.match_events where match_id = p_match_id;
+
+    -- Insert the event
+    insert into public.match_events (match_id, player_id, event_type, swipe_data, final_position, sequence_num)
+    values (p_match_id, my_id, p_event_type, p_swipe_data, p_final_pos, next_seq);
+
+    -- Update match state based on event type
+    if p_event_type = 'swipe' then
+        -- Increment the player's swipe count
+        if match_rec.player_a = my_id then
+            update public.match_sessions
+            set player_a_swipe_count = player_a_swipe_count + 1, last_activity_at = now()
+            where id = p_match_id;
+        else
+            update public.match_sessions
+            set player_b_swipe_count = player_b_swipe_count + 1, last_activity_at = now()
+            where id = p_match_id;
+        end if;
+        -- Turn does NOT flip on swipe — only on turn_end
+    elsif p_event_type = 'turn_end' or p_event_type = 'turn_skip' then
+        -- Flip the turn to the other player
+        next_player := case when match_rec.player_a = my_id then match_rec.player_b else match_rec.player_a end;
+        update public.match_sessions
+        set current_turn_player = next_player, last_activity_at = now()
+        where id = p_match_id;
+    elsif p_event_type = 'race_end' then
+        -- First to finish wins; record their finish time
+        if match_rec.player_a = my_id and match_rec.player_a_finish_time_ms is null then
+            update public.match_sessions
+            set player_a_finish_time_ms = (p_final_pos->>'time_ms')::bigint,
+                winner = case when match_rec.player_b_finish_time_ms is not null and
+                                  (p_final_pos->>'time_ms')::bigint > match_rec.player_b_finish_time_ms
+                              then player_b else player_a end,
+                status = case when match_rec.player_b_finish_time_ms is not null then 'finished' else status end,
+                last_activity_at = now()
+            where id = p_match_id;
+        elsif match_rec.player_b = my_id and match_rec.player_b_finish_time_ms is null then
+            update public.match_sessions
+            set player_b_finish_time_ms = (p_final_pos->>'time_ms')::bigint,
+                winner = case when match_rec.player_a_finish_time_ms is not null and
+                                  (p_final_pos->>'time_ms')::bigint > match_rec.player_a_finish_time_ms
+                              then player_a else player_b end,
+                status = case when match_rec.player_a_finish_time_ms is not null then 'finished' else status end,
+                last_activity_at = now()
+            where id = p_match_id;
+        end if;
+    elsif p_event_type = 'concede' then
+        -- Opponent wins by default
+        update public.match_sessions
+        set status = 'conceded',
+            winner = case when match_rec.player_a = my_id then match_rec.player_b else match_rec.player_a end,
+            finished_at = now(),
+            last_activity_at = now()
+        where id = p_match_id;
+    end if;
+
+    return true;
+end;
+$$;
+
+-- ============================================================================
 -- End of schema.sql
 -- ============================================================================

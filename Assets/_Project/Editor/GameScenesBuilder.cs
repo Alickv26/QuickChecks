@@ -700,6 +700,11 @@ namespace QuickChecks.Editor
             var titleText = Phase2UiPalette.CreateText("Title", "Select Mode", 56, Phase2UiPalette.AccentCyan,
                 new Vector2(0.5f, 0.96f), new Vector2(900, 80));
 
+            // Status text (bottom-center — shows transient messages like "Online coming in v1.1")
+            var statusText = Phase2UiPalette.CreateText("StatusText", "", 28,
+                Phase2UiPalette.AccentCyan,
+                new Vector2(0.5f, 0.04f), new Vector2(1000, 40));
+
             // Back button (top-left)
             var backGo = new GameObject("BackButton");
             backGo.transform.SetParent(canvasGo.transform, false);
@@ -822,6 +827,7 @@ namespace QuickChecks.Editor
             var so = new SerializedObject(ctrl);
             so.FindProperty("backButton").objectReferenceValue = backBtn;
             so.FindProperty("titleText").objectReferenceValue = titleText;
+            so.FindProperty("statusText").objectReferenceValue = statusText;
             so.FindProperty("soloContainer").objectReferenceValue = soloContainer;
             so.FindProperty("cpuContainer").objectReferenceValue = cpuContainer;
             so.FindProperty("passPlayContainer").objectReferenceValue = passPlayContainer;

@@ -34,6 +34,7 @@ namespace QuickChecks.UI
         [SerializeField] private Button backButton;
         [SerializeField] private TMP_Text titleText;
         [SerializeField] private TMP_Text modeSummaryText;  // optional: shows currently hovered mode's full description
+        [SerializeField] private TMP_Text statusText;  // optional: shows transient messages (e.g. "Online coming soon")
 
         [Header("Containers (optional — built at runtime if null)")]
         [SerializeField] private Transform soloContainer;
@@ -200,13 +201,13 @@ namespace QuickChecks.UI
             chipLabelRect.pivot = new Vector2(0.5f, 0.5f);
             chipLabelRect.offsetMin = Vector2.zero; chipLabelRect.offsetMax = Vector2.zero;
 
-            // Online stub badge
+            // Online "Coming soon" badge (v1.1)
             if (mode == RaceMode.Online)
             {
-                var badgeGo = new GameObject("StubBadge");
+                var badgeGo = new GameObject("ComingSoonBadge");
                 badgeGo.transform.SetParent(textColGo.transform, false);
                 var badgeText = badgeGo.AddComponent<TextMeshProUGUI>();
-                badgeText.text = "v1 STUB";
+                badgeText.text = "COMING IN v1.1";
                 badgeText.fontSize = 16;
                 badgeText.alignment = TextAlignmentOptions.Left;
                 badgeText.color = Phase2UiPalette.Online;
@@ -221,6 +222,13 @@ namespace QuickChecks.UI
             if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
             Debug.Log($"[ModeSelect] Mode selected: {mode.DisplayName()} ({mode.PlayerCount()} players)");
 
+            // Online mode is gated for v1.1 — show a coming soon message instead of going to TrackSelect
+            if (mode == RaceMode.Online)
+            {
+                ShowStatus("Online multiplayer is coming in v1.1. Stay tuned!");
+                return;
+            }
+
             if (GameFlowManager.Instance != null)
             {
                 GameFlowManager.Instance.selectedMode = mode;
@@ -230,6 +238,24 @@ namespace QuickChecks.UI
             {
                 SceneManager.LoadScene("TrackSelect");
             }
+        }
+
+        private void ShowStatus(string message)
+        {
+            if (statusText == null)
+            {
+                Debug.Log($"[ModeSelect] (statusText not wired) {message}");
+                return;
+            }
+            statusText.text = message;
+            statusText.color = Phase2UiPalette.AccentCyan;
+            CancelInvoke(nameof(ClearStatus));
+            Invoke(nameof(ClearStatus), 4f);
+        }
+
+        private void ClearStatus()
+        {
+            if (statusText != null) statusText.text = "";
         }
 
         private void OnBackClicked()
