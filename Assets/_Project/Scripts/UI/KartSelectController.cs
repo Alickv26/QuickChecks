@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using QuickChecks.Core;
 using QuickChecks.Racing;
+using QuickChecks.Track;
 using QuickChecks.Audio;
 
 namespace QuickChecks.UI
