@@ -61,7 +61,22 @@ namespace QuickChecks.UI
         {
             // Hide the settings dialog ASAP (before Start() runs) so the player never
             // sees a flash of it if the scene was saved with the dialog active.
-            if (settingsDialog != null) settingsDialog.SetActive(false);
+            // Defensive: if the serialized reference is null, search the scene by name
+            // (covers the case where the scene was built but the controller wasn't re-wired).
+            if (settingsDialog != null)
+            {
+                settingsDialog.SetActive(false);
+            }
+            else
+            {
+                var found = GameObject.Find("SettingsDialog");
+                if (found != null)
+                {
+                    settingsDialog = found;
+                    found.SetActive(false);
+                    Debug.Log("[MainMenu] Found SettingsDialog via GameObject.Find (serialized ref was null).");
+                }
+            }
         }
 
         private void Start()

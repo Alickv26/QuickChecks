@@ -214,10 +214,13 @@ namespace QuickChecks.Editor
             var rootGo = new GameObject("SettingsDialog");
             rootGo.transform.SetParent(canvas, false);
 
-            // Full-screen dim overlay
+            // Full-screen dim overlay (visual only — raycastTarget=false so clicks pass
+            // through to the panel + buttons underneath). Without this, the dim Image
+            // would intercept every click on the dialog area and the close button would
+            // never receive the click event.
             var dimImg = rootGo.AddComponent<Image>();
             dimImg.color = new Color(0f, 0f, 0f, 0.75f);
-            dimImg.raycastTarget = true;
+            dimImg.raycastTarget = false;  // CRITICAL — clicks must reach buttons underneath
             var rootRect = rootGo.GetComponent<RectTransform>();
             rootRect.anchorMin = Vector2.zero;
             rootRect.anchorMax = Vector2.one;
@@ -545,7 +548,14 @@ namespace QuickChecks.Editor
             return btn;
         }
 
-        /// <summary>Builds a labeled slider for the settings dialog.</summary>
+        /// <summary>
+        /// Builds a labeled slider for the settings dialog.
+        ///
+        /// Slider structure follows Unity's standard pattern but with the Background
+        /// Image on the slider's own GameObject (not a child) so the slider receives
+        /// OnPointerDown/OnDrag directly. If Background is a separate child, the child's
+        /// Image intercepts the raycast and the slider never gets the drag event.
+        /// </summary>
         private static Slider BuildLabeledSlider(Transform parent, string sliderName, string labelText, float anchorY)
         {
             // Label
@@ -563,7 +573,8 @@ namespace QuickChecks.Editor
             labelR.pivot = new Vector2(0.5f, 0.5f);
             labelR.sizeDelta = new Vector2(0, 50);
 
-            // Slider
+            // Slider GameObject (has Slider component + Background Image on same GameObject
+            // so raycasts route to the Slider's OnPointerDown handler)
             var sliderGo = new GameObject(sliderName);
             sliderGo.transform.SetParent(parent, false);
             var sliderRect = sliderGo.AddComponent<RectTransform>();
@@ -572,20 +583,15 @@ namespace QuickChecks.Editor
             sliderRect.pivot = new Vector2(0.5f, 0.5f);
             sliderRect.sizeDelta = new Vector2(0, 50);
 
-            // Background
-            var bgGo = new GameObject("Background");
-            bgGo.transform.SetParent(sliderGo.transform, false);
-            var bgImg = bgGo.AddComponent<Image>();
+            // Background Image — ON THE SLIDER GAMEOBJECT (not a child!)
+            var bgImg = sliderGo.AddComponent<Image>();
             bgImg.color = new Color(0.05f, 0.07f, 0.07f, 1f);
-            var bgRect = bgGo.GetComponent<RectTransform>();
-            bgRect.anchorMin = Vector2.zero; bgRect.anchorMax = Vector2.one;
-            bgRect.pivot = new Vector2(0.5f, 0.5f);
-            bgRect.offsetMin = Vector2.zero; bgRect.offsetMax = Vector2.zero;
+            bgImg.raycastTarget = true;  // Slider needs this to receive click+drag
 
-            // Fill area + fill
+            // Fill area (child — just a rect for the fill to stretch inside)
             var fillAreaGo = new GameObject("Fill Area");
             fillAreaGo.transform.SetParent(sliderGo.transform, false);
-            var fillAreaRect = fillAreaGo.GetComponent<RectTransform>();
+            var fillAreaRect = fillAreaGo.AddComponent<RectTransform>();
             fillAreaRect.anchorMin = Vector2.zero; fillAreaRect.anchorMax = Vector2.one;
             fillAreaRect.pivot = new Vector2(0.5f, 0.5f);
             fillAreaRect.offsetMin = new Vector2(10, 0); fillAreaRect.offsetMax = new Vector2(-10, 0);
@@ -594,15 +600,16 @@ namespace QuickChecks.Editor
             fillGo.transform.SetParent(fillAreaGo.transform, false);
             var fillImg = fillGo.AddComponent<Image>();
             fillImg.color = Phase2UiPalette.AccentCyan;
+            fillImg.raycastTarget = false;  // fill shouldn't intercept — slider needs the drag
             var fillRect = fillGo.GetComponent<RectTransform>();
             fillRect.anchorMin = Vector2.zero; fillRect.anchorMax = Vector2.one;
             fillRect.pivot = new Vector2(0.5f, 0.5f);
             fillRect.offsetMin = Vector2.zero; fillRect.offsetMax = Vector2.zero;
 
-            // Handle area + handle
+            // Handle area + handle (handle IS the drag target — raycastTarget=true)
             var handleAreaGo = new GameObject("Handle Slide Area");
             handleAreaGo.transform.SetParent(sliderGo.transform, false);
-            var handleAreaRect = handleAreaGo.GetComponent<RectTransform>();
+            var handleAreaRect = handleAreaGo.AddComponent<RectTransform>();
             handleAreaRect.anchorMin = Vector2.zero; handleAreaRect.anchorMax = Vector2.one;
             handleAreaRect.pivot = new Vector2(0.5f, 0.5f);
             handleAreaRect.offsetMin = new Vector2(10, 0); handleAreaRect.offsetMax = new Vector2(-10, 0);
@@ -611,6 +618,7 @@ namespace QuickChecks.Editor
             handleGo.transform.SetParent(handleAreaGo.transform, false);
             var handleImg = handleGo.AddComponent<Image>();
             handleImg.color = Phase2UiPalette.TextPrimary;
+            handleImg.raycastTarget = true;  // handle must receive the drag
             var handleRect = handleGo.GetComponent<RectTransform>();
             handleRect.sizeDelta = new Vector2(30, 50);
 
@@ -930,10 +938,10 @@ namespace QuickChecks.Editor
             var rootGo = new GameObject("ToastDialog");
             rootGo.transform.SetParent(canvas, false);
 
-            // Dim background
+            // Dim background (visual only — raycastTarget=false so clicks reach the OK button)
             var dimImg = rootGo.AddComponent<Image>();
             dimImg.color = new Color(0f, 0f, 0f, 0.65f);
-            dimImg.raycastTarget = true;
+            dimImg.raycastTarget = false;
             var rootRect = rootGo.GetComponent<RectTransform>();
             rootRect.anchorMin = Vector2.zero;
             rootRect.anchorMax = Vector2.one;
@@ -1018,7 +1026,7 @@ namespace QuickChecks.Editor
             rootGo.transform.SetParent(canvas, false);
             var dimImg = rootGo.AddComponent<Image>();
             dimImg.color = new Color(0f, 0f, 0f, 0.75f);
-            dimImg.raycastTarget = true;
+            dimImg.raycastTarget = false;  // visual only — clicks reach the panel/buttons
             var rootRect = rootGo.GetComponent<RectTransform>();
             rootRect.anchorMin = Vector2.zero;
             rootRect.anchorMax = Vector2.one;
