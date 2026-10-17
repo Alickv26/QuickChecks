@@ -63,19 +63,27 @@ namespace QuickChecks.UI
             // sees a flash of it if the scene was saved with the dialog active.
             // Defensive: if the serialized reference is null, search the scene by name
             // (covers the case where the scene was built but the controller wasn't re-wired).
-            if (settingsDialog != null)
+            // Wrapped in try/catch so any failure here doesn't break the rest of the menu.
+            try
             {
-                settingsDialog.SetActive(false);
-            }
-            else
-            {
-                var found = GameObject.Find("SettingsDialog");
-                if (found != null)
+                if (settingsDialog != null)
                 {
-                    settingsDialog = found;
-                    found.SetActive(false);
-                    Debug.Log("[MainMenu] Found SettingsDialog via GameObject.Find (serialized ref was null).");
+                    settingsDialog.SetActive(false);
                 }
+                else
+                {
+                    var found = GameObject.Find("SettingsDialog");
+                    if (found != null)
+                    {
+                        settingsDialog = found;
+                        found.SetActive(false);
+                        Debug.Log("[MainMenu] Found SettingsDialog via GameObject.Find (serialized ref was null).");
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[MainMenu] Awake() failed to hide settings dialog: {ex.Message}");
             }
         }
 
