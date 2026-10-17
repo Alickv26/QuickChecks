@@ -256,12 +256,12 @@ namespace QuickChecks.Multiplayer
 
             if (req.result != UnityWebRequest.Result.Success)
             {
-                Debug.LogError($"[SupabaseLeaderboard] FetchGhost failed: {req.error} — {req.downloadHandler?.Text}");
+                Debug.LogError($"[SupabaseLeaderboard] FetchGhost failed: {req.error} — {req.downloadHandler?.text}");
                 onComplete?.Invoke(false, null);
                 yield break;
             }
 
-            string json = req.downloadHandler.Text;
+            string json = req.downloadHandler.text;
             if (string.IsNullOrEmpty(json))
             {
                 Debug.LogError("[SupabaseLeaderboard] FetchGhost returned empty body.");

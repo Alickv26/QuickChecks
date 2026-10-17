@@ -210,8 +210,8 @@ namespace QuickChecks.Multiplayer
             }
             else
             {
-                Debug.LogError($"[SupabaseRpcClient] GET {table} failed: {req.error} — {req.downloadHandler?.Text}");
-                onComplete?.Invoke(false, req.downloadHandler?.Text);
+                Debug.LogError($"[SupabaseRpcClient] GET {table} failed: {req.error} — {req.downloadHandler?.text}");
+                onComplete?.Invoke(false, req.downloadHandler?.text);
             }
         }
 
@@ -233,12 +233,12 @@ namespace QuickChecks.Multiplayer
 
             if (req.result == UnityWebRequest.Result.Success)
             {
-                onComplete?.Invoke(true, req.downloadHandler?.Text);
+                onComplete?.Invoke(true, req.downloadHandler?.text);
             }
             else
             {
-                Debug.LogError($"[SupabaseRpcClient] POST {table} failed: {req.error} — {req.downloadHandler?.Text}");
-                onComplete?.Invoke(false, req.downloadHandler?.Text);
+                Debug.LogError($"[SupabaseRpcClient] POST {table} failed: {req.error} — {req.downloadHandler?.text}");
+                onComplete?.Invoke(false, req.downloadHandler?.text);
             }
         }
 
@@ -259,12 +259,12 @@ namespace QuickChecks.Multiplayer
 
             if (req.result == UnityWebRequest.Result.Success)
             {
-                onComplete?.Invoke(true, req.downloadHandler.Text);
+                onComplete?.Invoke(true, req.downloadHandler.text);
             }
             else
             {
-                Debug.LogError($"[SupabaseRpcClient] RPC {functionName} failed: {req.error} — {req.downloadHandler?.Text}");
-                onComplete?.Invoke(false, req.downloadHandler?.Text);
+                Debug.LogError($"[SupabaseRpcClient] RPC {functionName} failed: {req.error} — {req.downloadHandler?.text}");
+                onComplete?.Invoke(false, req.downloadHandler?.text);
             }
         }
 
@@ -302,8 +302,8 @@ namespace QuickChecks.Multiplayer
             }
             else
             {
-                Debug.LogError($"[SupabaseRpcClient] Ghost upload failed: {req.error} — {req.downloadHandler?.Text}");
-                onComplete?.Invoke(false, req.downloadHandler?.Text);
+                Debug.LogError($"[SupabaseRpcClient] Ghost upload failed: {req.error} — {req.downloadHandler?.text}");
+                onComplete?.Invoke(false, req.downloadHandler?.text);
             }
         }
 

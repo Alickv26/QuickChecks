@@ -154,7 +154,7 @@ namespace QuickChecks.Multiplayer
             }
             else
             {
-                string err = req.downloadHandler?.Text ?? req.error;
+                string err = req.downloadHandler?.text ?? req.error;
                 Debug.LogError($"[SupabaseAuth] LinkEmail failed: {err}");
                 onComplete?.Invoke(false, err);
             }
@@ -188,7 +188,7 @@ namespace QuickChecks.Multiplayer
             }
             else
             {
-                Debug.LogError($"[SupabaseAuth] UpdateDisplayName failed: {req.error} — {req.downloadHandler?.Text}");
+                Debug.LogError($"[SupabaseAuth] UpdateDisplayName failed: {req.error} — {req.downloadHandler?.text}");
                 onComplete?.Invoke(false);
             }
         }
