@@ -423,10 +423,23 @@ namespace QuickChecks.Editor
             return t;
         }
 
-        /// <summary>Creates a TMP_InputField with a label-area + caret.</summary>
+        /// <summary>
+        /// Creates a TMP_InputField that ACTUALLY accepts clicks + typing.
+        ///
+        /// Standard TMP pattern: the input field GameObject has BOTH the TMP_InputField
+        /// component AND an Image (the background + raycast target). If the Image is on
+        /// a child, raycast hits the child but TMP_InputField's OnPointerDown is on the
+        /// parent — so the click never reaches the input field. The Image MUST be on the
+        /// same GameObject as TMP_InputField.
+        ///
+        /// Also: TMP creates its own caret at runtime — we don't need to manually add one.
+        /// </summary>
         private static TMP_InputField CreateSettingsInputField(Transform parent, string name,
             string placeholder, float anchorY, bool isPassword = false, bool isEmail = false)
         {
+            // --- Input field GameObject (has TMP_InputField + Image for the background) ---
+            // The Image is on the SAME GameObject so raycast hits route to TMP_InputField's
+            // OnPointerDown handler.
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
@@ -435,25 +448,20 @@ namespace QuickChecks.Editor
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = new Vector2(0, 55);
 
-            // Background
-            var bgGo = new GameObject("Background");
-            bgGo.transform.SetParent(go.transform, false);
-            var bgImg = bgGo.AddComponent<Image>();
+            // Background Image — ON THE INPUT FIELD GAMEOBJECT (not a child!)
+            var bgImg = go.AddComponent<Image>();
             bgImg.color = new Color(0.05f, 0.07f, 0.07f, 1f);
-            var bgRect = bgGo.GetComponent<RectTransform>();
-            bgRect.anchorMin = Vector2.zero; bgRect.anchorMax = Vector2.one;
-            bgRect.pivot = new Vector2(0.5f, 0.5f);
-            bgRect.offsetMin = Vector2.zero; bgRect.offsetMax = Vector2.zero;
+            bgImg.raycastTarget = true;  // CRITICAL — input field needs this to receive clicks
 
-            // Text area (where the user-typed text appears)
+            // Text area (child — just a RectTransform for text viewport clipping)
             var textAreaGo = new GameObject("TextArea");
             textAreaGo.transform.SetParent(go.transform, false);
-            var textAreaRect = textAreaGo.GetComponent<RectTransform>();
+            var textAreaRect = textAreaGo.AddComponent<RectTransform>();  // AddComponent, not GetComponent — fresh GameObjects don't have one
             textAreaRect.anchorMin = Vector2.zero; textAreaRect.anchorMax = Vector2.one;
             textAreaRect.pivot = new Vector2(0.5f, 0.5f);
             textAreaRect.offsetMin = new Vector2(10, 5); textAreaRect.offsetMax = new Vector2(-10, -5);
 
-            // User-typed text
+            // User-typed text (child of TextArea)
             var textGo = new GameObject("Text");
             textGo.transform.SetParent(textAreaGo.transform, false);
             var text = textGo.AddComponent<TextMeshProUGUI>();
@@ -468,7 +476,7 @@ namespace QuickChecks.Editor
             textR.pivot = new Vector2(0.5f, 0.5f);
             textR.offsetMin = Vector2.zero; textR.offsetMax = Vector2.zero;
 
-            // Placeholder
+            // Placeholder (child of TextArea — shown when input is empty)
             var phGo = new GameObject("Placeholder");
             phGo.transform.SetParent(textAreaGo.transform, false);
             var ph = phGo.AddComponent<TextMeshProUGUI>();
@@ -483,17 +491,9 @@ namespace QuickChecks.Editor
             phR.pivot = new Vector2(0.5f, 0.5f);
             phR.offsetMin = Vector2.zero; phR.offsetMax = Vector2.zero;
 
-            // Caret blinker (Unity provides a default one but TMP needs an explicit child)
-            var caretGo = new GameObject("Caret");
-            caretGo.transform.SetParent(textAreaGo.transform, false);
-            var caretImg = caretGo.AddComponent<Image>();
-            caretImg.color = Phase2UiPalette.AccentCyan;
-            var caretRect = caretGo.GetComponent<RectTransform>();
-            caretRect.anchorMin = new Vector2(0, 0); caretRect.anchorMax = new Vector2(0, 1);
-            caretRect.pivot = new Vector2(0, 0.5f);
-            caretRect.sizeDelta = new Vector2(2, 0);
+            // NO manual caret — TMP creates its own at runtime when the input is selected.
 
-            // InputField component itself
+            // InputField component itself (on the same GameObject as the Image — required for clicks)
             var input = go.AddComponent<TMP_InputField>();
             input.textViewport = textAreaRect;
             input.textComponent = text;
