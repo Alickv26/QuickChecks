@@ -39,24 +39,25 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+    adj text;
+    animal text;
+    num text;
 begin
+    -- Pick random adjective + animal + 2-digit number (e.g. 'SwiftFox_42').
+    -- Same algorithm as the C# PlayerProfile.GenerateDisplayName.
+    adj    := (array['Swift','Brave','Calm','Bold','Quick','Bright','Eager','Fierce',
+                     'Gentle','Happy','Jolly','Keen','Lively','Mighty','Noble','Proud',
+                     'Rapid','Silent','Steady','Valiant','Wise','Zesty','Clever','Daring'])
+                     [1 + floor(random() * 24)::int];
+    animal := (array['Fox','Tiger','Panda','Eagle','Wolf','Bear','Hawk','Lion',
+                     'Otter','Falcon','Lynx','Puma','Seal','Owl','Raven','Stag',
+                     'Viper','Cobra','Jaguar','Panther','Heron','Kraken','Mustang','Phantom'])
+                     [1 + floor(random() * 24)::int];
+    num    := lpad((10 + floor(random() * 90)::int)::text, 2, '0');
+
     insert into public.players (id, display_name)
-    values (
-        new.id,
-        -- Generate AdjectiveAnimal_Number — same algorithm as C# PlayerProfile.
-        -- Example: 'SwiftFox_42'. Pick from arrays at random.
-        (
-            (array['Swift','Brave','Calm','Bold','Quick','Bright','Eager','Fierce',
-                   'Gentle','Happy','Jolly','Keen','Lively','Mighty','Noble','Proud',
-                   'Rapid','Silent','Steady','Valiant','Wise','Zesty','Clever','Daring'])[1 + floor(random() * 24)::int]
-            ||
-            (array['Fox','Tiger','Panda','Eagle','Wolf','Bear','Hawk','Lion',
-                   'Otter','Falcon','Lynx','Puma','Seal','Owl','Raven','Stag',
-                   'Viper','Cobra','Jaguar','Panther','Heron','Kraken','Mustang','Phantom'])[1 + floor(random() * 24)::int]
-            ||
-            '_' || lpad((10 + floor(random() * 90))::text, 2, '0')
-        )
-    )
+    values (new.id, adj || animal || '_' || num)
     on conflict (id) do nothing;
     return new;
 end;
@@ -197,6 +198,11 @@ $$;
 -- Player rank RPC: returns just the requesting player's rank on a track.
 -- Faster than calling get_leaderboard with a huge limit when the player is
 -- ranked far below #10.
+--
+-- Implementation note: we use the same CTE pattern as get_leaderboard
+-- (row_number() over partition) because Postgres disallows window functions
+-- inside a FILTER clause — that was the original approach and it failed with
+-- ERROR 42P20 "window functions are not allowed in FILTER".
 -- ----------------------------------------------------------------------------
 create or replace function public.get_player_rank(p_track_id text)
 returns table (
@@ -209,29 +215,37 @@ stable
 security definer
 set search_path = public
 as $$
-    with best_runs as (
+    with ranked as (
         select
             rr.player_id,
-            min(rr.swipe_count) as best_swipes,
-            min(rr.finish_time_ms) filter (where rr.swipe_count = min(rr.swipe_count) over (partition by rr.player_id)) as best_time
+            rr.swipe_count,
+            rr.finish_time_ms,
+            -- For each player, only their BEST run on this track counts (lowest swipes,
+            -- tiebreaker fastest time).
+            row_number() over (
+                partition by rr.player_id
+                order by rr.swipe_count asc, rr.finish_time_ms asc
+            ) as personal_rank
         from public.race_results rr
         where rr.track_id = p_track_id
           and rr.is_dnf = false
-        group by rr.player_id
     ),
-    ranked as (
+    best_runs as (
+        select * from ranked where personal_rank = 1
+    ),
+    leaderboard as (
         select
             br.player_id,
-            br.best_swipes as swipe_count,
-            br.best_time   as finish_time_ms,
+            br.swipe_count,
+            br.finish_time_ms,
             row_number() over (
-                order by br.best_swipes asc, br.best_time asc
+                order by br.swipe_count asc, br.finish_time_ms asc
             ) as rank
         from best_runs br
     )
-    select r.rank, r.swipe_count, r.finish_time_ms
-    from ranked r
-    where r.player_id = coalesce(auth.uid(), '00000000-0000-0000-0000-000000000000'::uuid);
+    select l.rank, l.swipe_count, l.finish_time_ms
+    from leaderboard l
+    where l.player_id = coalesce(auth.uid(), '00000000-0000-0000-0000-000000000000'::uuid);
 $$;
 
 -- ----------------------------------------------------------------------------
