@@ -4,12 +4,15 @@ using UnityEngine.SceneManagement;
 namespace QuickChecks.Audio
 {
     /// <summary>
-    /// Bootstrap for the audio system. Created once at app launch.
-    /// Spawns MusicPlayer + SfxPlayer as DontDestroyOnLoad singletons.
-    /// Loads 'track.mp3' from Resources or Assets/_Project/Audio/Music/.
+    /// Bootstrap for the audio system + Supabase backend. Created once at app launch.
+    /// Spawns MusicPlayer + SfxPlayer + SupabaseRpcClient + SupabaseAuth + SupabaseLeaderboard
+    /// as DontDestroyOnLoad singletons.
+    ///
+    /// Also kicks off anonymous Supabase sign-in on first launch (Decision 11) so by the
+    /// time the player reaches the Results screen, the leaderboard can be fetched without
+    /// a delay.
     ///
     /// Usage: Add to MainMenu scene (or any first-loaded scene).
-    /// Or: GameFlowManager can spawn it.
     /// </summary>
     public class AudioBootstrap : MonoBehaviour
     {
@@ -20,7 +23,7 @@ namespace QuickChecks.Audio
             if (_initialized) return;
             _initialized = true;
 
-            // Create MusicPlayer
+            // --- Audio singletons ---
             var musicGo = new GameObject("[MusicPlayer]");
             var musicSource = musicGo.AddComponent<AudioSource>();
             var musicPlayer = musicGo.AddComponent<MusicPlayer>();
@@ -42,7 +45,6 @@ namespace QuickChecks.Audio
                 Debug.LogWarning("[AudioBootstrap] track.mp3 not found. Place at Assets/_Project/Audio/Music/track.mp3");
             }
 
-            // Create SfxPlayer
             var sfxGo = new GameObject("[SfxPlayer]");
             var sfxSource = sfxGo.AddComponent<AudioSource>();
             sfxGo.AddComponent<SfxPlayer>();
@@ -51,6 +53,35 @@ namespace QuickChecks.Audio
 
             // Play menu music on launch
             musicPlayer.PlayRaceMusic();  // For now, race music is also menu music
+
+            // --- Supabase backend singletons (Phase 2) ---
+            // Spawned here so every scene has them available without each scene having to
+            // include them explicitly. Each is a DontDestroyOnLoad singleton.
+            if (FindObjectOfType<Multiplayer.SupabaseClient>() == null)
+            {
+                var supabaseGo = new GameObject("[SupabaseClient]");
+                supabaseGo.AddComponent<Multiplayer.SupabaseClient>();  // spawns the three real singletons in Awake
+                Debug.Log("[AudioBootstrap] Supabase backend initialized (RpcClient + Auth + Leaderboard).");
+
+                // Kick off anonymous sign-in. The result is cached + reused on subsequent launches.
+                // We don't await — sign-in completes in the background while the player navigates menus.
+                StartCoroutine(SignInWhenReady());
+            }
+        }
+
+        private System.Collections.IEnumerator SignInWhenReady()
+        {
+            // Wait a frame so all Awake() calls finish + the SupabaseAuth.Instance is ready.
+            yield return null;
+            if (Multiplayer.SupabaseAuth.Instance != null)
+            {
+                Multiplayer.SupabaseAuth.Instance.StartCoroutine(
+                    Multiplayer.SupabaseAuth.Instance.SignInAndLoadProfile(ok =>
+                    {
+                        Debug.Log($"[AudioBootstrap] Supabase sign-in result: {ok}");
+                    })
+                );
+            }
         }
 
         /// <summary>

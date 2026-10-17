@@ -1276,6 +1276,15 @@ namespace QuickChecks.Prototype
                 if (isNewBest) GameFlowManager.Instance.profile?.UnlockNextTrack(_trackDef.trackIndex);
             }
 
+            // Phase 2 Supabase: auto-upload new best to global leaderboard (Solo only).
+            // We upload every new best (Decision: auto-upload). Failed uploads are non-fatal —
+            // the player still gets their local result + ghost. The ghost JSON is also uploaded
+            // so other players can replay it from the leaderboard.
+            if (_raceMode.IsSolo() && isNewBest && !string.IsNullOrEmpty(_trackDef.trackId))
+            {
+                UploadToLeaderboard(finishMs);
+            }
+
             // Phase 2: build the full results payload and route through the new path.
             // We synthesise a 1-entry TurnManager-style snapshot so RaceResultBuilder stays single-source-of-truth.
             // Auto-transition runs after the short display delay (lets the kart settle before scene change).
@@ -1288,6 +1297,46 @@ namespace QuickChecks.Prototype
             {
                 QuickChecks.Audio.SfxPlayer.Instance.PlayRaceComplete();
             }
+        }
+
+        /// <summary>
+        /// Uploads the player's new best race result + ghost to the Supabase leaderboard.
+        /// Fire-and-forget: any failure is logged but does not block the Results scene transition.
+        /// </summary>
+        private void UploadToLeaderboard(long finishMs)
+        {
+            var leaderboard = Multiplayer.SupabaseLeaderboard.Instance;
+            if (leaderboard == null)
+            {
+                Debug.LogWarning("[RaceScene] SupabaseLeaderboard not initialised — skipping upload.");
+                return;
+            }
+
+            string kartId = kartStats != null ? kartStats.kartId : "kart_starter";
+
+            // Serialize the ghost data to JSON for upload (so other players can replay top runs).
+            string ghostJson = null;
+            if (_ghostRecorder != null && _ghostRecorder.CurrentData != null)
+            {
+                try
+                {
+                    ghostJson = Newtonsoft.Json.JsonConvert.SerializeObject(_ghostRecorder.CurrentData);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning($"[RaceScene] Failed to serialize ghost: {ex.Message}");
+                }
+            }
+
+            Debug.Log($"[RaceScene] Uploading new best to Supabase: track={_trackDef.trackId}, " +
+                      $"swipes={_swipeCount}, time={finishMs / 1000f:F2}s");
+            leaderboard.UploadRaceResult(
+                trackId: _trackDef.trackId,
+                kartId: kartId,
+                swipeCount: _swipeCount,
+                finishTimeMs: finishMs,
+                isDnf: false,
+                ghostJson: ghostJson);
         }
 
         private void TransitionToResults()

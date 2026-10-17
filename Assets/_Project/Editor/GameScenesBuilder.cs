@@ -799,6 +799,175 @@ namespace QuickChecks.Editor
             public Button OkButton;
         }
 
+        /// <summary>
+        /// Builds the leaderboard panel as a hidden overlay on the Results screen.
+        /// Activated by LeaderboardButton (Solo mode only).
+        /// Layout: full-screen dim → centered panel → title/track/loading/error/your-rank text
+        /// → rows container → close button.
+        /// </summary>
+        private static GameObject BuildLeaderboardPanel(Transform canvas)
+        {
+            // Root (full-screen dim overlay, hidden by default)
+            var rootGo = new GameObject("LeaderboardPanel");
+            rootGo.transform.SetParent(canvas, false);
+            var dimImg = rootGo.AddComponent<Image>();
+            dimImg.color = new Color(0f, 0f, 0f, 0.75f);
+            dimImg.raycastTarget = true;
+            var rootRect = rootGo.GetComponent<RectTransform>();
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.pivot = new Vector2(0.5f, 0.5f);
+            rootRect.offsetMin = Vector2.zero;
+            rootRect.offsetMax = Vector2.zero;
+
+            // Centered panel
+            var panelGo = new GameObject("Panel");
+            panelGo.transform.SetParent(rootGo.transform, false);
+            var panelImg = panelGo.AddComponent<Image>();
+            panelImg.color = Phase2UiPalette.PanelSurface;
+            var panelRect = panelGo.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = new Vector2(900, 1200);
+
+            // Title
+            var titleText = Phase2UiPalette.CreateText("Title", "Leaderboard", 56, Phase2UiPalette.AccentCyan,
+                new Vector2(0.5f, 0.95f), new Vector2(800, 80));
+            titleText.transform.SetParent(panelGo.transform, false);
+            var titleRect = titleText.GetComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0.5f, 1f);
+            titleRect.anchorMax = new Vector2(0.5f, 1f);
+            titleRect.pivot = new Vector2(0.5f, 1f);
+            titleRect.anchoredPosition = new Vector2(0, -30);
+            titleRect.sizeDelta = new Vector2(800, 80);
+
+            // Track label (small, below title — shows track name + par)
+            var trackLabelGo = new GameObject("TrackLabel");
+            trackLabelGo.transform.SetParent(panelGo.transform, false);
+            var trackLabel = trackLabelGo.AddComponent<TextMeshProUGUI>();
+            trackLabel.text = "";
+            trackLabel.fontSize = 28;
+            trackLabel.alignment = TextAlignmentOptions.Center;
+            trackLabel.color = Phase2UiPalette.TextDim;
+            trackLabel.raycastTarget = false;
+            var trackLabelRect = trackLabelGo.GetComponent<RectTransform>();
+            trackLabelRect.anchorMin = new Vector2(0.5f, 1f);
+            trackLabelRect.anchorMax = new Vector2(0.5f, 1f);
+            trackLabelRect.pivot = new Vector2(0.5f, 1f);
+            trackLabelRect.anchoredPosition = new Vector2(0, -120);
+            trackLabelRect.sizeDelta = new Vector2(800, 40);
+
+            // Loading label
+            var loadingGo = new GameObject("LoadingLabel");
+            loadingGo.transform.SetParent(panelGo.transform, false);
+            var loadingLabel = loadingGo.AddComponent<TextMeshProUGUI>();
+            loadingLabel.text = "Loading leaderboard...";
+            loadingLabel.fontSize = 32;
+            loadingLabel.alignment = TextAlignmentOptions.Center;
+            loadingLabel.color = Phase2UiPalette.TextPrimary;
+            loadingLabel.raycastTarget = false;
+            var loadingRect = loadingGo.GetComponent<RectTransform>();
+            loadingRect.anchorMin = new Vector2(0.5f, 0.5f);
+            loadingRect.anchorMax = new Vector2(0.5f, 0.5f);
+            loadingRect.pivot = new Vector2(0.5f, 0.5f);
+            loadingRect.anchoredPosition = new Vector2(0, 0);
+            loadingRect.sizeDelta = new Vector2(700, 50);
+
+            // Error label
+            var errorGo = new GameObject("ErrorLabel");
+            errorGo.transform.SetParent(panelGo.transform, false);
+            var errorLabel = errorGo.AddComponent<TextMeshProUGUI>();
+            errorLabel.text = "";
+            errorLabel.fontSize = 28;
+            errorLabel.alignment = TextAlignmentOptions.Center;
+            errorLabel.color = new Color(1f, 0.42f, 0.42f);
+            errorLabel.enableWordWrapping = true;
+            errorLabel.raycastTarget = false;
+            var errorRect = errorGo.GetComponent<RectTransform>();
+            errorRect.anchorMin = new Vector2(0.5f, 0.5f);
+            errorRect.anchorMax = new Vector2(0.5f, 0.5f);
+            errorRect.pivot = new Vector2(0.5f, 0.5f);
+            errorRect.anchoredPosition = new Vector2(0, 0);
+            errorRect.sizeDelta = new Vector2(700, 120);
+
+            // Rows container (top-N + your rank below)
+            var rowsGo = new GameObject("RowsContainer");
+            rowsGo.transform.SetParent(panelGo.transform, false);
+            var vlg = rowsGo.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 4;
+            vlg.padding = new RectOffset(20, 20, 20, 20);
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            var rowsRect = rowsGo.GetComponent<RectTransform>();
+            rowsRect.anchorMin = new Vector2(0, 0.18f);
+            rowsRect.anchorMax = new Vector2(1, 0.88f);
+            rowsRect.pivot = new Vector2(0.5f, 0.5f);
+            rowsRect.offsetMin = Vector2.zero;
+            rowsRect.offsetMax = Vector2.zero;
+
+            // "Your rank" label (below the rows)
+            var yourRankGo = new GameObject("YourRankLabel");
+            yourRankGo.transform.SetParent(panelGo.transform, false);
+            var yourRankLabel = yourRankGo.AddComponent<TextMeshProUGUI>();
+            yourRankLabel.text = "";
+            yourRankLabel.fontSize = 28;
+            yourRankLabel.alignment = TextAlignmentOptions.Center;
+            yourRankLabel.color = Phase2UiPalette.AccentCyan;
+            yourRankLabel.raycastTarget = false;
+            var yourRankRect = yourRankGo.GetComponent<RectTransform>();
+            yourRankRect.anchorMin = new Vector2(0.5f, 0.10f);
+            yourRankRect.anchorMax = new Vector2(0.5f, 0.10f);
+            yourRankRect.pivot = new Vector2(0.5f, 0.5f);
+            yourRankRect.anchoredPosition = new Vector2(0, 0);
+            yourRankRect.sizeDelta = new Vector2(800, 40);
+
+            // Close button (top-right)
+            var closeGo = new GameObject("CloseButton");
+            closeGo.transform.SetParent(panelGo.transform, false);
+            var closeBtn = closeGo.AddComponent<Button>();
+            var closeImg = closeGo.AddComponent<Image>();
+            closeImg.color = new Color(0.5f, 0.5f, 0.5f, 0.3f);
+            closeBtn.targetGraphic = closeImg;
+            var closeRect = closeGo.GetComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(1, 1);
+            closeRect.anchorMax = new Vector2(1, 1);
+            closeRect.pivot = new Vector2(1, 1);
+            closeRect.anchoredPosition = new Vector2(-20, -20);
+            closeRect.sizeDelta = new Vector2(80, 80);
+
+            var closeLabelGo = new GameObject("Label");
+            closeLabelGo.transform.SetParent(closeGo.transform, false);
+            var closeLabel = closeLabelGo.AddComponent<TextMeshProUGUI>();
+            closeLabel.text = "X";
+            closeLabel.fontSize = 48;
+            closeLabel.alignment = TextAlignmentOptions.Center;
+            closeLabel.color = Phase2UiPalette.TextPrimary;
+            closeLabel.raycastTarget = false;
+            var closeLabelR = closeLabelGo.GetComponent<RectTransform>();
+            closeLabelR.anchorMin = Vector2.zero; closeLabelR.anchorMax = Vector2.one;
+            closeLabelR.pivot = new Vector2(0.5f, 0.5f);
+            closeLabelR.offsetMin = Vector2.zero; closeLabelR.offsetMax = Vector2.zero;
+
+            // Attach LeaderboardPanel component + wire refs
+            var panel = rootGo.AddComponent<LeaderboardPanel>();
+            var so = new SerializedObject(panel);
+            so.FindProperty("rowsContainer").objectReferenceValue = rowsGo.transform;
+            so.FindProperty("titleLabel").objectReferenceValue = titleText;
+            so.FindProperty("trackLabel").objectReferenceValue = trackLabel;
+            so.FindProperty("loadingLabel").objectReferenceValue = loadingLabel;
+            so.FindProperty("errorLabel").objectReferenceValue = errorLabel;
+            so.FindProperty("yourRankLabel").objectReferenceValue = yourRankLabel;
+            so.FindProperty("closeButton").objectReferenceValue = closeBtn;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            rootGo.SetActive(false);  // hidden by default
+            return rootGo;
+        }
+
         private static void BuildKartSelectScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -1226,6 +1395,37 @@ namespace QuickChecks.Editor
             mlR.pivot = new Vector2(0.5f, 0.5f);
             mlR.offsetMin = Vector2.zero; mlR.offsetMax = Vector2.zero;
 
+            // Leaderboard button (Solo only — hidden by default, shown via ResultsScreenController)
+            var lbGo = new GameObject("LeaderboardButton");
+            lbGo.transform.SetParent(canvasGo.transform, false);
+            var lbBtn = lbGo.AddComponent<Button>();
+            var lbImg = lbGo.AddComponent<Image>();
+            lbImg.color = new Color(0.42f, 0.58f, 1f, 0.9f);  // blue accent for leaderboard
+            lbImg.raycastTarget = true;
+            lbBtn.targetGraphic = lbImg;
+            var lbRect = lbGo.GetComponent<RectTransform>();
+            lbRect.anchorMin = new Vector2(0.5f, 0.08f);
+            lbRect.anchorMax = new Vector2(0.5f, 0.08f);
+            lbRect.pivot = new Vector2(0.5f, 0.5f);
+            lbRect.sizeDelta = new Vector2(300, 100);
+            lbGo.SetActive(false);  // hidden by default — ResultsScreenController shows it in Solo
+
+            var lblGo = new GameObject("Label");
+            lblGo.transform.SetParent(lbGo.transform, false);
+            var lblText = lblGo.AddComponent<TextMeshProUGUI>();
+            lblText.text = "Leaderboard";
+            lblText.fontSize = 32;
+            lblText.alignment = TextAlignmentOptions.Center;
+            lblText.color = Color.white;
+            lblText.raycastTarget = false;
+            var lblR = lblGo.GetComponent<RectTransform>();
+            lblR.anchorMin = Vector2.zero; lblR.anchorMax = Vector2.one;
+            lblR.pivot = new Vector2(0.5f, 0.5f);
+            lblR.offsetMin = Vector2.zero; lblR.offsetMax = Vector2.zero;
+
+            // --- Leaderboard panel (hidden by default, shown via LeaderboardButton) ---
+            var leaderboardPanel = BuildLeaderboardPanel(canvasGo.transform);
+
             // GameFlowManager
             var flowGo = new GameObject("[GameFlowManager]");
             flowGo.AddComponent<GameFlowManager>();
@@ -1272,6 +1472,8 @@ namespace QuickChecks.Editor
             so.FindProperty("retryButton").objectReferenceValue = retryBtn;
             so.FindProperty("menuButton").objectReferenceValue = menuBtn;
             so.FindProperty("retryButtonText").objectReferenceValue = rlText;
+            so.FindProperty("leaderboardButton").objectReferenceValue = lbBtn;
+            so.FindProperty("leaderboardPanel").objectReferenceValue = leaderboardPanel.GetComponent<LeaderboardPanel>();
 
             so.ApplyModifiedPropertiesWithoutUndo();
 

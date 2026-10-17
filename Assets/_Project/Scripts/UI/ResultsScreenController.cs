@@ -79,7 +79,11 @@ namespace QuickChecks.UI
         [Header("UI References — Buttons")]
         [SerializeField] private Button retryButton;
         [SerializeField] private Button menuButton;
+        [SerializeField] private Button leaderboardButton;     // Solo only — opens leaderboard modal
         [SerializeField] private TMP_Text retryButtonText;  // so label can be "Retry" / "Rematch"
+
+        [Header("Leaderboard panel (optional — Solo only)")]
+        [SerializeField] private LeaderboardPanel leaderboardPanel;
 
         [Header("Colors (Art Bible palette)")]
         [SerializeField] private Color accentCyan = new Color(0.247f, 0.878f, 0.760f);    // #3FE0C2
@@ -160,6 +164,16 @@ namespace QuickChecks.UI
         {
             var human = r.HumanResult;
             if (human == null) return;
+
+            // Show the Leaderboard button (Solo only).
+            if (leaderboardButton != null)
+            {
+                leaderboardButton.gameObject.SetActive(true);
+                if (leaderboardButton.GetComponent<ButtonHoverFx>() == null)
+                {
+                    leaderboardButton.gameObject.AddComponent<ButtonHoverFx>();
+                }
+            }
 
             if (titleText != null)
             {
@@ -547,6 +561,31 @@ namespace QuickChecks.UI
                 menuButton.onClick.RemoveAllListeners();
                 menuButton.onClick.AddListener(OnMenuClicked);
             }
+            if (leaderboardButton != null)
+            {
+                leaderboardButton.onClick.RemoveAllListeners();
+                leaderboardButton.onClick.AddListener(OnLeaderboardClicked);
+                // Show the button only in Solo mode (other modes don't have a global leaderboard).
+                leaderboardButton.gameObject.SetActive(false);  // default — set true in RenderSolo
+            }
+        }
+
+        private void OnLeaderboardClicked()
+        {
+            if (Audio.SfxPlayer.Instance != null) Audio.SfxPlayer.Instance.PlayMenuClick();
+            if (leaderboardPanel == null)
+            {
+                Debug.LogWarning("[Results] Leaderboard panel not wired.");
+                return;
+            }
+            // Use the last race results to know which track to query.
+            var r = GameFlowManager.Instance?.lastRaceResults;
+            if (r == null)
+            {
+                Debug.LogWarning("[Results] No lastRaceResults — can't query leaderboard.");
+                return;
+            }
+            leaderboardPanel.Show(r.trackId, r.trackDisplayName);
         }
 
         private void OnRetryClicked()
