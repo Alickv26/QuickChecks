@@ -21,6 +21,10 @@ namespace QuickChecks.Racing
         [Header("Identity")]
         public string powerUpId;
         public string displayName;
+        [Tooltip("Brief one-line effect description shown in the pickup toast. " +
+                 "e.g. 'Velocity boosted x1.8 for 1.5s'.")]
+        [TextArea(1, 3)]
+        public string effectDescription = "";
         public Sprite icon;
 
         [Header("Visual")]

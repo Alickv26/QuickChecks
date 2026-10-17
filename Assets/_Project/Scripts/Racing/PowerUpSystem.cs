@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace QuickChecks.Racing
@@ -27,6 +28,13 @@ namespace QuickChecks.Racing
         public bool HasHeldPowerUp => _heldPowerUp != null;
         public bool HasActiveEffect => _effectTimer > 0f;
         public float EffectTimeRemaining => _effectTimer;
+
+        /// <summary>
+        /// Fired when the kart picks up a power-up (instant-use AND held).
+        /// Subscribers: PowerUpPickupNotifier (shows on-screen toast), HUD icon indicator, etc.
+        /// Args: the power-up that was just collected.
+        /// </summary>
+        public event Action<PowerUpBase> OnCollected;
 
         private void Update()
         {
@@ -94,6 +102,10 @@ namespace QuickChecks.Racing
             {
                 Debug.Log($"[PowerUpSystem] Holding power-up '{powerUp.powerUpId}'. Press Use button to activate.");
             }
+
+            // Fire the OnCollected event so the UI notifier can show a toast.
+            try { OnCollected?.Invoke(powerUp); }
+            catch (Exception ex) { Debug.LogError($"[PowerUpSystem] OnCollected subscriber threw: {ex.Message}"); }
         }
 
         /// <summary>

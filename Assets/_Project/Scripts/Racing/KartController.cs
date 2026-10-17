@@ -286,6 +286,21 @@ namespace QuickChecks.Racing
             isOffTrack = false;
         }
 
+        /// <summary>
+        /// Halts the kart immediately — velocity zeroed, isStopped = true. Used by BlackHole
+        /// before starting its rewind animation so the kart doesn't drift mid-rewind.
+        /// </summary>
+        public void StopImmediately()
+        {
+            currentVelocity = Vector2.zero;
+            isStopped = true;
+            if (_rb != null)
+            {
+                _rb.velocity = Vector2.zero;
+                _rb.angularVelocity = 0f;
+            }
+        }
+
         public void ApplyBoost(float multiplier, float durationSec)
         {
             // TODO: implement boost state with timer. For now, instant velocity multiply.

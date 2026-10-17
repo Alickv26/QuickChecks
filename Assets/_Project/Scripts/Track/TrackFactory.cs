@@ -88,7 +88,7 @@ namespace QuickChecks.Track
             // No power-ups on track 1 (very forgiving, focus on learning swipe mechanic)
             def.powerUpSpawns = new TrackDefinition.PowerUpSpawn[0];
 
-            // 1 gravel spot on track 1 (introduces obstacle gently)
+            // 1 gravel spot on track 1 (introduces obstacle gently — long enough to actually slow you down)
             def.obstacleSpawns = new TrackDefinition.ObstacleSpawn[]
             {
                 new TrackDefinition.ObstacleSpawn
@@ -96,7 +96,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
                     t = 0.5f,
                     lateralOffset = 0f,
-                    size = new Vector2(2f, 2f),
+                    size = new Vector2(6f, 3f),  // 6 units along track, 3 across — multiple swipes to escape
                     teleportDistance = 0f
                 }
             };
@@ -178,7 +178,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
                     t = 0.7f,
                     lateralOffset = 0f,
-                    size = new Vector2(2.5f, 2.5f),  // Smaller gravel patch
+                    size = new Vector2(7f, 3f),  // Long gravel trap — punishes misjudged swipes
                     teleportDistance = 0f
                 }
             };
@@ -282,7 +282,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
                     t = 0.85f,
                     lateralOffset = 0f,
-                    size = new Vector2(2f, 2f),  // Small gravel
+                    size = new Vector2(8f, 3.5f),  // Long gravel trap before the finish — punishes a sloppy approach
                     teleportDistance = 0f
                 }
             };
@@ -401,7 +401,7 @@ namespace QuickChecks.Track
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Gravel,
                     t = 0.9f,
                     lateralOffset = 0f,
-                    size = new Vector2(2.5f, 2f),  // Small gravel
+                    size = new Vector2(9f, 4f),  // Final long gravel trap — meaningful slowdown
                     teleportDistance = 0f
                 }
             };
@@ -413,47 +413,74 @@ namespace QuickChecks.Track
 
         private static Racing.PowerUpBase CreateBoostPowerUp()
         {
-            return ScriptableObject.CreateInstance<Racing.PowerUps.BoostPowerUp>();
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.BoostPowerUp>();
+            pu.displayName = "Boost";
+            pu.effectDescription = "Velocity multiplied by 1.8× for 1.5s — punch through gravel + walls";
+            return pu;
         }
 
         private static Racing.PowerUpBase CreateShieldPowerUp()
         {
-            return ScriptableObject.CreateInstance<Racing.PowerUps.ShieldPowerUp>();
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.ShieldPowerUp>();
+            pu.displayName = "Shield";
+            pu.effectDescription = "Invulnerable to obstacles + black holes for 10s";
+            return pu;
         }
 
         private static Racing.PowerUpBase CreateMagnetPowerUp()
         {
-            return ScriptableObject.CreateInstance<Racing.PowerUps.MagnetPowerUp>();
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.MagnetPowerUp>();
+            pu.displayName = "Magnet";
+            pu.effectDescription = "Pulls nearby power-ups toward your kart for 6s";
+            return pu;
         }
 
         private static Racing.PowerUpBase CreateDoubleMovePowerUp()
         {
-            return ScriptableObject.CreateInstance<Racing.PowerUps.DoubleMovePowerUp>();
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.DoubleMovePowerUp>();
+            pu.displayName = "Double Move";
+            pu.effectDescription = "Take 2 swipes this turn instead of 1";
+            return pu;
         }
 
         private static Racing.PowerUpBase CreateTrailWallPowerUp()
         {
-            return ScriptableObject.CreateInstance<Racing.PowerUps.TrailWallPowerUp>();
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.TrailWallPowerUp>();
+            pu.displayName = "Trail Wall";
+            pu.effectDescription = "Your next swipe leaves a wall behind that blocks opponents";
+            return pu;
         }
 
         private static Racing.PowerUpBase CreateBouncePowerUp()
         {
-            return ScriptableObject.CreateInstance<Racing.PowerUps.BouncePowerUp>();
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.BouncePowerUp>();
+            pu.displayName = "Bounce";
+            pu.effectDescription = "Your next wall hit bounces you off instead of stopping";
+            return pu;
         }
 
         private static Racing.PowerUpBase CreateSlingshotPowerUp()
         {
-            return ScriptableObject.CreateInstance<Racing.PowerUps.SlingshotPowerUp>();
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.SlingshotPowerUp>();
+            pu.displayName = "Slingshot";
+            pu.effectDescription = "Instantly launches you toward the next checkpoint";
+            return pu;
         }
 
         private static Racing.PowerUpBase CreatePhaseDodgePowerUp()
         {
-            return ScriptableObject.CreateInstance<Racing.PowerUps.PhaseDodgePowerUp>();
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.PhaseDodgePowerUp>();
+            pu.displayName = "Phase Dodge";
+            pu.effectDescription = "Next swipe phases through walls — used or expires in 5s";
+            return pu;
         }
 
         private static Racing.PowerUpBase CreateRewindPowerUp()
         {
-            return ScriptableObject.CreateInstance<Racing.PowerUps.RewindPowerUp>();
+            var pu = ScriptableObject.CreateInstance<Racing.PowerUps.RewindPowerUp>();
+            pu.displayName = "Rewind";
+            pu.effectDescription = "Sends you back to your previous stop position";
+            return pu;
         }
     }
 }

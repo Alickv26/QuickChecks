@@ -203,6 +203,7 @@ namespace QuickChecks.Prototype
             _kart = kartGo.AddComponent<KartController>();
             _swipeDetector = kartGo.AddComponent<SwipeDetector>();
             _ghostRecorder = kartGo.AddComponent<GhostRecorder>();
+            var stopHistory = kartGo.AddComponent<Racing.KartStopHistory>();
             var trail = kartGo.AddComponent<KartTrail>();
             kartGo.AddComponent<SwipeFeedback>();
             kartGo.AddComponent<SwipeAudio>();
@@ -224,6 +225,13 @@ namespace QuickChecks.Prototype
             SetField(trail, "kart", _kart);  // Wire trail so it follows the kart
             SetField(pus, "kart", _kart);
             SetField(_cameraRig, "target", kartGo.transform);
+
+            // Wire the power-up pickup notifier to this kart's PowerUpSystem
+            // (Notifier was built in BuildHUD; we link it to the kart here once both exist.)
+            if (_powerUpNotifier != null)
+            {
+                _powerUpNotifier.WatchKart(pus);
+            }
 
             // Wire feedback + audio (was missing — no particles/whoosh in Race scene)
             var feedback = kartGo.GetComponent<SwipeFeedback>();
@@ -439,7 +447,80 @@ namespace QuickChecks.Prototype
             _turnBanner = bannerGo.AddComponent<UI.TurnBannerController>();
             SetField(_turnBanner, "bannerText", bannerLabel);
             SetField(_turnBanner, "bannerBackground", bannerImg);
+
+            // ----- Power-up pickup notifier (top-center toast, hidden by default) -----
+            BuildPowerUpNotifier(canvasGo.transform);
         }
+
+        /// <summary>Builds the in-race power-up pickup notifier toast (hidden by default).</summary>
+        private void BuildPowerUpNotifier(Transform canvasTransform)
+        {
+            var panelGo = new GameObject("PowerUpNotifier");
+            panelGo.transform.SetParent(canvasTransform, false);
+
+            var panelImg = panelGo.AddComponent<Image>();
+            panelImg.color = new Color(0.055f, 0.078f, 0.078f, 0.92f);  // dark teal
+            panelImg.raycastTarget = false;
+            var panelRect = panelGo.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.5f, 0.85f);
+            panelRect.anchorMax = new Vector2(0.5f, 0.85f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = new Vector2(700, 130);
+
+            // Accent bar (left side — colored to match the power-up's effectColor)
+            var accentGo = new GameObject("AccentBar");
+            accentGo.transform.SetParent(panelGo.transform, false);
+            var accentImg = accentGo.AddComponent<Image>();
+            accentImg.color = new Color(0.247f, 0.878f, 0.760f, 1f);  // default cyan; updated per pickup
+            accentImg.raycastTarget = false;
+            var accentRect = accentGo.GetComponent<RectTransform>();
+            accentRect.anchorMin = new Vector2(0, 0);
+            accentRect.anchorMax = new Vector2(0, 1);
+            accentRect.pivot = new Vector2(0, 0.5f);
+            accentRect.offsetMin = new Vector2(0, 0);
+            accentRect.offsetMax = new Vector2(8, 0);
+
+            // Power-up name (large, off-white)
+            var nameGo = new GameObject("NameText");
+            nameGo.transform.SetParent(panelGo.transform, false);
+            var nameText = nameGo.AddComponent<TextMeshProUGUI>();
+            nameText.text = "";
+            nameText.fontSize = 38;
+            nameText.alignment = TextAlignmentOptions.Center;
+            nameText.color = new Color(0.969f, 0.969f, 0.949f);
+            nameText.raycastTarget = false;
+            var nameRect = nameGo.GetComponent<RectTransform>();
+            nameRect.anchorMin = new Vector2(0.1f, 0.55f);
+            nameRect.anchorMax = new Vector2(0.95f, 0.95f);
+            nameRect.pivot = new Vector2(0.5f, 0.5f);
+            nameRect.offsetMin = Vector2.zero; nameRect.offsetMax = Vector2.zero;
+
+            // Effect description (smaller, dim cyan)
+            var descGo = new GameObject("DescriptionText");
+            descGo.transform.SetParent(panelGo.transform, false);
+            var descText = descGo.AddComponent<TextMeshProUGUI>();
+            descText.text = "";
+            descText.fontSize = 24;
+            descText.alignment = TextAlignmentOptions.Center;
+            descText.color = new Color(0.247f, 0.878f, 0.760f, 0.85f);
+            descText.enableWordWrapping = true;
+            descText.raycastTarget = false;
+            var descRect = descGo.GetComponent<RectTransform>();
+            descRect.anchorMin = new Vector2(0.1f, 0.05f);
+            descRect.anchorMax = new Vector2(0.95f, 0.50f);
+            descRect.pivot = new Vector2(0.5f, 0.5f);
+            descRect.offsetMin = Vector2.zero; descRect.offsetMax = Vector2.zero;
+
+            panelGo.SetActive(false);  // hidden by default — shown on pickup
+
+            _powerUpNotifier = panelGo.AddComponent<UI.PowerUpPickupNotifier>();
+            SetField(_powerUpNotifier, "panelRoot", panelGo);
+            SetField(_powerUpNotifier, "accentBar", accentImg);
+            SetField(_powerUpNotifier, "nameText", nameText);
+            SetField(_powerUpNotifier, "descriptionText", descText);
+        }
+
+        private UI.PowerUpPickupNotifier _powerUpNotifier;
 
         private void BuildServices()
         {
@@ -749,6 +830,9 @@ namespace QuickChecks.Prototype
             var handler = new Action<QuickChecks.Input.SwipeData>(swipe => OnKartSwipe(kartIndex, swipe));
             _perKartSwipeHandlers.Add(handler);
             kartSwipeEvent.Register(handler);
+
+            // Stop-position history (for BlackHole rewind feature)
+            kartGo.AddComponent<Racing.KartStopHistory>();
 
             // Add trail
             var trail = kartGo.AddComponent<KartTrail>();
@@ -1166,6 +1250,13 @@ namespace QuickChecks.Prototype
                         if (_kartStopDelay != null) _kartStopDelay[playerIndex] = 0.3f;
                     }
 
+                    // Notify the kart's stop-history that a swipe fired (for BlackHole rewind)
+                    var kartForHistory = _allKarts[playerIndex];
+                    if (kartForHistory != null)
+                    {
+                        kartForHistory.GetComponent<Racing.KartStopHistory>()?.NotifySwipe();
+                    }
+
                     // Check trail wall pending
                     var kart = _allKarts[playerIndex];
                     if (kart != null && kart.ConsumeTrailWallPending())
@@ -1189,6 +1280,8 @@ namespace QuickChecks.Prototype
         {
             // Solo mode only
             _swipeCount++;
+            // Notify the stop-history so it knows the next stop should be recorded (for BlackHole rewind)
+            _kart?.GetComponent<Racing.KartStopHistory>()?.NotifySwipe();
         }
 
         private void Update()
@@ -1457,6 +1550,10 @@ namespace QuickChecks.Prototype
                     var pus = _allKarts[i].GetComponent<PowerUpSystem>();
                     pus?.Clear();
 
+                    // Reset stop-position history (for BlackHole rewind feature)
+                    var stopHistory = _allKarts[i].GetComponent<Racing.KartStopHistory>();
+                    stopHistory?.Clear();
+
                     // Reset wasKartMoving
                     if (_wasKartMoving != null && i < _wasKartMoving.Length)
                         _wasKartMoving[i] = false;
@@ -1483,6 +1580,8 @@ namespace QuickChecks.Prototype
             else
             {
                 if (_kart != null) _kart.RespawnAt(_runtimeKartSpawn);
+                // Reset solo kart's stop-position history
+                _kart?.GetComponent<Racing.KartStopHistory>()?.Clear();
             }
 
             // Reset checkpoint visuals
