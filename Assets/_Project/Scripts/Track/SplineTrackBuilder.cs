@@ -559,9 +559,12 @@ namespace QuickChecks.Track
             sr.sortingOrder = 7;
 
             var bh = go.AddComponent<Obstacles.BlackHole>();
-            bh.teleportDistance = teleportDistance > 0 ? teleportDistance : 8f;
+            // Map the legacy 'teleportDistance' field to rewindSwipes — bigger distance = more swipes rewound.
+            // Default 8 (the legacy fallback) maps to 3 swipes (the BlackHole default).
+            // 0 (not set in track def) also maps to 3.
+            bh.rewindSwipes = teleportDistance > 0 ? Mathf.Max(1, Mathf.RoundToInt(teleportDistance / 2.5f)) : 3;
             bh.visualRadius = radius;
-            Debug.Log($"[SplineTrackBuilder] Black hole at {pos} radius {radius} teleport {teleportDistance}.");
+            Debug.Log($"[SplineTrackBuilder] Black hole at {pos} radius {radius} rewindSwipes={bh.rewindSwipes}.");
         }
 
         private void BuildGravelSpot(Transform parent, Vector2 pos, Vector2 size, Vector2 tangent)

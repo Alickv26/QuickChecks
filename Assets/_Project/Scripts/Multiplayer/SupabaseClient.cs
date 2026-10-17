@@ -82,7 +82,7 @@ namespace QuickChecks.Multiplayer
                 // on the main thread via Instance.StartCoroutine. This is acceptable for
                 // the legacy bridge — new code should use the coroutine directly.)
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                while (!done && sw.Elapsed < TimeSpan.FromSeconds(10))
+                while (!done && sw.Elapsed < System.TimeSpan.FromSeconds(10))
                 {
                     System.Threading.Thread.Sleep(50);
                 }

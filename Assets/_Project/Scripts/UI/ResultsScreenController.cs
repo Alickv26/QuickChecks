@@ -446,7 +446,7 @@ namespace QuickChecks.UI
             var hlg = go.AddComponent<HorizontalLayoutGroup>();
             hlg.padding = new RectOffset(20, 20, 8, 8);
             hlg.spacing = 24;
-            hlg.childAlignment = TextAnchor.Left;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
             hlg.childControlWidth = true;
             hlg.childControlHeight = false;
             hlg.childForceExpandWidth = true;

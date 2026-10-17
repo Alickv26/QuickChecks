@@ -210,7 +210,7 @@ namespace QuickChecks.UI
             nameRowGo.transform.SetParent(textColGo.transform, false);
             var nameHlg = nameRowGo.AddComponent<HorizontalLayoutGroup>();
             nameHlg.spacing = 12;
-            nameHlg.childAlignment = TextAnchor.Left;
+            nameHlg.childAlignment = TextAnchor.MiddleLeft;
             nameHlg.childControlWidth = false;
             nameHlg.childControlHeight = false;
             nameHlg.childForceExpandWidth = false;
