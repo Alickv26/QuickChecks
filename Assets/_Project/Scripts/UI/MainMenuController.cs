@@ -57,10 +57,21 @@ namespace QuickChecks.UI
 
         private bool _settingsOpen;
 
+        private void Awake()
+        {
+            // Hide the settings dialog ASAP (before Start() runs) so the player never
+            // sees a flash of it if the scene was saved with the dialog active.
+            if (settingsDialog != null) settingsDialog.SetActive(false);
+        }
+
         private void Start()
         {
             if (titleText != null) titleText.text = "QuickChecks";
             if (subtitleText != null) subtitleText.text = "Swipe Golf Racing";
+
+            // Defensive: hide the settings dialog again in case anything re-enabled it
+            // between Awake and Start.
+            if (settingsDialog != null) settingsDialog.SetActive(false);
 
             if (playButton != null)
             {
