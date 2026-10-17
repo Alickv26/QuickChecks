@@ -311,7 +311,7 @@ namespace QuickChecks.Editor
             // Email input
             CreateSettingsTextLabel(panelGo.transform, "Link Email (optional — recovers progress on new device)", 0.50f);
             var emailInput = CreateSettingsInputField(panelGo.transform, "EmailInput",
-                "email@example.com", 0.45f, keyboardType: TMP_InputField.KeyboardType.EmailAddress);
+                "email@example.com", 0.45f, isEmail: true);
 
             // Password input
             CreateSettingsTextLabel(panelGo.transform, "Password (min 6 chars)", 0.38f);
@@ -425,8 +425,7 @@ namespace QuickChecks.Editor
 
         /// <summary>Creates a TMP_InputField with a label-area + caret.</summary>
         private static TMP_InputField CreateSettingsInputField(Transform parent, string name,
-            string placeholder, float anchorY, bool isPassword = false,
-            TMP_InputField.KeyboardType keyboardType = TMP_InputField.KeyboardType.Default)
+            string placeholder, float anchorY, bool isPassword = false, bool isEmail = false)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -501,13 +500,14 @@ namespace QuickChecks.Editor
             input.placeholder = ph;
             input.caretColor = Phase2UiPalette.AccentCyan;
             input.selectionColor = new Color(0.247f, 0.878f, 0.760f, 0.4f);
-            input.keyboardType = keyboardType;
             input.characterLimit = isPassword ? 64 : 24;
+            // Pick the ContentType based on flags. ContentType drives both validation
+            // AND the on-screen keyboard type on mobile (TMP picks the right keyboard).
             input.contentType = isPassword
                 ? TMP_InputField.ContentType.Password
-                : (keyboardType == TMP_InputField.KeyboardType.EmailAddress
+                : isEmail
                     ? TMP_InputField.ContentType.EmailAddress
-                    : TMP_InputField.ContentType.Standard);
+                    : TMP_InputField.ContentType.Standard;
 
             return input;
         }
