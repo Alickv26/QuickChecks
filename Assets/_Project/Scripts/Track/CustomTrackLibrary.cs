@@ -136,13 +136,36 @@ namespace QuickChecks.Track
                     {
                         t = p.t,
                         lateralOffset = p.lateralOffset,
-                        powerUpId = p.type
+                        powerUp = CreatePowerUpFromType(p.type)
                     });
                 }
             }
             def.powerUpSpawns = puList.ToArray();
 
             return def;
+        }
+
+        /// <summary>
+        /// Creates a PowerUpBase ScriptableObject from a type string ("Boost", "Shield", etc.).
+        /// Used by CustomTrackLibrary.ToTrackDefinition + can be reused by any code that
+        /// stores power-up type as a string and needs to resolve it to an instance.
+        /// </summary>
+        public static Racing.PowerUpBase CreatePowerUpFromType(string type)
+        {
+            if (string.IsNullOrEmpty(type)) return null;
+            return type switch
+            {
+                "Boost"      => TrackFactory.CreateBoostPowerUp(),
+                "Shield"     => TrackFactory.CreateShieldPowerUp(),
+                "Magnet"     => TrackFactory.CreateMagnetPowerUp(),
+                "DoubleMove" => TrackFactory.CreateDoubleMovePowerUp(),
+                "TrailWall"  => TrackFactory.CreateTrailWallPowerUp(),
+                "Bounce"     => TrackFactory.CreateBouncePowerUp(),
+                "Slingshot"  => TrackFactory.CreateSlingshotPowerUp(),
+                "PhaseDodge" => TrackFactory.CreatePhaseDodgePowerUp(),
+                "Rewind"     => TrackFactory.CreateRewindPowerUp(),
+                _            => TrackFactory.CreateBoostPowerUp()  // safe default
+            };
         }
     }
 }
