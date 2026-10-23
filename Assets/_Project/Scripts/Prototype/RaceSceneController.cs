@@ -1428,10 +1428,20 @@ namespace QuickChecks.Prototype
             Debug.Log($"[RaceScene] Race finished! Swipes: {_swipeCount}, Time: {finishMs / 1000f:F2}s. " +
                       $"Auto-transition to results in {resultsDisplayDuration}s.");
 
-            // Play race-complete SFX (or raceFailed if DNF — currently Solo can't DNF without a swipe cap).
+            // Play race-complete SFX
             if (QuickChecks.Audio.SfxPlayer.Instance != null)
             {
                 QuickChecks.Audio.SfxPlayer.Instance.PlayRaceComplete();
+            }
+
+            // Juice: slow-motion on finish + celebration burst + haptic
+            if (Racing.JuiceManager.Instance != null)
+            {
+                Racing.JuiceManager.Instance.SlowMo(0.3f, 0.5f);  // 30% speed, restore over 0.5s
+                Racing.JuiceManager.Instance.HapticFinish();
+                Racing.JuiceManager.Instance.Burst(_kart.transform.position,
+                    new Color(0.247f, 0.878f, 0.760f), 16, 5f, 0.5f);
+                Racing.JuiceManager.Instance.Shake(0.3f, 0.2f);
             }
         }
 

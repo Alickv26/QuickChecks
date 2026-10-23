@@ -97,8 +97,13 @@ namespace QuickChecks.Racing
             );
             _squashTimer = squashDurationSec;
 
-            // Spawn particle burst.
-            SpawnBurst(swipe);
+            // Juice: particle burst + haptic
+            if (JuiceManager.Instance != null)
+            {
+                JuiceManager.Instance.Burst(transform.position,
+                    new Color(0.247f, 0.878f, 0.760f), particleCount, particleSpeed, particleLifetime);
+                JuiceManager.Instance.HapticSwipe();
+            }
         }
 
         private void SpawnBurst(SwipeData swipe)

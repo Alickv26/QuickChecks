@@ -54,6 +54,16 @@ namespace QuickChecks.Audio
             // Play menu music on launch
             musicPlayer.PlayRaceMusic();  // For now, race music is also menu music
 
+            // --- Juice manager (screen shake + haptics + particles + slow-mo) ---
+            // Singleton spawned once, persists across scenes.
+            if (FindObjectOfType<Racing.JuiceManager>() == null)
+            {
+                var juiceGo = new GameObject("[JuiceManager]");
+                juiceGo.AddComponent<Racing.JuiceManager>();
+                DontDestroyOnLoad(juiceGo);
+                Debug.Log("[AudioBootstrap] JuiceManager initialized (shake + haptics + particles).");
+            }
+
             // --- Supabase backend singletons (Phase 2) ---
             // Spawned here so every scene has them available without each scene having to
             // include them explicitly. Each is a DontDestroyOnLoad singleton.

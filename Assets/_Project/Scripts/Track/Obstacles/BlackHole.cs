@@ -88,6 +88,15 @@ namespace QuickChecks.Track.Obstacles
             // Stop the kart immediately so it doesn't drift while rewinding.
             kart.StopImmediately();
 
+            // Juice: big shake + heavy haptic — black hole rewind is the most dramatic event
+            if (Racing.JuiceManager.Instance != null)
+            {
+                Racing.JuiceManager.Instance.Shake(0.8f, 0.4f);
+                Racing.JuiceManager.Instance.HapticBlackHole();
+                Racing.JuiceManager.Instance.Burst(kart.transform.position,
+                    new Color(0.15f, 0f, 0.2f), 12, 4f, 0.4f);
+            }
+
             // Start the smooth rewind animation.
             StartCoroutine(RewindRoutine(kart, kart.transform.position, kart.transform.eulerAngles.z,
                                          targetPos, targetRot, rewindDuration));

@@ -245,6 +245,16 @@ namespace QuickChecks.Racing
                 QuickChecks.Audio.SfxPlayer.Instance.PlayBoundaryHit();
             }
 
+            // Juice: subtle shake + haptic on boundary hit (scaled by impact velocity)
+            float impactForce = currentVelocity.magnitude;  // velocity before we zeroed it — actually it's already 0 here
+            // Use the collision's relative velocity instead for a better intensity measure
+            float intensity = Mathf.Clamp01(collision.relativeVelocity.magnitude / 200f);
+            if (JuiceManager.Instance != null)
+            {
+                JuiceManager.Instance.Shake(0.15f + intensity * 0.2f, 0.2f);
+                JuiceManager.Instance.HapticBoundary();
+            }
+
             Debug.Log($"[Kart] Collision with '{collision.gameObject.name}' — kart stopped (golf-feel).");
         }
 

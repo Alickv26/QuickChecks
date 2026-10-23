@@ -106,6 +106,13 @@ namespace QuickChecks.Racing
                 QuickChecks.Audio.SfxPlayer.Instance.PlayPowerUpPickup();
             }
 
+            // Juice: particle burst in the power-up's color + haptic
+            if (JuiceManager.Instance != null)
+            {
+                JuiceManager.Instance.Burst(transform.position, powerUp.effectColor, 8, 3f, 0.3f);
+                JuiceManager.Instance.HapticPickup();
+            }
+
             if (oneTimeUse)
             {
                 // Permanent collection — destroy the GameObject
