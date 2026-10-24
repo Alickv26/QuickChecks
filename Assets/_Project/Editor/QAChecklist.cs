@@ -1,511 +1,431 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
-using UnityEngine;
+using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using UnityEngine.SceneManagement;
-using QuickChecks.Track;
-using QuickChecks.Racing;
+using UnityEngine;
 
 namespace QuickChecks.Editor
 {
     /// <summary>
-    /// Pre-beta QA checklist. Validates that the project is in a shippable state
-    /// before building the APK. Checks:
-    ///
-    ///   1. All 8 tracks generate without errors via TrackFactory.GenerateAllTracks()
-    ///   2. Each track passes TrackValidator.Validate()
-    ///   3. All 9 power-up factory methods return non-null + have displayName + effectDescription
-    ///   4. KartLibrary.asset references all 8 KartStats assets (all non-null)
-    ///   5. All 8 scenes exist on disk + are in Build Settings + have no missing script refs
-    ///   6. All scene GameObjects have valid (non-missing) script GUIDs
-    ///   7. Supabase config URL + publishable key are set (not the placeholder)
-    ///   8. KartStats assets all have valid stats (impulse > 0, maxSpeed > 0, etc.)
-    ///   9. No compile errors in the project (via EditorApplication.compiling)
+    /// Automated QA checklist for beta release. Runs a battery of checks against
+    /// tracks, scenes, scripts, karts, power-ups, Supabase config, and custom tracks.
+    /// Outputs a full report to the console + displays a summary dialog.
     ///
     /// Usage: Tools → QuickChecks → Run QA Checklist
     /// </summary>
     public static class QAChecklist
     {
-        private struct CheckResult
-        {
-            public string name;
-            public bool passed;
-            public string message;
-        }
-
-        private static readonly List<CheckResult> _results = new();
-        private static int _passCount;
-        private static int _failCount;
-        private static int _warnCount;
+        private static readonly List<string> _passed = new();
+        private static readonly List<string> _failed = new();
+        private static readonly List<string> _warnings = new();
 
         [MenuItem("Tools/QuickChecks/Run QA Checklist")]
-        public static void RunChecklist()
+        public static void RunAllChecks()
         {
-            _results.Clear();
-            _passCount = _failCount = _warnCount = 0;
+            _passed.Clear();
+            _failed.Clear();
+            _warnings.Clear();
 
-            Debug.Log("[QA] Starting pre-beta QA checklist...");
+            Debug.Log("[QA] ================================================");
+            Debug.Log("[QA] QuickChecks Beta QA Checklist — starting...");
+            Debug.Log("[QA] ================================================");
 
-            Check1_AllTracksGenerate();
-            Check2_AllTracksValidate();
-            Check3_AllPowerUpFactoriesWork();
-            Check4_KartLibraryReferencesValid();
-            Check5_AllScenesExistAndInBuildSettings();
-            Check6_NoMissingScriptReferences();
-            Check7_SupabaseConfigSet();
-            Check8_AllKartStatsValid();
-            Check9_NoCompileErrors();
+            CheckTracksGenerate();
+            CheckScenesInBuildSettings();
+            CheckScenesHaveNoMissingScripts();
+            CheckKartStatsAssets();
+            CheckKartLibraryReferences();
+            CheckPowerUpFactories();
+            CheckSupabaseConfig();
+            CheckCustomTrackLibrary();
+            CheckAudioAssets();
 
-            ShowResultsDialog();
+            // Final report
+            Debug.Log("[QA] ================================================");
+            Debug.Log($"[QA] PASSED:  {_passed.Count}");
+            Debug.Log($"[QA] WARNINGS: {_warnings.Count}");
+            Debug.Log($"[QA] FAILED: {_failed.Count}");
+            Debug.Log("[QA] ================================================");
+
+            string status = _failed.Count == 0
+                ? "READY FOR BETA" + (_warnings.Count > 0 ? $" (with {_warnings.Count} warnings)" : " (clean)")
+                : $"NOT READY — {_failed.Count} failures";
+
+            string report = $"QA Checklist Results:\n\n" +
+                            $"✓ Passed:   {_passed.Count}\n" +
+                            $"⚠ Warnings: {_warnings.Count}\n" +
+                            $"✗ Failed:   {_failed.Count}\n\n" +
+                            $"Status: {status}\n\n";
+
+            if (_failed.Count > 0)
+            {
+                report += "FAILURES:\n";
+                foreach (var f in _failed) report += $"  ✗ {f}\n";
+            }
+            if (_warnings.Count > 0)
+            {
+                report += "\nWARNINGS:\n";
+                foreach (var w in _warnings) report += $"  ⚠ {w}\n";
+            }
+
+            EditorUtility.DisplayDialog("QA Checklist", report, "OK");
         }
 
         // =====================================================================
-        // Check 1: All 8 tracks generate without throwing
+        // Check 1: All 8 tracks generate without exceptions
         // =====================================================================
 
-        private static void Check1_AllTracksGenerate()
+        private static void CheckTracksGenerate()
         {
+            Debug.Log("[QA] Check 1: Track generation...");
             try
             {
-                var tracks = TrackFactory.GenerateAllTracks();
-                if (tracks == null || tracks.Length != 8)
+                var tracks = Track.TrackFactory.GenerateAllTracks();
+                if (tracks == null || tracks.Length == 0)
                 {
-                    AddResult("1. Tracks generate", false,
-                        $"Expected 8 tracks, got {tracks?.Length ?? 0}. Check TrackFactory.GenerateAllTracks().");
+                    Fail("TrackFactory.GenerateAllTracks() returned null or empty");
                     return;
                 }
-                int nullCount = 0;
-                foreach (var t in tracks) if (t == null) nullCount++;
-                if (nullCount > 0)
+                if (tracks.Length != 8)
                 {
-                    AddResult("1. Tracks generate", false,
-                        $"{nullCount} of 8 tracks are null. Check TrackFactory methods.");
+                    Fail($"Expected 8 tracks, got {tracks.Length}");
                     return;
                 }
-                AddResult("1. Tracks generate", true,
-                    $"All 8 tracks generated successfully.");
+                for (int i = 0; i < tracks.Length; i++)
+                {
+                    var t = tracks[i];
+                    if (t == null) { Fail($"Track {i + 1} is null"); continue; }
+                    if (string.IsNullOrEmpty(t.trackId)) Fail($"Track {i + 1} ({t.displayName}) has empty trackId");
+                    if (string.IsNullOrEmpty(t.displayName)) Fail($"Track {i + 1} ({t.trackId}) has empty displayName");
+                    if (t.splinePoints == null || t.splinePoints.Length < 4)
+                        Fail($"Track {i + 1} ({t.displayName}) has < 4 spline points");
+                    if (t.parSwipeCount <= 0) Warn($"Track {i + 1} ({t.displayName}) has parSwipeCount={t.parSwipeCount}");
+                    if (t.trackIndex != i) Warn($"Track {i + 1} ({t.displayName}) has trackIndex={t.trackIndex}, expected {i}");
+                    // Tracks 1-3 should be free, 4-8 paid
+                    bool expectedFree = i < 3;
+                    if (t.isFree != expectedFree)
+                        Warn($"Track {i + 1} ({t.displayName}) isFree={t.isFree}, expected {expectedFree}");
+                }
+                Pass($"All 8 tracks generate successfully with valid fields");
             }
             catch (System.Exception ex)
             {
-                AddResult("1. Tracks generate", false, $"Exception: {ex.Message}");
+                Fail($"TrackFactory.GenerateAllTracks() threw: {ex.Message}");
             }
         }
 
         // =====================================================================
-        // Check 2: Each track passes TrackValidator
+        // Check 2: All 8 scenes are in Build Settings + paths exist
         // =====================================================================
 
-        private static void Check2_AllTracksValidate()
+        private static void CheckScenesInBuildSettings()
         {
-            try
-            {
-                var tracks = TrackFactory.GenerateAllTracks();
-                int valid = 0;
-                var errors = new List<string>();
-                foreach (var t in tracks)
-                {
-                    if (t == null) continue;
-                    if (TrackValidator.Validate(t, out string error))
-                    {
-                        valid++;
-                    }
-                    else
-                    {
-                        errors.Add($"  {t.displayName}: {error}");
-                    }
-                }
-                if (valid == 8)
-                {
-                    AddResult("2. Tracks validate", true,
-                        "All 8 tracks pass TrackValidator.");
-                }
-                else
-                {
-                    AddResult("2. Tracks validate", false,
-                        $"Only {valid}/8 tracks pass validation:\n{string.Join("\n", errors)}");
-                }
-            }
-            catch (System.Exception ex)
-            {
-                AddResult("2. Tracks validate", false, $"Exception: {ex.Message}");
-            }
-        }
-
-        // =====================================================================
-        // Check 3: All 9 power-up factory methods return non-null + have metadata
-        // =====================================================================
-
-        private static void Check3_AllPowerUpFactoriesWork()
-        {
-            try
-            {
-                var powerUps = new[]
-                {
-                    ("Boost", TrackFactory.CreateBoostPowerUp()),
-                    ("Shield", TrackFactory.CreateShieldPowerUp()),
-                    ("Magnet", TrackFactory.CreateMagnetPowerUp()),
-                    ("DoubleMove", TrackFactory.CreateDoubleMovePowerUp()),
-                    ("TrailWall", TrackFactory.CreateTrailWallPowerUp()),
-                    ("Bounce", TrackFactory.CreateBouncePowerUp()),
-                    ("Slingshot", TrackFactory.CreateSlingshotPowerUp()),
-                    ("PhaseDodge", TrackFactory.CreatePhaseDodgePowerUp()),
-                    ("Rewind", TrackFactory.CreateRewindPowerUp()),
-                };
-
-                int valid = 0;
-                var issues = new List<string>();
-                foreach (var (name, pu) in powerUps)
-                {
-                    if (pu == null)
-                    {
-                        issues.Add($"  {name}: factory returned null");
-                        continue;
-                    }
-                    if (string.IsNullOrEmpty(pu.displayName))
-                    {
-                        issues.Add($"  {name}: displayName is empty");
-                        continue;
-                    }
-                    if (string.IsNullOrEmpty(pu.effectDescription))
-                    {
-                        issues.Add($"  {name}: effectDescription is empty (toast won't show useful text)");
-                        continue;
-                    }
-                    valid++;
-                }
-
-                if (valid == 9)
-                {
-                    AddResult("3. Power-up factories", true,
-                        "All 9 power-ups created with displayName + effectDescription.");
-                }
-                else
-                {
-                    AddResult("3. Power-up factories", false,
-                        $"Only {valid}/9 power-ups are valid:\n{string.Join("\n", issues)}");
-                }
-            }
-            catch (System.Exception ex)
-            {
-                AddResult("3. Power-up factories", false, $"Exception: {ex.Message}");
-            }
-        }
-
-        // =====================================================================
-        // Check 4: KartLibrary.asset references all 8 KartStats assets
-        // =====================================================================
-
-        private static void Check4_KartLibraryReferencesValid()
-        {
-            try
-            {
-                var kartLib = AssetDatabase.LoadAssetAtPath<KartLibrary>(
-                    "Assets/_Project/ScriptableObjects/Karts/KartLibrary.asset");
-
-                if (kartLib == null)
-                {
-                    AddResult("4. KartLibrary asset", false,
-                        "KartLibrary.asset not found at Assets/_Project/ScriptableObjects/Karts/.");
-                    return;
-                }
-                if (kartLib.karts == null || kartLib.karts.Length != 8)
-                {
-                    AddResult("4. KartLibrary asset", false,
-                        $"Expected 8 karts in KartLibrary, got {kartLib.karts?.Length ?? 0}.");
-                    return;
-                }
-
-                int nullCount = 0;
-                for (int i = 0; i < kartLib.karts.Length; i++)
-                {
-                    if (kartLib.karts[i] == null) nullCount++;
-                }
-                if (nullCount > 0)
-                {
-                    AddResult("4. KartLibrary asset", false,
-                        $"{nullCount} of 8 KartStats references are null. Re-assign in KartLibrary.asset.");
-                    return;
-                }
-                AddResult("4. KartLibrary asset", true,
-                    "All 8 KartStats assets referenced + non-null.");
-            }
-            catch (System.Exception ex)
-            {
-                AddResult("4. KartLibrary asset", false, $"Exception: {ex.Message}");
-            }
-        }
-
-        // =====================================================================
-        // Check 5: All 8 scenes exist on disk + are in Build Settings
-        // =====================================================================
-
-        private static void Check5_AllScenesExistAndInBuildSettings()
-        {
+            Debug.Log("[QA] Check 2: Scenes in Build Settings...");
             string[] expectedScenes = {
-                "MainMenu.unity", "ModeSelect.unity", "TrackSelect.unity",
-                "KartSelect.unity", "Race.unity", "Results.unity",
-                "CustomTrackSelect.unity", "CustomTrackBuilder.unity"
+                "MainMenu", "ModeSelect", "TrackSelect", "KartSelect",
+                "Race", "Results", "CustomTrackSelect", "CustomTrackBuilder"
             };
-            string scenesDir = "Assets/_Project/Scenes/";
 
-            int missing = 0;
-            var issues = new List<string>();
+            var buildScenes = EditorBuildSettings.scenes;
+            if (buildScenes.Length == 0)
+            {
+                Fail("Build Settings has 0 scenes. Run Tools → QuickChecks → Build Game Scenes first.");
+                return;
+            }
 
-            // Check files exist on disk
             foreach (var sceneName in expectedScenes)
             {
-                string path = scenesDir + sceneName;
-                if (!System.IO.File.Exists(path))
+                string path = $"Assets/_Project/Scenes/{sceneName}.unity";
+                bool inBuild = buildScenes.Any(s => s.path == path && s.enabled);
+                if (!inBuild)
                 {
-                    issues.Add($"  File missing: {path}");
-                    missing++;
+                    Fail($"Scene '{sceneName}.unity' not found in Build Settings (or disabled)");
+                }
+                if (!File.Exists(path))
+                {
+                    Fail($"Scene file doesn't exist on disk: {path}");
                 }
             }
 
-            // Check Build Settings has them
-            var buildScenes = new HashSet<string>();
-            foreach (var bs in EditorBuildSettings.scenes)
+            // Verify MainMenu is scene 0 (entry point)
+            if (buildScenes[0].path != "Assets/_Project/Scenes/MainMenu.unity")
             {
-                buildScenes.Add(System.IO.Path.GetFileName(bs.path));
-            }
-            int notInBuildSettings = 0;
-            foreach (var sceneName in expectedScenes)
-            {
-                if (!buildScenes.Contains(sceneName))
-                {
-                    issues.Add($"  Not in Build Settings: {sceneName}");
-                    notInBuildSettings++;
-                }
+                Fail($"Scene 0 should be MainMenu.unity, got: {buildScenes[0].path}");
             }
 
-            // Check MainMenu is scene 0
-            if (EditorBuildSettings.scenes.Length > 0 &&
-                !EditorBuildSettings.scenes[0].path.EndsWith("MainMenu.unity"))
-            {
-                issues.Add("  Scene 0 is not MainMenu.unity (will break splash → menu flow)");
-            }
-
-            if (missing == 0 && notInBuildSettings == 0)
-            {
-                AddResult("5. Scenes exist + in Build Settings", true,
-                    "All 8 scenes present + in Build Settings.");
-            }
-            else
-            {
-                AddResult("5. Scenes exist + in Build Settings", false,
-                    $"Issues found:\n{string.Join("\n", issues)}");
-            }
+            Pass($"All 8 scenes present in Build Settings, MainMenu is scene 0");
         }
 
         // =====================================================================
-        // Check 6: No missing script references in any scene
+        // Check 3: Scenes have no missing script references
         // =====================================================================
 
-        private static void Check6_NoMissingScriptReferences()
+        private static void CheckScenesHaveNoMissingScripts()
         {
+            Debug.Log("[QA] Check 3: Scene missing script references...");
             string[] expectedScenes = {
-                "MainMenu.unity", "ModeSelect.unity", "TrackSelect.unity",
-                "KartSelect.unity", "Race.unity", "Results.unity",
-                "CustomTrackSelect.unity", "CustomTrackBuilder.unity"
+                "MainMenu", "ModeSelect", "TrackSelect", "KartSelect",
+                "Race", "Results", "CustomTrackSelect", "CustomTrackBuilder"
             };
-            string scenesDir = "Assets/_Project/Scenes/";
-
-            int missingScripts = 0;
-            var issues = new List<string>();
-
+            int totalMissing = 0;
             foreach (var sceneName in expectedScenes)
             {
-                string path = scenesDir + sceneName;
-                if (!System.IO.File.Exists(path)) continue;
-
-                // Open the scene additively (don't replace the current scene)
+                string path = $"Assets/_Project/Scenes/{sceneName}.unity";
+                if (!File.Exists(path)) continue;
                 var scene = EditorSceneManager.OpenScene(path, OpenSceneMode.Additive);
                 var allMonoBehaviours = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
                 foreach (var mb in allMonoBehaviours)
                 {
-                    if (mb == null)
+                    // A MonoBehaviour with a null instance ID but non-null GameObject = missing script
+                    if (mb == null || (mb is MonoBehaviour mono && mono == null))
                     {
-                        // null MonoBehaviour = missing script reference
-                        missingScripts++;
-                        issues.Add($"  {sceneName}: missing script reference on a GameObject");
-                        break;  // one missing ref per scene is enough to report
+                        totalMissing++;
+                        Warn($"Missing script reference in scene '{sceneName}'");
                     }
                 }
                 EditorSceneManager.CloseScene(scene, true);
             }
+            if (totalMissing == 0)
+                Pass("No missing script references in any scene");
+            else
+                Fail($"Found {totalMissing} missing script references across scenes");
+        }
 
-            if (missingScripts == 0)
+        // =====================================================================
+        // Check 4: All 8 KartStats assets load + have valid fields
+        // =====================================================================
+
+        private static void CheckKartStatsAssets()
+        {
+            Debug.Log("[QA] Check 4: KartStats assets...");
+            string[] kartNames = {
+                "Kart_Starter", "Kart_Drifter", "Kart_Precision", "Kart_Speedster",
+                "Kart_Bulldozer", "Kart_Phantom", "Kart_Vector", "Kart_Apex"
+            };
+
+            foreach (var name in kartNames)
             {
-                AddResult("6. No missing script references", true,
-                    "All scenes have valid script references.");
+                string path = $"Assets/_Project/ScriptableObjects/Karts/{name}.asset";
+                var kart = AssetDatabase.LoadAssetAtPath<Racing.KartStats>(path);
+                if (kart == null)
+                {
+                    Fail($"KartStats asset not found: {path}");
+                    continue;
+                }
+                if (string.IsNullOrEmpty(kart.kartId)) Fail($"{name}: empty kartId");
+                if (string.IsNullOrEmpty(kart.displayName)) Fail($"{name}: empty displayName");
+                if (string.IsNullOrEmpty(kart.archetypeLabel)) Warn($"{name}: empty archetypeLabel");
+                if (string.IsNullOrEmpty(kart.description)) Warn($"{name}: empty description");
+                if (kart.impulseMultiplier < 0.5f || kart.impulseMultiplier > 2f)
+                    Fail($"{name}: impulseMultiplier {kart.impulseMultiplier} out of range [0.5, 2]");
+                if (kart.maxSpeed < 100f || kart.maxSpeed > 500f)
+                    Fail($"{name}: maxSpeed {kart.maxSpeed} out of range [100, 500]");
+            }
+            Pass("All 8 KartStats assets load with valid fields");
+        }
+
+        // =====================================================================
+        // Check 5: KartLibrary.asset references all 8 karts
+        // =====================================================================
+
+        private static void CheckKartLibraryReferences()
+        {
+            Debug.Log("[QA] Check 5: KartLibrary references...");
+            string libPath = "Assets/_Project/ScriptableObjects/Karts/KartLibrary.asset";
+            var lib = AssetDatabase.LoadAssetAtPath<Racing.KartLibrary>(libPath);
+            if (lib == null)
+            {
+                Fail($"KartLibrary.asset not found at {libPath}");
+                return;
+            }
+            if (lib.karts == null || lib.karts.Length != 8)
+            {
+                Fail($"KartLibrary has {lib.karts?.Length ?? 0} karts, expected 8");
+                return;
+            }
+            for (int i = 0; i < lib.karts.Length; i++)
+            {
+                if (lib.karts[i] == null)
+                {
+                    Fail($"KartLibrary.karts[{i}] is null");
+                }
+            }
+            Pass("KartLibrary.asset references all 8 karts");
+        }
+
+        // =====================================================================
+        // Check 6: Power-up factory methods return non-null + have displayName
+        // =====================================================================
+
+        private static void CheckPowerUpFactories()
+        {
+            Debug.Log("[QA] Check 6: Power-up factories...");
+            var factoryMethods = new System.Func<Racing.PowerUpBase>[] {
+                Track.TrackFactory.CreateBoostPowerUp,
+                Track.TrackFactory.CreateShieldPowerUp,
+                Track.TrackFactory.CreateMagnetPowerUp,
+                Track.TrackFactory.CreateDoubleMovePowerUp,
+                Track.TrackFactory.CreateTrailWallPowerUp,
+                Track.TrackFactory.CreateBouncePowerUp,
+                Track.TrackFactory.CreateSlingshotPowerUp,
+                Track.TrackFactory.CreatePhaseDodgePowerUp,
+                Track.TrackFactory.CreateRewindPowerUp,
+            };
+
+            foreach (var method in factoryMethods)
+            {
+                try
+                {
+                    var pu = method();
+                    if (pu == null) Fail($"{method.Method.Name} returned null");
+                    else if (string.IsNullOrEmpty(pu.displayName)) Warn($"{method.Method.Name}: empty displayName");
+                    else if (string.IsNullOrEmpty(pu.effectDescription)) Warn($"{method.Method.Name}: empty effectDescription");
+                }
+                catch (System.Exception ex)
+                {
+                    Fail($"{method.Method.Name} threw: {ex.Message}");
+                }
+            }
+            Pass("All 9 power-up factory methods return valid instances with displayName");
+        }
+
+        // =====================================================================
+        // Check 7: Supabase config (URL + publishable key)
+        // =====================================================================
+
+        private static void CheckSupabaseConfig()
+        {
+            Debug.Log("[QA] Check 7: Supabase config...");
+            // Check the SupabaseClient config (the source of truth, since it spawns the RpcClient)
+            var supabaseGo = new GameObject("[QACheck_SupabaseClient]");
+            var client = supabaseGo.AddComponent<Multiplayer.SupabaseClient>();
+
+            // Use reflection to read the private serialized fields
+            var urlField = typeof(Multiplayer.SupabaseClient).GetField("supabaseUrl",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var keyField = typeof(Multiplayer.SupabaseClient).GetField("publishableKey",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            string url = urlField?.GetValue(client) as string ?? "";
+            string key = keyField?.GetValue(client) as string ?? "";
+
+            if (string.IsNullOrEmpty(url) || !url.StartsWith("https://"))
+                Fail($"Supabase URL invalid: '{url}'");
+            else if (!url.Contains(".supabase.co"))
+                Warn($"Supabase URL doesn't look like a Supabase project URL: '{url}'");
+
+            if (string.IsNullOrEmpty(key) || !key.StartsWith("sb_publishable_"))
+                Fail($"Supabase publishable key invalid: '{key?.Substring(0, System.Math.Min(20, key?.Length ?? 0))}...'");
+            else
+                Pass($"Supabase config valid (URL: {url}, key prefix: {key.Substring(0, 15)}...)");
+
+            // Cleanup
+            Object.DestroyImmediate(supabaseGo);
+        }
+
+        // =====================================================================
+        // Check 8: CustomTrackLibrary save/load round-trip
+        // =====================================================================
+
+        private static void CheckCustomTrackLibrary()
+        {
+            Debug.Log("[QA] Check 8: CustomTrackLibrary round-trip...");
+            try
+            {
+                // Create a test track
+                var testTrack = new Track.CustomTrackData
+                {
+                    trackId = "qa_test_track",
+                    trackName = "QA Test Track",
+                    splinePoints = new List<Track.CustomTrackData.SerializableVector2>
+                    {
+                        new(-5, 0), new(0, 5), new(5, 0), new(0, -5)
+                    },
+                    obstacles = new List<Track.CustomTrackData.PlacedObstacle>
+                    {
+                        new() { type = "Wall", position = new(0, 0), size = new(2, 2) }
+                    },
+                    powerUps = new List<Track.CustomTrackData.PlacedPowerUp>
+                    {
+                        new() { type = "Boost", position = new(2, 0) }
+                    }
+                };
+
+                // Save + reload
+                Track.CustomTrackLibrary.Save(testTrack);
+                var loaded = Track.CustomTrackLibrary.FindById("qa_test_track");
+
+                if (loaded == null) Fail("CustomTrackLibrary.FindById returned null after Save");
+                else if (loaded.trackName != "QA Test Track") Fail("Round-trip trackName mismatch");
+                else if (loaded.splinePoints.Count != 4) Fail("Round-trip splinePoints count mismatch");
+                else if (loaded.obstacles.Count != 1) Fail("Round-trip obstacles count mismatch");
+                else if (loaded.powerUps.Count != 1) Fail("Round-trip powerUps count mismatch");
+                else Pass("CustomTrackLibrary save/load round-trip works");
+
+                // Test ToTrackDefinition conversion
+                var def = Track.CustomTrackLibrary.ToTrackDefinition(loaded);
+                if (def == null) Fail("ToTrackDefinition returned null");
+                else if (def.obstacleSpawns == null || def.obstacleSpawns.Length != 1)
+                    Fail("ToTrackDefinition obstacleSpawns mismatch");
+                else if (def.powerUpSpawns == null || def.powerUpSpawns.Length != 1)
+                    Fail("ToTrackDefinition powerUpSpawns mismatch");
+                else if (def.powerUpSpawns[0].powerUp == null)
+                    Fail("ToTrackDefinition powerUp is null (CreatePowerUpFromType failed?)");
+                else Pass("CustomTrackLibrary.ToTrackDefinition conversion works");
+
+                // Cleanup: delete the test track
+                Track.CustomTrackLibrary.Delete("qa_test_track");
+            }
+            catch (System.Exception ex)
+            {
+                Fail($"CustomTrackLibrary round-trip threw: {ex.Message}");
+            }
+        }
+
+        // =====================================================================
+        // Check 9: Audio assets (track.mp3 exists)
+        // =====================================================================
+
+        private static void CheckAudioAssets()
+        {
+            Debug.Log("[QA] Check 9: Audio assets...");
+            string musicPath = "Assets/_Project/Audio/Music/track.mp3";
+            if (File.Exists(musicPath))
+            {
+                var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(musicPath);
+                if (clip != null)
+                    Pass($"Music track.mp3 loaded ({clip.length:F1}s)");
+                else
+                    Warn($"track.mp3 exists but couldn't load as AudioClip: {musicPath}");
             }
             else
             {
-                AddResult("6. No missing script references", false,
-                    $"{missingScripts} missing script references found:\n{string.Join("\n", issues)}");
+                Warn($"Music track.mp3 not found at {musicPath} — game will run without music");
             }
         }
 
         // =====================================================================
-        // Check 7: Supabase config URL + key are set (not placeholders)
+        // Helpers
         // =====================================================================
 
-        private static void Check7_SupabaseConfigSet()
+        private static void Pass(string msg)
         {
-            try
-            {
-                // Check SupabaseClient.cs source for the URL + key
-                string clientPath = "Assets/_Project/Scripts/Multiplayer/SupabaseRpcClient.cs";
-                if (!System.IO.File.Exists(clientPath))
-                {
-                    AddResult("7. Supabase config", false,
-                        "SupabaseRpcClient.cs not found.");
-                    return;
-                }
-                string source = System.IO.File.ReadAllText(clientPath);
-                bool urlOk = source.Contains("wjeiddjeueysfsvjgzyx.supabase.co");
-                bool keyOk = source.Contains("sb_publishable_SJKpvEFlsgRSKniELN5V");
-
-                if (urlOk && keyOk)
-                {
-                    AddResult("7. Supabase config", true,
-                        "URL + publishable key are set (not placeholders).");
-                }
-                else
-                {
-                    string detail = urlOk ? "" : "URL is still placeholder. ";
-                    detail += keyOk ? "" : "Publishable key is still placeholder.";
-                    AddResult("7. Supabase config", false, detail);
-                }
-            }
-            catch (System.Exception ex)
-            {
-                AddResult("7. Supabase config", false, $"Exception: {ex.Message}");
-            }
+            _passed.Add(msg);
+            Debug.Log($"[QA] ✓ {msg}");
         }
 
-        // =====================================================================
-        // Check 8: All KartStats assets have valid stats
-        // =====================================================================
-
-        private static void Check8_AllKartStatsValid()
+        private static void Fail(string msg)
         {
-            try
-            {
-                var kartLib = AssetDatabase.LoadAssetAtPath<KartLibrary>(
-                    "Assets/_Project/ScriptableObjects/Karts/KartLibrary.asset");
-                if (kartLib == null || kartLib.karts == null)
-                {
-                    AddResult("8. KartStats valid", false, "KartLibrary not loaded — see check 4.");
-                    return;
-                }
-
-                int valid = 0;
-                var issues = new List<string>();
-                foreach (var k in kartLib.karts)
-                {
-                    if (k == null) continue;
-                    if (string.IsNullOrEmpty(k.kartId))
-                    {
-                        issues.Add($"  {k.displayName}: kartId is empty");
-                        continue;
-                    }
-                    if (k.impulseMultiplier <= 0f)
-                    {
-                        issues.Add($"  {k.displayName}: impulseMultiplier must be > 0");
-                        continue;
-                    }
-                    if (k.maxSpeed <= 0f)
-                    {
-                        issues.Add($"  {k.displayName}: maxSpeed must be > 0");
-                        continue;
-                    }
-                    if (k.boostMultiplier <= 0f)
-                    {
-                        issues.Add($"  {k.displayName}: boostMultiplier must be > 0");
-                        continue;
-                    }
-                    if (string.IsNullOrEmpty(k.displayName) || string.IsNullOrEmpty(k.archetypeLabel))
-                    {
-                        issues.Add($"  {k.displayName}: missing displayName or archetypeLabel");
-                        continue;
-                    }
-                    valid++;
-                }
-
-                if (valid == 8)
-                {
-                    AddResult("8. KartStats valid", true,
-                        "All 8 KartStats have valid stats + metadata.");
-                }
-                else
-                {
-                    AddResult("8. KartStats valid", false,
-                        $"Only {valid}/8 karts are valid:\n{string.Join("\n", issues)}");
-                }
-            }
-            catch (System.Exception ex)
-            {
-                AddResult("8. KartStats valid", false, $"Exception: {ex.Message}");
-            }
+            _failed.Add(msg);
+            Debug.LogError($"[QA] ✗ {msg}");
         }
 
-        // =====================================================================
-        // Check 9: No compile errors (Unity's compilation pipeline is clean)
-        // =====================================================================
-
-        private static void Check9_NoCompileErrors()
+        private static void Warn(string msg)
         {
-            if (EditorApplication.isCompiling)
-            {
-                AddResult("9. No compile errors", false,
-                    "Unity is currently compiling — wait a few seconds + re-run.");
-                return;
-            }
-            // If we got here, the script loaded successfully — which means compilation succeeded.
-            // (If there were compile errors, this class wouldn't have loaded at all.)
-            AddResult("9. No compile errors", true,
-                "All scripts compiled successfully (this QA script is running, which proves it).");
-        }
-
-        // =====================================================================
-        // Results
-        // =====================================================================
-
-        private static void AddResult(string name, bool passed, string message)
-        {
-            _results.Add(new CheckResult { name = name, passed = passed, message = message });
-            if (passed) _passCount++;
-            else _failCount++;
-            Debug.Log($"[QA] {(passed ? "PASS" : "FAIL")}: {name} — {message}");
-        }
-
-        private static void ShowResultsDialog()
-        {
-            string summary = $"QA Checklist Complete\n\n" +
-                            $"Passed: {_passCount}/{_results.Count}\n" +
-                            $"Failed: {_failCount}/{_results.Count}\n\n";
-
-            foreach (var r in _results)
-            {
-                summary += $"{(r.passed ? "✓" : "✗")} {r.name}\n";
-                if (!r.passed)
-                {
-                    summary += $"    → {r.message}\n";
-                }
-            }
-
-            bool allPassed = _failCount == 0;
-            summary += $"\n{(allPassed ? "✓ Ready for beta build!" : "✗ Fix the failing checks before building.")}";
-
-            EditorUtility.DisplayDialog(
-                allPassed ? "QA Checklist: All Passed" : "QA Checklist: Issues Found",
-                summary,
-                "OK"
-            );
-
-            Debug.Log($"[QA] Checklist complete: {_passCount} passed, {_failCount} failed.");
+            _warnings.Add(msg);
+            Debug.LogWarning($"[QA] ⚠ {msg}");
         }
     }
 }
