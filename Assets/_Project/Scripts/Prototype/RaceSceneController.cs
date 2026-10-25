@@ -200,6 +200,7 @@ namespace QuickChecks.Prototype
             col.size = new Vector2(0.8f, 0.8f);  // Smaller hitbox (visual is 1.5, hitbox is 0.8 for tight navigation)
 
             var rb = kartGo.AddComponent<Rigidbody2D>();
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;  // Catch fast-moving trigger overlaps (power-ups)
             _kart = kartGo.AddComponent<KartController>();
             _swipeDetector = kartGo.AddComponent<SwipeDetector>();
             _ghostRecorder = kartGo.AddComponent<GhostRecorder>();

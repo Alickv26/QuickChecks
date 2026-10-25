@@ -464,9 +464,9 @@ namespace QuickChecks.Track
                 sr.size = new Vector2(1f, 1f);  // 1x1 unit pickup
                 sr.sortingOrder = 8;  // Above track surface (0), above checkpoints (5)
 
-                // Add trigger collider
+                // Add trigger collider — large radius so fast-moving karts don't skip over it
                 var col = go.AddComponent<CircleCollider2D>();
-                col.radius = 0.6f;  // Pickup radius
+                col.radius = 1.2f;  // Larger pickup radius (was 0.6 — too small for fast karts)
                 col.isTrigger = true;
 
                 // Add PowerUpPickup component

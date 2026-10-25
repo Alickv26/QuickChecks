@@ -239,27 +239,34 @@ namespace QuickChecks.Racing
             if (_rb != null) _rb.velocity = Vector2.zero;
             isStopped = true;
 
-            // Play boundary hit SFX
+            // Determine if this is a track boundary (Inner/Outer) or an obstacle wall.
+            // We only show "BUMP!" visual feedback for obstacle walls, not track boundaries.
+            string colliderName = collision.gameObject.name;
+            bool isObstacleWall = colliderName.StartsWith("ObstacleWall");
+
+            // Play boundary hit SFX (always — for both track boundary + obstacle wall)
             if (QuickChecks.Audio.SfxPlayer.Instance != null)
             {
                 QuickChecks.Audio.SfxPlayer.Instance.PlayBoundaryHit();
             }
 
-            // Juice: subtle shake + haptic on boundary hit (scaled by impact velocity)
-            float impactForce = currentVelocity.magnitude;  // velocity before we zeroed it — actually it's already 0 here
-            // Use the collision's relative velocity instead for a better intensity measure
-            float intensity = Mathf.Clamp01(collision.relativeVelocity.magnitude / 200f);
-            if (JuiceManager.Instance != null)
+            // Juice: shake + haptic — only for obstacle walls (not track boundaries)
+            if (isObstacleWall)
             {
-                JuiceManager.Instance.Shake(0.15f + intensity * 0.2f, 0.2f);
-                JuiceManager.Instance.HapticBoundary();
+                float intensity = Mathf.Clamp01(collision.relativeVelocity.magnitude / 200f);
+                if (JuiceManager.Instance != null)
+                {
+                    JuiceManager.Instance.Shake(0.15f + intensity * 0.2f, 0.2f);
+                    JuiceManager.Instance.HapticBoundary();
+                }
+
+                // Visual feedback: red flash + "BUMP!" popup — ONLY for obstacle walls
+                var visualFeedback = GetComponent<KartVisualFeedback>();
+                if (visualFeedback != null) visualFeedback.OnWallHit();
             }
 
-            // Visual feedback: red flash + "BUMP!" popup on the kart
-            var visualFeedback = GetComponent<KartVisualFeedback>();
-            if (visualFeedback != null) visualFeedback.OnWallHit();
-
-            Debug.Log($"[Kart] Collision with '{collision.gameObject.name}' — kart stopped (golf-feel).");
+            Debug.Log($"[Kart] Collision with '{colliderName}' — kart stopped (golf-feel). " +
+                      $"(obstacle wall: {isObstacleWall})");
         }
 
         private void OnCollisionStay2D(Collision2D collision)
