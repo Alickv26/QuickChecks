@@ -79,21 +79,50 @@ namespace QuickChecks.Racing
             {
                 _spriteRenderer.transform.Rotate(Vector3.forward, rotationSpeed * Time.deltaTime);
             }
+
+            // MANUAL OVERLAP CHECK — fallback for fast-moving karts that skip physics triggers.
+            // Even with Continuous collision detection, Unity's physics can miss trigger overlaps
+            // when the kart moves via _rb.velocity (which bypasses interpolation for triggers).
+            // This check runs every frame and manually checks distance to all karts.
+            if (!_isCollected && powerUp != null)
+            {
+                CheckManualOverlap();
+            }
         }
 
-        private void OnTriggerEnter2D(Collider2D other)
+        /// <summary>
+        /// Manually checks if any kart is within pickup range. Acts as a fallback for
+        /// physics trigger misses on fast-moving karts.
+        /// </summary>
+        private void CheckManualOverlap()
+        {
+            // Find all KartControllers in the scene (there are usually only 1-4)
+            var karts = FindObjectsOfType<KartController>();
+            foreach (var kart in karts)
+            {
+                if (kart == null) continue;
+                float dist = Vector2.Distance(transform.position, kart.transform.position);
+                if (dist <= 1.5f)  // Same as the trigger radius (1.2 + some margin)
+                {
+                    // Simulate the OnTriggerEnter2D flow
+                    TryCollect(kart.gameObject);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>Called by OnTriggerEnter2D OR CheckManualOverlap when a kart is in range.</summary>
+        private void TryCollect(GameObject kartGo)
         {
             if (_isCollected || powerUp == null) return;
 
-            // Find the kart (other should be the kart's collider)
-            var kart = other.GetComponent<KartController>();
+            var kart = kartGo.GetComponent<KartController>();
             if (kart == null) return;
 
-            // Find the kart's PowerUpSystem
-            var powerUpSystem = other.GetComponent<PowerUpSystem>();
+            var powerUpSystem = kartGo.GetComponent<PowerUpSystem>();
             if (powerUpSystem == null)
             {
-                Debug.LogWarning($"[PowerUpPickup] Kart {kart.gameObject.name} has no PowerUpSystem — pickup ignored.");
+                Debug.LogWarning($"[PowerUpPickup] Kart {kartGo.name} has no PowerUpSystem — pickup ignored.");
                 return;
             }
 
@@ -115,14 +144,18 @@ namespace QuickChecks.Racing
 
             if (oneTimeUse)
             {
-                // Permanent collection — destroy the GameObject
                 Destroy(gameObject);
             }
             else
             {
-                // Temporarily hide + disable collider, will respawn after delay
                 Collect();
             }
+        }
+
+        private void OnTriggerEnter2D(Collider2D other)
+        {
+            // Delegate to TryCollect (shared with the manual overlap check)
+            TryCollect(other.gameObject);
         }
 
         private void Collect()

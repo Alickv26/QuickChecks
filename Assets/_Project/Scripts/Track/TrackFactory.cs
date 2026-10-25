@@ -925,7 +925,6 @@ namespace QuickChecks.Track
                 new Vector2(-6, 6),
                 new Vector2(-12, 2),
                 new Vector2(-18, -4),
-                new Vector2(-22, -10),
             };
 
             // 4 power-ups only — scarce on the finale track
