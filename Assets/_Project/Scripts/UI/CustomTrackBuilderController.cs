@@ -58,7 +58,7 @@ namespace QuickChecks.UI
         [SerializeField] private TMP_Text statusText;
 
         [Header("Camera")]
-        [SerializeField] private Camera builderCamera;
+        [SerializeField] private UnityEngine.Camera builderCamera;
 
         [Header("Colors (palette)")]
         [SerializeField] private Color pointColor = new(0.247f, 0.878f, 0.760f);
