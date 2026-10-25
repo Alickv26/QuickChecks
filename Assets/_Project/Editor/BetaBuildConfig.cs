@@ -172,6 +172,38 @@ namespace QuickChecks.Editor
 
         private static void GenerateAppIcon()
         {
+            // Use the real app icon provided by the user
+            string iconPath = "Assets/_Project/Art/Icons/AppIcon.jpeg";
+            var iconTex = AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+            if (iconTex == null)
+            {
+                Debug.LogWarning($"[BetaBuildConfig] App icon not found at {iconPath} — falling back to generated placeholder.");
+                GeneratePlaceholderIcon();
+                return;
+            }
+
+            // Import settings for icon (no mipmaps, point filtering for crisp edges)
+            var importer = AssetImporter.GetAtPath(iconPath) as TextureImporter;
+            if (importer != null)
+            {
+                importer.textureType = TextureImporterType.Default;
+                importer.mipmapEnabled = false;
+                importer.isReadable = false;
+                importer.textureCompression = TextureImporterCompression.Compressed;
+                importer.SaveAndReimport();
+            }
+
+            // Assign the icon to all Android icon sizes
+            // PlayerSettings.SetIconsForTargetGroup takes a Texture2D[] (Unity picks the right size)
+            PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Android, new Texture2D[] { iconTex });
+
+            AssetDatabase.SaveAssets();
+            Debug.Log("[BetaBuildConfig] App icon assigned from user-provided image.");
+        }
+
+        /// <summary>Fallback: generates a placeholder icon if the real one is missing.</summary>
+        private static void GeneratePlaceholderIcon()
+        {
             System.IO.Directory.CreateDirectory(ICONS_DIR);
 
             // Generate the icon textures + save as PNGs so Unity imports them as assets
