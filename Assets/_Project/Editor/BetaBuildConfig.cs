@@ -53,9 +53,9 @@ namespace QuickChecks.Editor
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24;  // Android 7.0
             PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;  // latest installed
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
-            PlayerSettings.Android.scriptingBackend = ScriptingImplementation.IL2CPP;  // required for ARM64
+            // IL2CPP is set via PlayerSettings.SetScriptingBackend below (line ~62)
             PlayerSettings.Android.useAPKExpansionFiles = false;
-            PlayerSettings.Android.buildApkCleartextTraffic = true;  // for Supabase HTTP (HTTPS preferred but cleartext fallback)
+            // Note: cleartext HTTP not needed — Supabase uses HTTPS
             PlayerSettings.Android.preferredInstallLocation = AndroidPreferredInstallLocation.Auto;
 
             // --- IL2CPP + managed stripping ---
@@ -78,8 +78,8 @@ namespace QuickChecks.Editor
             // --- Build Settings: all 8 scenes, MainMenu as scene 0 ---
             EnsureScenesInBuildSettings();
 
-            // --- Resolution + presentation (no watermark in beta) ---
-            PlayerSettings.SetUseDefaultGraphicsAPI(BuildTarget.Android, false);  // use URP
+            // (Graphics API: let Unity use the default for Android — URP handles
+            // this automatically via the UniversalRenderPipelineAsset.)
 
             EditorUtility.DisplayDialog(
                 "Beta Build Configured",
