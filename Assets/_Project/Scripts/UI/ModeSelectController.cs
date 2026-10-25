@@ -155,9 +155,10 @@ namespace QuickChecks.UI
                 labelGo.transform.SetParent(dotGo.transform, false);
                 var label = labelGo.AddComponent<TextMeshProUGUI>();
                 label.text = _cards[i].dotLabel;
-                label.fontSize = 16;
+                label.fontSize = 22;
+                label.fontStyle = FontStyles.Bold;
                 label.alignment = TextAlignmentOptions.Center;
-                label.color = new Color(0.5f, 0.5f, 0.5f, 0.6f);
+                label.color = new Color(0.7f, 0.7f, 0.7f, 0.9f);
                 label.raycastTarget = false;
                 var labelRect = labelGo.GetComponent<RectTransform>();
                 labelRect.anchorMin = new Vector2(0.5f, 0);
@@ -199,7 +200,7 @@ namespace QuickChecks.UI
                     {
                         labelT.color = i == _currentIdx
                             ? new Color(0.247f, 0.878f, 0.760f, 1f)
-                            : new Color(0.5f, 0.5f, 0.5f, 0.5f);
+                            : new Color(0.7f, 0.7f, 0.7f, 0.9f);
                     }
                 }
             }
