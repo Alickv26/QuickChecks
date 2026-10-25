@@ -11,8 +11,10 @@ namespace QuickChecks.Racing
     /// own SwipeEvent.
     ///
     /// Navigation: targets the next un-passed checkpoint via CheckpointTracker.
-    /// Wall avoidance: casts a short ray forward; if it hits a wall, steers
-    /// left or right to go around.
+    /// Wall avoidance: casts rays in a fan pattern; picks the direction with
+    /// the most clearance toward the checkpoint.
+    /// Stuck detection: if the kart hasn't moved between turns, tries a
+    /// perpendicular swipe to escape.
     /// </summary>
     public class CPUPlayer : MonoBehaviour
     {
@@ -28,23 +30,30 @@ namespace QuickChecks.Racing
         [SerializeField] private float mediumDirectionNoiseDeg = 10f;
         [SerializeField] private float hardDirectionNoiseDeg = 3f;
 
-        [SerializeField] private Vector2 easyMagnitudeRange = new Vector2(0.5f, 0.8f);
-        [SerializeField] private Vector2 mediumMagnitudeRange = new Vector2(0.75f, 0.95f);
-        [SerializeField] private Vector2 hardMagnitudeRange = new Vector2(0.92f, 1.0f);
-
         [Header("Wall Avoidance")]
-        [SerializeField] private float wallCheckDistance = 5f;
-        [SerializeField] private float wallAvoidSteerDeg = 35f;
-        [SerializeField] private int wallAvoidRayCount = 3;
+        [SerializeField] private float wallCheckDistance = 8f;
+        [SerializeField] private float wallAvoidSteerDeg = 30f;
+        [SerializeField] private int wallAvoidRayCount = 6;  // More rays = better pathfinding
+
+        [Header("Stuck Detection")]
+        [Tooltip("If the kart moves less than this distance between turns, it's considered stuck.")]
+        [SerializeField] private float stuckThreshold = 1.0f;
+        [Tooltip("Max consecutive stuck turns before the CPU tries a random perpendicular direction.")]
+        [SerializeField] private int maxStuckTurns = 2;
 
         private KartController _kart;
         private Transform _nextCheckpoint;
         private float _thinkTimer;
         private bool _thinking;
 
+        // Stuck detection
+        private Vector3 _lastTurnEndPos;
+        private int _stuckCount = 0;
+
         private void Awake()
         {
             _kart = GetComponent<KartController>();
+            _lastTurnEndPos = transform.position;
         }
 
         public void SetDifficulty(Difficulty d)
@@ -87,6 +96,20 @@ namespace QuickChecks.Racing
                 return;
             }
 
+            // Check if stuck (hasn't moved much since last turn)
+            float moveDist = Vector3.Distance(transform.position, _lastTurnEndPos);
+            bool isStuck = moveDist < stuckThreshold;
+            if (isStuck)
+            {
+                _stuckCount++;
+                Debug.Log($"[CPUPlayer] Stuck detection: moved {moveDist:F1} units, stuck count = {_stuckCount}");
+            }
+            else
+            {
+                _stuckCount = 0;
+            }
+            _lastTurnEndPos = transform.position;
+
             // Direction from kart to next checkpoint.
             Vector2 toCheckpoint = (Vector2)(_nextCheckpoint.position - _kart.transform.position);
             float distance = toCheckpoint.magnitude;
@@ -98,9 +121,25 @@ namespace QuickChecks.Racing
 
             Vector2 direction = toCheckpoint.normalized;
 
-            // WALL AVOIDANCE: Cast rays ahead to check for walls.
-            // If a wall is in the way, steer left or right to go around.
-            direction = AvoidWalls(direction, distance);
+            // STUCK ESCAPE: if stuck for too many turns, try a perpendicular direction
+            // to break out of the corner/wall the kart is trapped against.
+            if (_stuckCount >= maxStuckTurns)
+            {
+                // Try perpendicular directions (left or right of the checkpoint direction)
+                // Pick whichever has more clearance
+                Vector2 leftPerp = Rotate(direction, 90f);
+                Vector2 rightPerp = Rotate(direction, -90f);
+                float leftClear = GetClearance(leftPerp);
+                float rightClear = GetClearance(rightPerp);
+                direction = leftClear > rightClear ? leftPerp : rightPerp;
+                _stuckCount = 0;  // reset after escape attempt
+                Debug.Log($"[CPUPlayer] STUCK ESCAPE: trying perpendicular direction ({direction.x:F2},{direction.y:F2})");
+            }
+            else
+            {
+                // Normal: try to avoid walls using fan-cast
+                direction = AvoidWalls(direction, distance);
+            }
 
             // Apply difficulty-based noise.
             float noiseDeg = difficulty switch
@@ -113,21 +152,11 @@ namespace QuickChecks.Racing
             float angleOffset = Random.Range(-noiseDeg, noiseDeg);
             direction = Rotate(direction, angleOffset);
 
-            // Magnitude: scale by distance to checkpoint, but always strong enough to be competitive.
-            // The old formula was: optimalMag = min(distance * 2, maxSpeed * 0.85) * Random.Range(0.75, 0.95)
-            // This could result in very weak swipes when distance was small or when the random scale was low.
-            //
-            // New approach: aim for a magnitude that covers ~80% of the distance to the checkpoint,
-            // with a minimum of 70% of max speed so every swipe is meaningful.
+            // Magnitude: scale by distance, with a strong floor for competitive play.
             var stats = _kart.Stats;
             float optimalMag = Mathf.Min(distance * 1.5f, stats.maxSpeed * 0.9f);
-            // Floor: at least 70% of max speed so every swipe is competitive
             optimalMag = Mathf.Max(optimalMag, stats.maxSpeed * 0.7f);
 
-            // Difficulty scaling: higher difficulty = closer to optimal magnitude
-            // Easy: 70-90% of optimal (weaker, more variable)
-            // Medium: 85-100% of optimal
-            // Hard: 95-105% of optimal (slightly overshoots, aggressive)
             Vector2 magRange = difficulty switch
             {
                 Difficulty.Easy => new Vector2(0.70f, 0.90f),
@@ -151,7 +180,7 @@ namespace QuickChecks.Racing
             if (swipeEvent != null)
             {
                 swipeEvent.Raise(swipe);
-                Debug.Log($"[CPUPlayer] Swipe emitted: dir=({direction.x:F2},{direction.y:F2}), mag={magnitude:F0}");
+                Debug.Log($"[CPUPlayer] Swipe emitted: dir=({direction.x:F2},{direction.y:F2}), mag={magnitude:F0}, stuck={isStuck}");
             }
             else
             {
@@ -160,68 +189,81 @@ namespace QuickChecks.Racing
         }
 
         /// <summary>
-        /// Casts rays ahead to check for walls. If a wall blocks the path,
-        /// steers left or right to go around it.
+        /// Casts a fan of rays to find the best direction that avoids walls
+        /// while still heading toward the checkpoint.
+        ///
+        /// Strategy:
+        ///   1. Cast the center ray (directly toward checkpoint)
+        ///   2. If blocked, cast rays at increasing angles left and right
+        ///   3. Score each direction: clearance distance × dot product with target direction
+        ///      (so a direction that has clearance AND heads toward the target wins)
+        ///   4. Pick the highest-scoring direction
         /// </summary>
         private Vector2 AvoidWalls(Vector2 baseDirection, float targetDistance)
         {
             float checkDist = Mathf.Min(wallCheckDistance, targetDistance);
 
-            // Check center ray first
-            RaycastHit2D centerHit = Physics2D.Raycast(
-                _kart.transform.position, baseDirection, checkDist,
-                LayerMask.GetMask("Default"));
-
-            if (centerHit.collider == null)
+            // Score the center direction first
+            float centerClearance = GetClearance(baseDirection, checkDist);
+            if (centerClearance >= checkDist)
             {
-                // No wall ahead — go straight
+                // Clear path — go straight
                 return baseDirection;
             }
 
-            Debug.Log($"[CPUPlayer] Wall detected ahead at {centerHit.distance:F1} units — steering around.");
+            Debug.Log($"[CPUPlayer] Wall ahead at {centerClearance:F1} units — searching for detour.");
 
-            // Wall ahead — try steering left and right, pick whichever has more clearance
-            float bestClearance = -1f;
+            // Fan out: try angles from 15° to 180° on both sides
+            float bestScore = -1f;
             Vector2 bestDirection = baseDirection;
 
             for (int i = 1; i <= wallAvoidRayCount; i++)
             {
                 float steerAngle = wallAvoidSteerDeg * i;
+                if (steerAngle > 180f) break;
 
                 // Try left
                 Vector2 leftDir = Rotate(baseDirection, steerAngle);
-                RaycastHit2D leftHit = Physics2D.Raycast(
-                    _kart.transform.position, leftDir, checkDist * 1.5f,
-                    LayerMask.GetMask("Default"));
-                float leftClearance = leftHit.collider == null ? checkDist * 1.5f : leftHit.distance;
+                float leftClearance = GetClearance(leftDir, checkDist * 2f);
+                // Score: clearance × alignment with target (dot product 0-1)
+                float leftAlignment = Mathf.Max(0f, Vector2.Dot(leftDir.normalized, baseDirection));
+                float leftScore = leftClearance * (0.3f + 0.7f * leftAlignment);  // weight clearance more than alignment
 
                 // Try right
                 Vector2 rightDir = Rotate(baseDirection, -steerAngle);
-                RaycastHit2D rightHit = Physics2D.Raycast(
-                    _kart.transform.position, rightDir, checkDist * 1.5f,
-                    LayerMask.GetMask("Default"));
-                float rightClearance = rightHit.collider == null ? checkDist * 1.5f : rightHit.distance;
+                float rightClearance = GetClearance(rightDir, checkDist * 2f);
+                float rightAlignment = Mathf.Max(0f, Vector2.Dot(rightDir.normalized, baseDirection));
+                float rightScore = rightClearance * (0.3f + 0.7f * rightAlignment);
 
-                if (leftClearance > bestClearance)
+                if (leftScore > bestScore)
                 {
-                    bestClearance = leftClearance;
+                    bestScore = leftScore;
                     bestDirection = leftDir;
                 }
-                if (rightClearance > bestClearance)
+                if (rightScore > bestScore)
                 {
-                    bestClearance = rightClearance;
+                    bestScore = rightScore;
                     bestDirection = rightDir;
                 }
 
-                // If we found a clear path, use it
-                if (bestClearance >= checkDist)
+                // If we found a direction with enough clearance that still heads roughly toward target, use it
+                if (bestScore > checkDist * 0.5f)
                 {
-                    Debug.Log($"[CPUPlayer] Found clear path steering {steerAngle}° (clearance: {bestClearance:F1}).");
+                    Debug.Log($"[CPUPlayer] Found detour at {steerAngle}° (clearance={bestScore:F1}, score={bestScore:F1}).");
                     break;
                 }
             }
 
             return bestDirection;
+        }
+
+        /// <summary>Raycasts in the given direction and returns how far the nearest wall is (or maxDist if clear).</summary>
+        private float GetClearance(Vector2 direction, float maxDist = 10f)
+        {
+            RaycastHit2D hit = Physics2D.Raycast(
+                _kart.transform.position, direction, maxDist,
+                LayerMask.GetMask("Default"));
+            return hit.collider == null ? maxDist : hit.distance;
         }
 
         private static Vector2 Rotate(Vector2 v, float degrees)
