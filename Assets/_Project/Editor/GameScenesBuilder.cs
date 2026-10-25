@@ -701,154 +701,166 @@ namespace QuickChecks.Editor
                 esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
             }
 
-            // Title (centered, top)
-            var titleText = Phase2UiPalette.CreateText("Title", "Select Mode", 56, Phase2UiPalette.AccentCyan,
-                new Vector2(0.5f, 0.96f), new Vector2(900, 80), parent: canvasGo.transform);
-
-            // Status text (bottom-center — shows transient messages like "Online coming in v1.1")
-            var statusText = Phase2UiPalette.CreateText("StatusText", "", 28,
-                Phase2UiPalette.AccentCyan,
-                new Vector2(0.5f, 0.04f), new Vector2(1000, 40), parent: canvasGo.transform);
+            // Title
+            var titleText = Phase2UiPalette.CreateText("Title", "Select Mode", 48, Phase2UiPalette.AccentCyan,
+                new Vector2(0.5f, 0.96f), new Vector2(900, 60), parent: canvasGo.transform);
 
             // Back button (top-left)
-            var backGo = new GameObject("BackButton");
-            backGo.transform.SetParent(canvasGo.transform, false);
-            var backBtn = backGo.AddComponent<Button>();
-            var backImg = backGo.AddComponent<Image>();
-            backImg.color = Phase2UiPalette.PanelSurface;
-            backBtn.targetGraphic = backImg;
-            var backRect = backGo.GetComponent<RectTransform>();
-            backRect.anchorMin = new Vector2(0, 1);
-            backRect.anchorMax = new Vector2(0, 1);
-            backRect.pivot = new Vector2(0, 1);
-            backRect.anchoredPosition = new Vector2(40, -40);
-            backRect.sizeDelta = new Vector2(220, 80);
+            var backBtn = CreateSimpleButton(canvasGo.transform, "BackButton", "< Back",
+                new Vector2(0, 1), new Vector2(40, -40), new Vector2(200, 70),
+                Phase2UiPalette.PanelSurface, Phase2UiPalette.TextPrimary, anchorPivot: new Vector2(0, 1));
 
-            var blGo = new GameObject("Label");
-            blGo.transform.SetParent(backGo.transform, false);
-            var blText = blGo.AddComponent<TextMeshProUGUI>();
-            blText.text = "< Back";
-            blText.fontSize = 32;
-            blText.alignment = TextAlignmentOptions.Center;
-            blText.color = Phase2UiPalette.TextPrimary;
-            blText.raycastTarget = false;
-            var blR = blGo.GetComponent<RectTransform>();
-            blR.anchorMin = Vector2.zero; blR.anchorMax = Vector2.one;
-            blR.pivot = new Vector2(0.5f, 0.5f);
-            blR.offsetMin = Vector2.zero; blR.offsetMax = Vector2.zero;
+            // Status text (bottom-center)
+            var statusText = Phase2UiPalette.CreateText("StatusText", "", 24,
+                Phase2UiPalette.AccentCyan,
+                new Vector2(0.5f, 0.04f), new Vector2(1000, 30),
+                TextAlignmentOptions.Center, false, canvasGo.transform);
 
-            // Scroll container for the cards (handles landscape overflow on small screens)
-            var scrollGo = new GameObject("CardScroll");
-            scrollGo.transform.SetParent(canvasGo.transform, false);
-            scrollGo.AddComponent<RectTransform>();
-            var scrollRect = scrollGo.GetComponent<RectTransform>();
-            scrollRect.anchorMin = new Vector2(0, 0);
-            scrollRect.anchorMax = new Vector2(1, 1);
-            scrollRect.pivot = new Vector2(0.5f, 0.5f);
-            scrollRect.offsetMin = new Vector2(0, -100);
-            scrollRect.offsetMax = new Vector2(0, -140);
+            // --- Card container (single visible card, captures swipe) ---
+            var cardContainerGo = new GameObject("CardContainer");
+            cardContainerGo.transform.SetParent(canvasGo.transform, false);
+            var cardContainerRect = cardContainerGo.AddComponent<RectTransform>();
+            cardContainerRect.anchorMin = new Vector2(0.1f, 0.15f);
+            cardContainerRect.anchorMax = new Vector2(0.9f, 0.88f);
+            cardContainerRect.pivot = new Vector2(0.5f, 0.5f);
+            cardContainerRect.offsetMin = Vector2.zero;
+            cardContainerRect.offsetMax = Vector2.zero;
 
-            var scroll = scrollGo.AddComponent<ScrollRect>();
-            scroll.horizontal = false;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 15f;
-            scroll.vertical = true;
+            var cardBg = cardContainerGo.AddComponent<Image>();
+            cardBg.color = new Color(0.247f, 0.878f, 0.760f, 0.08f);
+            cardBg.raycastTarget = true;
 
-            var contentGo = new GameObject("Content");
-            contentGo.transform.SetParent(scrollGo.transform, false);
-            var vlg = contentGo.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing = 24;
-            vlg.padding = new RectOffset(40, 40, 40, 40);
-            vlg.childAlignment = TextAnchor.UpperCenter;
-            vlg.childControlWidth = true;
-            vlg.childControlHeight = false;
-            vlg.childForceExpandWidth = true;
-            vlg.childForceExpandHeight = false;
-            var contentFitter = contentGo.AddComponent<ContentSizeFitter>();
-            contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            contentGo.AddComponent<RectTransform>();
-            var contentRect = contentGo.GetComponent<RectTransform>();
-            contentRect.anchorMin = new Vector2(0, 1);
-            contentRect.anchorMax = new Vector2(1, 1);
-            contentRect.pivot = new Vector2(0.5f, 1);
-            contentRect.sizeDelta = new Vector2(0, 0);
+            // Icon circle
+            var iconGo = new GameObject("CardIcon");
+            iconGo.transform.SetParent(cardContainerGo.transform, false);
+            var iconImg = iconGo.AddComponent<Image>();
+            iconImg.color = Phase2UiPalette.AccentCyan;
+            iconImg.raycastTarget = false;
+            iconImg.sprite = CreateCircleSprite();
+            var iconRect = iconGo.GetComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0.5f, 0.85f);
+            iconRect.anchorMax = new Vector2(0.5f, 0.85f);
+            iconRect.pivot = new Vector2(0.5f, 0.5f);
+            iconRect.sizeDelta = new Vector2(120, 120);
 
-            scroll.content = contentRect;
-            scroll.viewport = contentRect;  // simplified — no separate viewport mask for prototype
+            // Mode name
+            var cardNameText = Phase2UiPalette.CreateText("CardName", "Solo Practice", 48,
+                Phase2UiPalette.TextPrimary, new Vector2(0.1f, 0.60f), new Vector2(0, 0),
+                TextAlignmentOptions.Center, false, cardContainerGo.transform);
+            var cardNameRect = cardNameText.GetComponent<RectTransform>();
+            cardNameRect.anchorMin = new Vector2(0.1f, 0.60f);
+            cardNameRect.anchorMax = new Vector2(0.9f, 0.72f);
+            cardNameRect.offsetMin = Vector2.zero; cardNameRect.offsetMax = Vector2.zero;
 
-            // Helper to build a category section: label + horizontal container for cards
-            void BuildSection(string labelText, float accentHue, out TMP_Text labelOut, out Transform containerOut)
-            {
-                // Category label
-                var catGo = new GameObject($"Category_{labelText}");
-                catGo.transform.SetParent(contentGo.transform, false);
-                var catText = catGo.AddComponent<TextMeshProUGUI>();
-                catText.text = labelText;
-                catText.fontSize = 24;
-                catText.alignment = TextAlignmentOptions.Left;
-                catText.color = Phase2UiPalette.TextDim;
-                catText.raycastTarget = false;
-                var catLayout = catGo.AddComponent<LayoutElement>();
-                catLayout.preferredHeight = 40;
-                catLayout.flexibleWidth = 1;
+            // Description
+            var cardDescText = Phase2UiPalette.CreateText("CardDesc", "", 28,
+                new Color(0.8f, 0.8f, 0.8f, 0.9f), new Vector2(0.1f, 0.40f), new Vector2(0, 0),
+                TextAlignmentOptions.Center, false, cardContainerGo.transform);
+            var cardDescRect = cardDescText.GetComponent<RectTransform>();
+            cardDescRect.anchorMin = new Vector2(0.1f, 0.40f);
+            cardDescRect.anchorMax = new Vector2(0.9f, 0.55f);
+            cardDescRect.offsetMin = Vector2.zero; cardDescRect.offsetMax = Vector2.zero;
+            cardDescText.enableWordWrapping = true;
 
-                // Horizontal container for cards
-                var rowGo = new GameObject($"Row_{labelText}");
-                rowGo.transform.SetParent(contentGo.transform, false);
-                var hlg2 = rowGo.AddComponent<HorizontalLayoutGroup>();
-                hlg2.spacing = 16;
-                hlg2.childAlignment = TextAnchor.UpperLeft;
-                hlg2.childControlWidth = true;
-                hlg2.childControlHeight = false;
-                hlg2.childForceExpandWidth = true;
-                hlg2.childForceExpandHeight = false;
-                var rowLayout = rowGo.AddComponent<LayoutElement>();
-                rowLayout.preferredHeight = 160;
-                rowLayout.flexibleWidth = 1;
+            // Player count chip
+            var chipGo = new GameObject("PlayerCountChip");
+            chipGo.transform.SetParent(cardContainerGo.transform, false);
+            var chipImg = chipGo.AddComponent<Image>();
+            chipImg.color = new Color(0.247f, 0.878f, 0.760f, 0.2f);
+            chipImg.raycastTarget = false;
+            var chipRect = chipGo.GetComponent<RectTransform>();
+            chipRect.anchorMin = new Vector2(0.5f, 0.30f);
+            chipRect.anchorMax = new Vector2(0.5f, 0.30f);
+            chipRect.pivot = new Vector2(0.5f, 0.5f);
+            chipRect.sizeDelta = new Vector2(120, 50);
+            var chipLabel = Phase2UiPalette.CreateText("ChipLabel", "1P", 28,
+                Phase2UiPalette.AccentCyan, new Vector2(0.5f, 0.5f), new Vector2(0, 0),
+                TextAlignmentOptions.Center, false, chipGo.transform);
+            var chipLabelRect = chipLabel.GetComponent<RectTransform>();
+            chipLabelRect.anchorMin = Vector2.zero; chipLabelRect.anchorMax = Vector2.one;
+            chipLabelRect.offsetMin = Vector2.zero; chipLabelRect.offsetMax = Vector2.zero;
 
-                labelOut = catText;
-                containerOut = rowGo.transform;
-            }
+            // Badge text
+            var badgeText = Phase2UiPalette.CreateText("CardBadge", "COMING IN v1.1", 22,
+                new Color(0.725f, 0.514f, 1f), new Vector2(0.5f, 0.15f), new Vector2(300, 30),
+                TextAlignmentOptions.Center, false, cardContainerGo.transform);
+            badgeText.gameObject.SetActive(false);
 
-            // SOLO section
-            BuildSection("SOLO", 0, out var soloLabel, out var soloContainer);
+            // Dots container
+            var dotsGo = new GameObject("DotsContainer");
+            dotsGo.transform.SetParent(canvasGo.transform, false);
+            var dotsRect = dotsGo.AddComponent<RectTransform>();
+            dotsRect.anchorMin = new Vector2(0.5f, 0.10f);
+            dotsRect.anchorMax = new Vector2(0.5f, 0.10f);
+            dotsRect.pivot = new Vector2(0.5f, 0.5f);
+            dotsRect.sizeDelta = new Vector2(400, 20);
+            var dotsHlg = dotsGo.AddComponent<HorizontalLayoutGroup>();
+            dotsHlg.spacing = 12;
+            dotsHlg.childAlignment = TextAnchor.MiddleCenter;
+            dotsHlg.childControlWidth = false;
+            dotsHlg.childControlHeight = false;
+            dotsHlg.childForceExpandWidth = false;
+            dotsHlg.childForceExpandHeight = false;
 
-            // VS CPU section
-            BuildSection("VS CPU", 0, out var cpuLabel, out var cpuContainer);
+            // Swipe hints
+            Phase2UiPalette.CreateText("LeftHint", "< swipe", 20,
+                new Color(0.5f, 0.5f, 0.5f, 0.5f), new Vector2(0.1f, 0.08f), new Vector2(150, 25),
+                TextAlignmentOptions.Left, false, canvasGo.transform);
+            Phase2UiPalette.CreateText("RightHint", "swipe >", 20,
+                new Color(0.5f, 0.5f, 0.5f, 0.5f), new Vector2(0.9f, 0.08f), new Vector2(150, 25),
+                TextAlignmentOptions.Right, false, canvasGo.transform);
 
-            // PASS & PLAY section
-            BuildSection("PASS & PLAY", 0, out var passPlayLabel, out var passPlayContainer);
-
-            // ONLINE section
-            BuildSection("ONLINE", 0, out var onlineLabel, out var onlineContainer);
-
-            // GameFlowManager
+            // GameFlowManager + AudioBootstrap
             var flowGo = new GameObject("[GameFlowManager]");
             flowGo.AddComponent<GameFlowManager>();
-
-            // AudioBootstrap
             var audioGo = new GameObject("[AudioBootstrap]");
             audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
 
-            // ModeSelectController — wire all the references
+            // Controller
             var ctrlGo = new GameObject("[ModeSelectController]");
             var ctrl = ctrlGo.AddComponent<QuickChecks.UI.ModeSelectController>();
             var so = new SerializedObject(ctrl);
             so.FindProperty("backButton").objectReferenceValue = backBtn;
             so.FindProperty("titleText").objectReferenceValue = titleText;
             so.FindProperty("statusText").objectReferenceValue = statusText;
-            so.FindProperty("soloContainer").objectReferenceValue = soloContainer;
-            so.FindProperty("cpuContainer").objectReferenceValue = cpuContainer;
-            so.FindProperty("passPlayContainer").objectReferenceValue = passPlayContainer;
-            so.FindProperty("onlineContainer").objectReferenceValue = onlineContainer;
-            so.FindProperty("soloLabel").objectReferenceValue = soloLabel;
-            so.FindProperty("cpuLabel").objectReferenceValue = cpuLabel;
-            so.FindProperty("passPlayLabel").objectReferenceValue = passPlayLabel;
-            so.FindProperty("onlineLabel").objectReferenceValue = onlineLabel;
+            so.FindProperty("cardContainer").objectReferenceValue = cardContainerRect;
+            so.FindProperty("cardBackground").objectReferenceValue = cardBg;
+            so.FindProperty("cardIcon").objectReferenceValue = iconImg;
+            so.FindProperty("cardNameText").objectReferenceValue = cardNameText;
+            so.FindProperty("cardDescText").objectReferenceValue = cardDescText;
+            so.FindProperty("cardPlayerCountText").objectReferenceValue = chipLabel;
+            so.FindProperty("cardBadgeText").objectReferenceValue = badgeText;
+            so.FindProperty("dotsContainer").objectReferenceValue = dotsGo.transform;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, SCENES_DIR + "ModeSelect.unity");
-            Debug.Log("[GameScenesBuilder] ModeSelect scene built (Phase 2 grouped neon cards).");
+            Debug.Log("[GameScenesBuilder] ModeSelect scene built (carousel layout).");
+        }
+
+        private static Sprite _cachedCircleSprite;
+        private static Sprite CreateCircleSprite()
+        {
+            if (_cachedCircleSprite != null) return _cachedCircleSprite;
+            const int size = 64;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var px = new Color32[size * size];
+            float center = size / 2f;
+            float radius = size / 2f - 1f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x - center;
+                    float dy = y - center;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    px[y * size + x] = dist <= radius ? new Color32(255, 255, 255, 255) : new Color32(0, 0, 0, 0);
+                }
+            }
+            tex.SetPixels32(px);
+            tex.Apply();
+            tex.filterMode = FilterMode.Bilinear;
+            _cachedCircleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+            return _cachedCircleSprite;
         }
 
         private static void BuildTrackSelectScene()

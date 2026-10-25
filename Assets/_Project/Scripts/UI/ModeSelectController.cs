@@ -1,5 +1,8 @@
+using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using TMPro;
 using QuickChecks.Core;
@@ -8,45 +11,56 @@ using QuickChecks.Audio;
 namespace QuickChecks.UI
 {
     /// <summary>
-    /// Mode select controller (Phase 2). Renders neon-styled mode cards grouped by category.
+    /// Swipeable carousel mode select. One large card at a time, swipe left/right to browse.
+    /// Tap the card to select that mode.
     ///
-    /// Layout (built at runtime via CreateRuntimeModeCard):
-    ///   SOLO PRACTICE       (cyan accent)    — single card spanning full width
-    ///       "Race alone + your personal best ghost"
+    /// Each card shows:
+    ///   - Large colored circle (icon) — color-coded per category
+    ///   - Mode name (large text)
+    ///   - Description (small text)
+    ///   - Player count chip (e.g. "1P", "2P")
     ///
-    ///   VS CPU               (3 cards side-by-side: green / yellow / red)
-    ///       Easy / Medium / Hard
-    ///
-    ///   PASS & PLAY          (3 cards side-by-side: blue)
-    ///       2P / 3P / 4P
-    ///
-    ///   ONLINE               (single card, purple, with "STUB" tag)
-    ///       "Live opponent (CPU stub in v1 — real netcode in v1.1)"
-    ///
-    /// Each card has:
-    ///   - Mode name (large, on accent color background)
-    ///   - Player count chip (small, top-right of card)
-    ///   - Description (small, off-white)
-    ///   - Neon hover FX (ButtonHoverFx auto-attached)
+    /// Dot indicators at the bottom show which card is active.
+    /// Online card is dimmed (60% alpha) + "COMING v1.1" badge.
     /// </summary>
-    public class ModeSelectController : MonoBehaviour
+    public class ModeSelectController : MonoBehaviour,
+        IPointerDownHandler, IPointerUpHandler
     {
         [SerializeField] private Button backButton;
         [SerializeField] private TMP_Text titleText;
-        [SerializeField] private TMP_Text modeSummaryText;  // optional: shows currently hovered mode's full description
-        [SerializeField] private TMP_Text statusText;  // optional: shows transient messages (e.g. "Online coming soon")
+        [SerializeField] private TMP_Text statusText;
 
-        [Header("Containers (optional — built at runtime if null)")]
-        [SerializeField] private Transform soloContainer;
-        [SerializeField] private Transform cpuContainer;
-        [SerializeField] private Transform passPlayContainer;
-        [SerializeField] private Transform onlineContainer;
+        [Header("Card References")]
+        [SerializeField] private RectTransform cardContainer;  // parent of the single visible card
+        [SerializeField] private Image cardBackground;
+        [SerializeField] private Image cardIcon;             // large colored circle
+        [SerializeField] private TMP_Text cardNameText;
+        [SerializeField] private TMP_Text cardDescText;
+        [SerializeField] private TMP_Text cardPlayerCountText;
+        [SerializeField] private TMP_Text cardBadgeText;     // "COMING v1.1" for online
 
-        [Header("Category labels (optional)")]
-        [SerializeField] private TMP_Text soloLabel;
-        [SerializeField] private TMP_Text cpuLabel;
-        [SerializeField] private TMP_Text passPlayLabel;
-        [SerializeField] private TMP_Text onlineLabel;
+        [Header("Dots")]
+        [SerializeField] private Transform dotsContainer;
+
+        [Header("Swipe Settings")]
+        [SerializeField] private float swipeThreshold = 80f;
+        [SerializeField] private float cardTransitionDuration = 0.25f;
+
+        // Mode data (icon color + name + description per mode)
+        private struct ModeInfo
+        {
+            public RaceMode mode;
+            public string name;
+            public string description;
+            public Color color;
+            public string playerCount;
+            public bool isLocked;
+        }
+
+        private ModeInfo[] _modes;
+        private int _currentIdx = 0;
+        private Vector2 _pointerDownPos;
+        private bool _isSwiping = false;
 
         private void Start()
         {
@@ -59,179 +73,257 @@ namespace QuickChecks.UI
                 EnsureHoverFx(backButton);
             }
 
-            // Wire up category labels (visible if assigned in scene)
-            if (soloLabel != null) soloLabel.text = "SOLO";
-            if (cpuLabel != null) cpuLabel.text = "VS CPU";
-            if (passPlayLabel != null) passPlayLabel.text = "PASS & PLAY";
-            if (onlineLabel != null) onlineLabel.text = "ONLINE";
+            BuildModeData();
+            BuildDots();
+            ShowMode(0, animate: false);
 
-            // Build mode cards
-            BuildModeCards();
-
-            Debug.Log("[ModeSelect] Ready. Select a game mode.");
+            Debug.Log("[ModeSelect] Ready. Swipe to browse, tap to select.");
         }
 
-        private void BuildModeCards()
+        private void BuildModeData()
         {
-            // SOLO
-            BuildCard(soloContainer, "SoloButton", RaceMode.Solo);
-
-            // VS CPU (Easy / Medium / Hard)
-            BuildCard(cpuContainer, "VsCpuEasyButton",   RaceMode.VsCpuEasy);
-            BuildCard(cpuContainer, "VsCpuMediumButton", RaceMode.VsCpuMedium);
-            BuildCard(cpuContainer, "VsCpuHardButton",   RaceMode.VsCpuHard);
-
-            // PASS & PLAY
-            BuildCard(passPlayContainer, "PassPlay2Button", RaceMode.PassPlay2);
-            BuildCard(passPlayContainer, "PassPlay3Button", RaceMode.PassPlay3);
-            BuildCard(passPlayContainer, "PassPlay4Button", RaceMode.PassPlay4);
-
-            // ONLINE
-            BuildCard(onlineContainer, "OnlineButton", RaceMode.Online);
-        }
-
-        private void BuildCard(Transform container, string buttonName, RaceMode mode)
-        {
-            if (container == null)
+            _modes = new ModeInfo[]
             {
-                Debug.LogWarning($"[ModeSelect] Container missing for {buttonName} — card not built.");
-                return;
+                new ModeInfo
+                {
+                    mode = RaceMode.Solo,
+                    name = "Solo Practice",
+                    description = "Race alone against your personal best ghost.\nFewest swipes wins.",
+                    color = new Color(0.247f, 0.878f, 0.760f),  // cyan
+                    playerCount = "1P",
+                    isLocked = false
+                },
+                new ModeInfo
+                {
+                    mode = RaceMode.VsCpuEasy,
+                    name = "vs CPU — Easy",
+                    description = "Relaxed AI. Generous aim, low pressure.\nGreat for learning tracks.",
+                    color = new Color(0.42f, 0.79f, 0.47f),  // green
+                    playerCount = "1v1",
+                    isLocked = false
+                },
+                new ModeInfo
+                {
+                    mode = RaceMode.VsCpuMedium,
+                    name = "vs CPU — Medium",
+                    description = "Sharp AI. Close to a real player.\nTests your precision.",
+                    color = new Color(1f, 0.82f, 0.4f),  // yellow
+                    playerCount = "1v1",
+                    isLocked = false
+                },
+                new ModeInfo
+                {
+                    mode = RaceMode.VsCpuHard,
+                    name = "vs CPU — Hard",
+                    description = "Ruthless AI. Near-perfect aim.\nPunishes every mistake.",
+                    color = new Color(1f, 0.42f, 0.42f),  // red
+                    playerCount = "1v1",
+                    isLocked = false
+                },
+                new ModeInfo
+                {
+                    mode = RaceMode.PassPlay2,
+                    name = "Pass & Play — 2P",
+                    description = "Two players, one device.\nTake turns swiping.",
+                    color = new Color(0.42f, 0.58f, 1f),  // blue
+                    playerCount = "2P",
+                    isLocked = false
+                },
+                new ModeInfo
+                {
+                    mode = RaceMode.PassPlay3,
+                    name = "Pass & Play — 3P",
+                    description = "Three players, one device.\nTake turns swiping.",
+                    color = new Color(0.42f, 0.58f, 1f),  // blue
+                    playerCount = "3P",
+                    isLocked = false
+                },
+                new ModeInfo
+                {
+                    mode = RaceMode.PassPlay4,
+                    name = "Pass & Play — 4P",
+                    description = "Four players, one device.\nTake turns swiping.",
+                    color = new Color(0.42f, 0.58f, 1f),  // blue
+                    playerCount = "4P",
+                    isLocked = false
+                },
+                new ModeInfo
+                {
+                    mode = RaceMode.Online,
+                    name = "Online Match",
+                    description = "Real-time turn-based matches\nagainst players worldwide.",
+                    color = new Color(0.725f, 0.514f, 1f),  // purple
+                    playerCount = "1v1",
+                    isLocked = true
+                },
+            };
+        }
+
+        private void BuildDots()
+        {
+            if (dotsContainer == null) return;
+            for (int i = 0; i < dotsContainer.childCount; i++)
+                Destroy(dotsContainer.GetChild(i).gameObject);
+
+            for (int i = 0; i < _modes.Length; i++)
+            {
+                var dotGo = new GameObject($"Dot_{i}");
+                dotGo.transform.SetParent(dotsContainer, false);
+                var dotImg = dotGo.AddComponent<Image>();
+                dotImg.raycastTarget = false;
+                var dotLayout = dotGo.AddComponent<LayoutElement>();
+                dotLayout.preferredWidth = 12;
+                dotLayout.preferredHeight = 12;
+                dotLayout.flexibleWidth = 0;
+            }
+            UpdateDots();
+        }
+
+        private void UpdateDots()
+        {
+            if (dotsContainer == null) return;
+            for (int i = 0; i < dotsContainer.childCount && i < _modes.Length; i++)
+            {
+                var img = dotsContainer.GetChild(i).GetComponent<Image>();
+                if (img == null) continue;
+                img.color = i == _currentIdx
+                    ? new Color(0.247f, 0.878f, 0.760f, 1f)   // cyan active
+                    : new Color(0.4f, 0.4f, 0.4f, 0.5f);       // dim inactive
+            }
+        }
+
+        private void ShowMode(int index, bool animate = true)
+        {
+            if (_modes == null || index < 0 || index >= _modes.Length) return;
+            _currentIdx = index;
+            var m = _modes[index];
+
+            // Card background — tinted with the mode's color
+            if (cardBackground != null)
+            {
+                float alpha = m.isLocked ? 0.35f : 0.12f;
+                cardBackground.color = new Color(m.color.r, m.color.g, m.color.b, alpha);
             }
 
-            var cardGo = CreateRuntimeModeCard(buttonName, mode);
-            cardGo.transform.SetParent(container, false);
-
-            var btn = cardGo.GetComponent<Button>();
-            if (btn != null)
+            // Icon circle
+            if (cardIcon != null)
             {
-                btn.onClick.RemoveAllListeners();
-                btn.onClick.AddListener(() => OnModeSelected(mode));
-                EnsureHoverFx(btn);
+                cardIcon.color = m.isLocked
+                    ? new Color(m.color.r * 0.5f, m.color.g * 0.5f, m.color.b * 0.5f, 0.6f)
+                    : m.color;
+            }
+
+            // Text
+            if (cardNameText != null)
+            {
+                cardNameText.text = m.name;
+                cardNameText.color = m.isLocked ? new Color(0.5f, 0.5f, 0.5f, 0.6f) : Phase2UiPalette.TextPrimary;
+            }
+            if (cardDescText != null)
+            {
+                cardDescText.text = m.description;
+                cardDescText.color = m.isLocked ? new Color(0.5f, 0.5f, 0.5f, 0.5f) : new Color(0.8f, 0.8f, 0.8f, 0.9f);
+            }
+            if (cardPlayerCountText != null)
+            {
+                cardPlayerCountText.text = m.playerCount;
+                cardPlayerCountText.color = m.isLocked ? new Color(0.5f, 0.5f, 0.5f, 0.5f) : m.color;
+            }
+
+            // Badge (Online only)
+            if (cardBadgeText != null)
+            {
+                cardBadgeText.gameObject.SetActive(m.isLocked);
+                if (m.isLocked) cardBadgeText.text = "COMING IN v1.1";
+            }
+
+            UpdateDots();
+
+            if (animate)
+            {
+                StartCoroutine(SlideCardAnimation());
             }
         }
 
-        private GameObject CreateRuntimeModeCard(string name, RaceMode mode)
+        private IEnumerator SlideCardAnimation()
         {
-            var go = new GameObject(name);
-            var rect = go.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(0, 140);
-
-            var img = go.AddComponent<Image>();
-            Color accent = Phase2UiPalette.ModeAccent(mode);
-            // Card face: dim version of accent (so text on accent stays readable)
-            img.color = new Color(accent.r * 0.18f, accent.g * 0.18f, accent.b * 0.18f, 1f);
-
-            var button = go.AddComponent<Button>();
-            button.targetGraphic = img;
-
-            // Horizontal layout: text fills, chip on right
-            var hlg = go.AddComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(20, 16, 12, 12);
-            hlg.spacing = 12;
-            hlg.childAlignment = TextAnchor.MiddleLeft;
-            hlg.childControlWidth = true;
-            hlg.childControlHeight = false;
-            hlg.childForceExpandWidth = true;
-            hlg.childForceExpandHeight = false;
-
-            // Left accent strip (4px wide vertical bar in mode color)
-            var stripGo = new GameObject("AccentStrip");
-            stripGo.transform.SetParent(go.transform, false);
-            var stripImg = stripGo.AddComponent<Image>();
-            stripImg.color = accent;
-            var stripLayout = stripGo.AddComponent<LayoutElement>();
-            stripLayout.preferredWidth = 6;
-            stripLayout.flexibleWidth = 0;
-            var stripRect = stripGo.GetComponent<RectTransform>();
-            stripRect.sizeDelta = new Vector2(6, 100);
-
-            // Text column (mode name + description)
-            var textColGo = new GameObject("TextColumn");
-            textColGo.transform.SetParent(go.transform, false);
-            var textColRect = textColGo.AddComponent<RectTransform>();
-            var vlg = textColGo.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing = 4;
-            vlg.childAlignment = TextAnchor.UpperLeft;
-            vlg.childControlWidth = true;
-            vlg.childControlHeight = false;
-            vlg.childForceExpandWidth = true;
-            vlg.childForceExpandHeight = false;
-            var textColLayout = textColGo.AddComponent<LayoutElement>();
-            textColLayout.flexibleWidth = 1;
-
-            // Mode name
-            var nameGo = new GameObject("ModeName");
-            nameGo.transform.SetParent(textColGo.transform, false);
-            var nameText = nameGo.AddComponent<TextMeshProUGUI>();
-            nameText.text = mode.DisplayName();
-            nameText.fontSize = 32;
-            nameText.alignment = TextAlignmentOptions.Left;
-            nameText.color = accent;
-            nameText.raycastTarget = false;
-
-            // Description
-            var descGo = new GameObject("Description");
-            descGo.transform.SetParent(textColGo.transform, false);
-            var descText = descGo.AddComponent<TextMeshProUGUI>();
-            descText.text = Phase2UiPalette.ModeDescription(mode);
-            descText.fontSize = 22;
-            descText.alignment = TextAlignmentOptions.Left;
-            descText.color = Phase2UiPalette.TextPrimary;
-            descText.raycastTarget = false;
-
-            // Player count chip (top-right)
-            var chipGo = new GameObject("PlayerChip");
-            chipGo.transform.SetParent(go.transform, false);
-            var chipImg = chipGo.AddComponent<Image>();
-            chipImg.color = new Color(accent.r, accent.g, accent.b, 0.25f);
-            var chipLayout = chipGo.AddComponent<LayoutElement>();
-            chipLayout.preferredWidth = 80;
-            chipLayout.flexibleWidth = 0;
-
-            var chipLabelGo = new GameObject("Label");
-            chipLabelGo.transform.SetParent(chipGo.transform, false);
-            var chipLabel = chipLabelGo.AddComponent<TextMeshProUGUI>();
-            chipLabel.text = $"{mode.PlayerCount()}P";
-            chipLabel.fontSize = 28;
-            chipLabel.alignment = TextAlignmentOptions.Center;
-            chipLabel.color = accent;
-            chipLabel.raycastTarget = false;
-            var chipLabelRect = chipLabelGo.GetComponent<RectTransform>();
-            chipLabelRect.anchorMin = Vector2.zero; chipLabelRect.anchorMax = Vector2.one;
-            chipLabelRect.pivot = new Vector2(0.5f, 0.5f);
-            chipLabelRect.offsetMin = Vector2.zero; chipLabelRect.offsetMax = Vector2.zero;
-
-            // Online "Coming soon" badge (v1.1)
-            if (mode == RaceMode.Online)
+            if (cardContainer == null) yield break;
+            Vector2 startPos = cardContainer.anchoredPosition;
+            Vector2 endPos = Vector2.zero;
+            float elapsed = 0f;
+            while (elapsed < cardTransitionDuration)
             {
-                var badgeGo = new GameObject("ComingSoonBadge");
-                badgeGo.transform.SetParent(textColGo.transform, false);
-                var badgeText = badgeGo.AddComponent<TextMeshProUGUI>();
-                badgeText.text = "COMING IN v1.1";
-                badgeText.fontSize = 16;
-                badgeText.alignment = TextAlignmentOptions.Left;
-                badgeText.color = Phase2UiPalette.Online;
-                badgeText.raycastTarget = false;
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / cardTransitionDuration);
+                t = 1f - Mathf.Pow(1f - t, 3f);  // ease-out cubic
+                cardContainer.anchoredPosition = Vector2.LerpUnclamped(startPos, endPos, t);
+                yield return null;
             }
-
-            return go;
+            cardContainer.anchoredPosition = endPos;
         }
 
-        private void OnModeSelected(RaceMode mode)
+        // =====================================================================
+        // Swipe detection (IPointerDownHandler + IPointerUpHandler)
+        // =====================================================================
+
+        public void OnPointerDown(PointerEventData eventData)
         {
+            _pointerDownPos = eventData.position;
+            _isSwiping = true;
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            if (!_isSwiping) return;
+            _isSwiping = false;
+
+            Vector2 delta = eventData.position - _pointerDownPos;
+
+            // Check if it's a swipe (horizontal movement > threshold)
+            if (Mathf.Abs(delta.x) > swipeThreshold)
+            {
+                if (delta.x < 0)
+                {
+                    // Swipe left → next mode
+                    if (_currentIdx < _modes.Length - 1)
+                    {
+                        ShowMode(_currentIdx + 1);
+                        if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+                    }
+                }
+                else
+                {
+                    // Swipe right → previous mode
+                    if (_currentIdx > 0)
+                    {
+                        ShowMode(_currentIdx - 1);
+                        if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+                    }
+                }
+            }
+            else
+            {
+                // Tap (not a swipe) → select this mode
+                OnModeSelected();
+            }
+        }
+
+        private void OnModeSelected()
+        {
+            var m = _modes[_currentIdx];
             if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
-            Debug.Log($"[ModeSelect] Mode selected: {mode.DisplayName()} ({mode.PlayerCount()} players)");
 
-            // Online mode is gated for v1.1 — show a coming soon message instead of going to TrackSelect
-            if (mode == RaceMode.Online)
+            if (m.isLocked)
             {
                 ShowStatus("Online multiplayer is coming in v1.1. Stay tuned!");
                 return;
             }
 
+            Debug.Log($"[ModeSelect] Mode selected: {m.name} ({m.mode.PlayerCount()} players)");
+
             if (GameFlowManager.Instance != null)
             {
-                GameFlowManager.Instance.selectedMode = mode;
+                GameFlowManager.Instance.selectedMode = m.mode;
                 GameFlowManager.Instance.GoToTrackSelect();
             }
             else
@@ -240,13 +332,34 @@ namespace QuickChecks.UI
             }
         }
 
+        // Desktop: arrow keys to navigate
+        private void Update()
+        {
+            if (UnityEngine.Input.GetKeyDown(KeyCode.RightArrow))
+            {
+                if (_currentIdx < _modes.Length - 1)
+                {
+                    ShowMode(_currentIdx + 1);
+                    if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+                }
+            }
+            else if (UnityEngine.Input.GetKeyDown(KeyCode.LeftArrow))
+            {
+                if (_currentIdx > 0)
+                {
+                    ShowMode(_currentIdx - 1);
+                    if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+                }
+            }
+            else if (UnityEngine.Input.GetKeyDown(KeyCode.Return) || UnityEngine.Input.GetKeyDown(KeyCode.Space))
+            {
+                OnModeSelected();
+            }
+        }
+
         private void ShowStatus(string message)
         {
-            if (statusText == null)
-            {
-                Debug.Log($"[ModeSelect] (statusText not wired) {message}");
-                return;
-            }
+            if (statusText == null) return;
             statusText.text = message;
             statusText.color = Phase2UiPalette.AccentCyan;
             CancelInvoke(nameof(ClearStatus));
@@ -261,7 +374,6 @@ namespace QuickChecks.UI
         private void OnBackClicked()
         {
             if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
-            Debug.Log("[ModeSelect] BACK clicked — going to main menu.");
             if (GameFlowManager.Instance != null)
             {
                 GameFlowManager.Instance.GoToMainMenu();
@@ -276,9 +388,7 @@ namespace QuickChecks.UI
         {
             if (btn == null) return;
             if (btn.GetComponent<ButtonHoverFx>() == null)
-            {
                 btn.gameObject.AddComponent<ButtonHoverFx>();
-            }
         }
     }
 }
