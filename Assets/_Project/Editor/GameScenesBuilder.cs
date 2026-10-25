@@ -114,7 +114,7 @@ namespace QuickChecks.Editor
             playImg.color = Phase2UiPalette.AccentCyan;
             playImg.raycastTarget = true;
             playBtn.targetGraphic = playImg;
-            var playRect = playGo.AddComponent<RectTransform>();
+            var playRect = playGo.GetComponent<RectTransform>();
             playRect.anchorMin = new Vector2(0.5f, 0.40f);
             playRect.anchorMax = new Vector2(0.5f, 0.40f);
             playRect.pivot = new Vector2(0.5f, 0.5f);
@@ -128,7 +128,7 @@ namespace QuickChecks.Editor
             plLabel.alignment = TextAlignmentOptions.Center;
             plLabel.color = Phase2UiPalette.TextOnAccent;
             plLabel.raycastTarget = false;
-            var plR = plGo.AddComponent<RectTransform>();
+            var plR = plGo.GetComponent<RectTransform>();
             plR.anchorMin = Vector2.zero; plR.anchorMax = Vector2.one;
             plR.pivot = new Vector2(0.5f, 0.5f);
             plR.offsetMin = Vector2.zero; plR.offsetMax = Vector2.zero;
@@ -141,7 +141,7 @@ namespace QuickChecks.Editor
             settingsImg.color = Phase2UiPalette.PanelSurface;
             settingsImg.raycastTarget = true;
             settingsBtn.targetGraphic = settingsImg;
-            var settingsRect = settingsGo.AddComponent<RectTransform>();
+            var settingsRect = settingsGo.GetComponent<RectTransform>();
             settingsRect.anchorMin = new Vector2(0.3f, 0.25f);
             settingsRect.anchorMax = new Vector2(0.3f, 0.25f);
             settingsRect.pivot = new Vector2(0.5f, 0.5f);
@@ -155,7 +155,7 @@ namespace QuickChecks.Editor
             slLabel.alignment = TextAlignmentOptions.Center;
             slLabel.color = Phase2UiPalette.TextPrimary;
             slLabel.raycastTarget = false;
-            var slR = slGo.AddComponent<RectTransform>();
+            var slR = slGo.GetComponent<RectTransform>();
             slR.anchorMin = Vector2.zero; slR.anchorMax = Vector2.one;
             slR.pivot = new Vector2(0.5f, 0.5f);
             slR.offsetMin = Vector2.zero; slR.offsetMax = Vector2.zero;
@@ -168,7 +168,7 @@ namespace QuickChecks.Editor
             customImg.color = new Color(0.42f, 0.58f, 1f, 0.9f);  // blue accent for custom tracks
             customImg.raycastTarget = true;
             customBtn.targetGraphic = customImg;
-            var customRect = customGo.AddComponent<RectTransform>();
+            var customRect = customGo.GetComponent<RectTransform>();
             customRect.anchorMin = new Vector2(0.7f, 0.25f);
             customRect.anchorMax = new Vector2(0.7f, 0.25f);
             customRect.pivot = new Vector2(0.5f, 0.5f);
@@ -182,7 +182,7 @@ namespace QuickChecks.Editor
             ctlLabel.alignment = TextAlignmentOptions.Center;
             ctlLabel.color = Color.white;
             ctlLabel.raycastTarget = false;
-            var ctlR = ctlGo.AddComponent<RectTransform>();
+            var ctlR = ctlGo.GetComponent<RectTransform>();
             ctlR.anchorMin = Vector2.zero; ctlR.anchorMax = Vector2.one;
             ctlR.pivot = new Vector2(0.5f, 0.5f);
             ctlR.offsetMin = Vector2.zero; ctlR.offsetMax = Vector2.zero;
@@ -253,7 +253,7 @@ namespace QuickChecks.Editor
             var dimImg = rootGo.AddComponent<Image>();
             dimImg.color = new Color(0f, 0f, 0f, 0.75f);
             dimImg.raycastTarget = false;  // CRITICAL — clicks must reach buttons underneath
-            var rootRect = rootGo.AddComponent<RectTransform>();
+            var rootRect = rootGo.GetComponent<RectTransform>();
             rootRect.anchorMin = Vector2.zero;
             rootRect.anchorMax = Vector2.one;
             rootRect.pivot = new Vector2(0.5f, 0.5f);
@@ -265,7 +265,7 @@ namespace QuickChecks.Editor
             panelGo.transform.SetParent(rootGo.transform, false);
             var panelImg = panelGo.AddComponent<Image>();
             panelImg.color = Phase2UiPalette.PanelSurface;
-            var panelRect = panelGo.AddComponent<RectTransform>();
+            var panelRect = panelGo.GetComponent<RectTransform>();
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
@@ -280,7 +280,7 @@ namespace QuickChecks.Editor
             titleText.alignment = TextAlignmentOptions.Center;
             titleText.color = Phase2UiPalette.AccentCyan;
             titleText.raycastTarget = false;
-            var titleR = titleGo.AddComponent<RectTransform>();
+            var titleR = titleGo.GetComponent<RectTransform>();
             titleR.anchorMin = new Vector2(0.5f, 1);
             titleR.anchorMax = new Vector2(0.5f, 1);
             titleR.pivot = new Vector2(0.5f, 1);
@@ -294,7 +294,7 @@ namespace QuickChecks.Editor
             var closeImg = closeGo.AddComponent<Image>();
             closeImg.color = new Color(0.5f, 0.5f, 0.5f, 0.3f);
             closeBtn.targetGraphic = closeImg;
-            var closeRect = closeGo.AddComponent<RectTransform>();
+            var closeRect = closeGo.GetComponent<RectTransform>();
             closeRect.anchorMin = new Vector2(1, 1);
             closeRect.anchorMax = new Vector2(1, 1);
             closeRect.pivot = new Vector2(1, 1);
@@ -309,7 +309,7 @@ namespace QuickChecks.Editor
             clText.alignment = TextAlignmentOptions.Center;
             clText.color = Phase2UiPalette.TextPrimary;
             clText.raycastTarget = false;
-            var clR = clGo.AddComponent<RectTransform>();
+            var clR = clGo.GetComponent<RectTransform>();
             clR.anchorMin = Vector2.zero; clR.anchorMax = Vector2.one;
             clR.pivot = new Vector2(0.5f, 0.5f);
             clR.offsetMin = Vector2.zero; clR.offsetMax = Vector2.zero;
@@ -337,7 +337,7 @@ namespace QuickChecks.Editor
             accountStatus.color = Phase2UiPalette.TextDim;
             accountStatus.enableWordWrapping = true;
             accountStatus.raycastTarget = false;
-            var accountStatusR = accountStatusGo.AddComponent<RectTransform>();
+            var accountStatusR = accountStatusGo.GetComponent<RectTransform>();
             accountStatusR.anchorMin = new Vector2(0.1f, 0.58f);
             accountStatusR.anchorMax = new Vector2(0.9f, 0.58f);
             accountStatusR.pivot = new Vector2(0.5f, 0.5f);
@@ -379,7 +379,7 @@ namespace QuickChecks.Editor
             statusText.color = Phase2UiPalette.TextPrimary;
             statusText.enableWordWrapping = true;
             statusText.raycastTarget = false;
-            var statusR = statusGo.AddComponent<RectTransform>();
+            var statusR = statusGo.GetComponent<RectTransform>();
             statusR.anchorMin = new Vector2(0.1f, -0.21f);
             statusR.anchorMax = new Vector2(0.9f, -0.21f);
             statusR.pivot = new Vector2(0.5f, 0.5f);
@@ -431,7 +431,7 @@ namespace QuickChecks.Editor
             t.alignment = TextAlignmentOptions.Left;
             t.color = Phase2UiPalette.AccentCyan;
             t.raycastTarget = false;
-            var r = go.AddComponent<RectTransform>();
+            var r = go.GetComponent<RectTransform>();
             r.anchorMin = new Vector2(0.1f, anchorY);
             r.anchorMax = new Vector2(0.9f, anchorY);
             r.pivot = new Vector2(0.5f, 0.5f);
@@ -450,7 +450,7 @@ namespace QuickChecks.Editor
             t.alignment = TextAlignmentOptions.Left;
             t.color = Phase2UiPalette.TextDim;
             t.raycastTarget = false;
-            var r = go.AddComponent<RectTransform>();
+            var r = go.GetComponent<RectTransform>();
             r.anchorMin = new Vector2(0.1f, anchorY);
             r.anchorMax = new Vector2(0.9f, anchorY);
             r.pivot = new Vector2(0.5f, 0.5f);
@@ -477,7 +477,8 @@ namespace QuickChecks.Editor
             // OnPointerDown handler.
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
-            var rect = go.AddComponent<RectTransform>();
+            go.AddComponent<RectTransform>();
+            var rect = go.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.15f, anchorY);
             rect.anchorMax = new Vector2(0.85f, anchorY);
             rect.pivot = new Vector2(0.5f, 0.5f);
@@ -491,7 +492,8 @@ namespace QuickChecks.Editor
             // Text area (child — just a RectTransform for text viewport clipping)
             var textAreaGo = new GameObject("TextArea");
             textAreaGo.transform.SetParent(go.transform, false);
-            var textAreaRect = textAreaGo.AddComponent<RectTransform>();  // AddComponent, not GetComponent — fresh GameObjects don't have one
+            textAreaGo.AddComponent<RectTransform>();
+            var textAreaRect = textAreaGo.GetComponent<RectTransform>();  // AddComponent, not GetComponent — fresh GameObjects don't have one
             textAreaRect.anchorMin = Vector2.zero; textAreaRect.anchorMax = Vector2.one;
             textAreaRect.pivot = new Vector2(0.5f, 0.5f);
             textAreaRect.offsetMin = new Vector2(10, 5); textAreaRect.offsetMax = new Vector2(-10, -5);
@@ -506,7 +508,7 @@ namespace QuickChecks.Editor
             text.color = Phase2UiPalette.TextPrimary;
             text.raycastTarget = false;
             text.richText = false;
-            var textR = textGo.AddComponent<RectTransform>();
+            var textR = textGo.GetComponent<RectTransform>();
             textR.anchorMin = Vector2.zero; textR.anchorMax = Vector2.one;
             textR.pivot = new Vector2(0.5f, 0.5f);
             textR.offsetMin = Vector2.zero; textR.offsetMax = Vector2.zero;
@@ -521,7 +523,7 @@ namespace QuickChecks.Editor
             ph.color = Phase2UiPalette.TextDim;
             ph.fontStyle = FontStyles.Italic;
             ph.raycastTarget = false;
-            var phR = phGo.AddComponent<RectTransform>();
+            var phR = phGo.GetComponent<RectTransform>();
             phR.anchorMin = Vector2.zero; phR.anchorMax = Vector2.one;
             phR.pivot = new Vector2(0.5f, 0.5f);
             phR.offsetMin = Vector2.zero; phR.offsetMax = Vector2.zero;
@@ -558,7 +560,7 @@ namespace QuickChecks.Editor
             var img = go.AddComponent<Image>();
             img.color = bg;
             btn.targetGraphic = img;
-            var rect = go.AddComponent<RectTransform>();
+            var rect = go.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, anchorY);
             rect.anchorMax = new Vector2(0.5f, anchorY);
             rect.pivot = new Vector2(0.5f, 0.5f);
@@ -572,7 +574,7 @@ namespace QuickChecks.Editor
             labelT.alignment = TextAlignmentOptions.Center;
             labelT.color = labelColor;
             labelT.raycastTarget = false;
-            var labelR = labelGo.AddComponent<RectTransform>();
+            var labelR = labelGo.GetComponent<RectTransform>();
             labelR.anchorMin = Vector2.zero; labelR.anchorMax = Vector2.one;
             labelR.pivot = new Vector2(0.5f, 0.5f);
             labelR.offsetMin = Vector2.zero; labelR.offsetMax = Vector2.zero;
@@ -599,7 +601,7 @@ namespace QuickChecks.Editor
             label.alignment = TextAlignmentOptions.Left;
             label.color = Phase2UiPalette.TextPrimary;
             label.raycastTarget = false;
-            var labelR = labelGo.AddComponent<RectTransform>();
+            var labelR = labelGo.GetComponent<RectTransform>();
             labelR.anchorMin = new Vector2(0.1f, anchorY);
             labelR.anchorMax = new Vector2(0.9f, anchorY);
             labelR.pivot = new Vector2(0.5f, 0.5f);
@@ -609,7 +611,8 @@ namespace QuickChecks.Editor
             // so raycasts route to the Slider's OnPointerDown handler)
             var sliderGo = new GameObject(sliderName);
             sliderGo.transform.SetParent(parent, false);
-            var sliderRect = sliderGo.AddComponent<RectTransform>();
+            sliderGo.AddComponent<RectTransform>();
+            var sliderRect = sliderGo.GetComponent<RectTransform>();
             sliderRect.anchorMin = new Vector2(0.1f, anchorY - 0.07f);
             sliderRect.anchorMax = new Vector2(0.9f, anchorY - 0.07f);
             sliderRect.pivot = new Vector2(0.5f, 0.5f);
@@ -623,7 +626,8 @@ namespace QuickChecks.Editor
             // Fill area (child — just a rect for the fill to stretch inside)
             var fillAreaGo = new GameObject("Fill Area");
             fillAreaGo.transform.SetParent(sliderGo.transform, false);
-            var fillAreaRect = fillAreaGo.AddComponent<RectTransform>();
+            fillAreaGo.AddComponent<RectTransform>();
+            var fillAreaRect = fillAreaGo.GetComponent<RectTransform>();
             fillAreaRect.anchorMin = Vector2.zero; fillAreaRect.anchorMax = Vector2.one;
             fillAreaRect.pivot = new Vector2(0.5f, 0.5f);
             fillAreaRect.offsetMin = new Vector2(10, 0); fillAreaRect.offsetMax = new Vector2(-10, 0);
@@ -633,7 +637,7 @@ namespace QuickChecks.Editor
             var fillImg = fillGo.AddComponent<Image>();
             fillImg.color = Phase2UiPalette.AccentCyan;
             fillImg.raycastTarget = false;  // fill shouldn't intercept — slider needs the drag
-            var fillRect = fillGo.AddComponent<RectTransform>();
+            var fillRect = fillGo.GetComponent<RectTransform>();
             fillRect.anchorMin = Vector2.zero; fillRect.anchorMax = Vector2.one;
             fillRect.pivot = new Vector2(0.5f, 0.5f);
             fillRect.offsetMin = Vector2.zero; fillRect.offsetMax = Vector2.zero;
@@ -641,7 +645,8 @@ namespace QuickChecks.Editor
             // Handle area + handle (handle IS the drag target — raycastTarget=true)
             var handleAreaGo = new GameObject("Handle Slide Area");
             handleAreaGo.transform.SetParent(sliderGo.transform, false);
-            var handleAreaRect = handleAreaGo.AddComponent<RectTransform>();
+            handleAreaGo.AddComponent<RectTransform>();
+            var handleAreaRect = handleAreaGo.GetComponent<RectTransform>();
             handleAreaRect.anchorMin = Vector2.zero; handleAreaRect.anchorMax = Vector2.one;
             handleAreaRect.pivot = new Vector2(0.5f, 0.5f);
             handleAreaRect.offsetMin = new Vector2(10, 0); handleAreaRect.offsetMax = new Vector2(-10, 0);
@@ -651,7 +656,7 @@ namespace QuickChecks.Editor
             var handleImg = handleGo.AddComponent<Image>();
             handleImg.color = Phase2UiPalette.TextPrimary;
             handleImg.raycastTarget = true;  // handle must receive the drag
-            var handleRect = handleGo.AddComponent<RectTransform>();
+            var handleRect = handleGo.GetComponent<RectTransform>();
             handleRect.sizeDelta = new Vector2(30, 50);
 
             var slider = sliderGo.AddComponent<Slider>();
@@ -712,7 +717,7 @@ namespace QuickChecks.Editor
             var backImg = backGo.AddComponent<Image>();
             backImg.color = Phase2UiPalette.PanelSurface;
             backBtn.targetGraphic = backImg;
-            var backRect = backGo.AddComponent<RectTransform>();
+            var backRect = backGo.GetComponent<RectTransform>();
             backRect.anchorMin = new Vector2(0, 1);
             backRect.anchorMax = new Vector2(0, 1);
             backRect.pivot = new Vector2(0, 1);
@@ -727,7 +732,7 @@ namespace QuickChecks.Editor
             blText.alignment = TextAlignmentOptions.Center;
             blText.color = Phase2UiPalette.TextPrimary;
             blText.raycastTarget = false;
-            var blR = blGo.AddComponent<RectTransform>();
+            var blR = blGo.GetComponent<RectTransform>();
             blR.anchorMin = Vector2.zero; blR.anchorMax = Vector2.one;
             blR.pivot = new Vector2(0.5f, 0.5f);
             blR.offsetMin = Vector2.zero; blR.offsetMax = Vector2.zero;
@@ -735,7 +740,8 @@ namespace QuickChecks.Editor
             // Scroll container for the cards (handles landscape overflow on small screens)
             var scrollGo = new GameObject("CardScroll");
             scrollGo.transform.SetParent(canvasGo.transform, false);
-            var scrollRect = scrollGo.AddComponent<RectTransform>();
+            scrollGo.AddComponent<RectTransform>();
+            var scrollRect = scrollGo.GetComponent<RectTransform>();
             scrollRect.anchorMin = new Vector2(0, 0);
             scrollRect.anchorMax = new Vector2(1, 1);
             scrollRect.pivot = new Vector2(0.5f, 0.5f);
@@ -758,7 +764,8 @@ namespace QuickChecks.Editor
             vlg.childForceExpandHeight = false;
             var contentFitter = contentGo.AddComponent<ContentSizeFitter>();
             contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            var contentRect = contentGo.AddComponent<RectTransform>();
+            contentGo.AddComponent<RectTransform>();
+            var contentRect = contentGo.GetComponent<RectTransform>();
             contentRect.anchorMin = new Vector2(0, 1);
             contentRect.anchorMax = new Vector2(1, 1);
             contentRect.pivot = new Vector2(0.5f, 1);
@@ -887,7 +894,7 @@ namespace QuickChecks.Editor
             var backImg = backGo.AddComponent<Image>();
             backImg.color = Phase2UiPalette.PanelSurface;
             backBtn.targetGraphic = backImg;
-            var backRect = backGo.AddComponent<RectTransform>();
+            var backRect = backGo.GetComponent<RectTransform>();
             backRect.anchorMin = new Vector2(0, 1);
             backRect.anchorMax = new Vector2(0, 1);
             backRect.pivot = new Vector2(0, 1);
@@ -902,7 +909,7 @@ namespace QuickChecks.Editor
             blText.alignment = TextAlignmentOptions.Center;
             blText.color = Phase2UiPalette.TextPrimary;
             blText.raycastTarget = false;
-            var blR = blGo.AddComponent<RectTransform>();
+            var blR = blGo.GetComponent<RectTransform>();
             blR.anchorMin = Vector2.zero; blR.anchorMax = Vector2.one;
             blR.pivot = new Vector2(0.5f, 0.5f);
             blR.offsetMin = Vector2.zero; blR.offsetMax = Vector2.zero;
@@ -910,7 +917,8 @@ namespace QuickChecks.Editor
             // Scrollable track grid
             var scrollGo = new GameObject("TrackScroll");
             scrollGo.transform.SetParent(canvasGo.transform, false);
-            var scrollRectGo = scrollGo.AddComponent<RectTransform>();
+            scrollGo.AddComponent<RectTransform>();
+            var scrollRectGo = scrollGo.GetComponent<RectTransform>();
             scrollRectGo.anchorMin = new Vector2(0, 0);
             scrollRectGo.anchorMax = new Vector2(1, 1);
             scrollRectGo.pivot = new Vector2(0.5f, 0.5f);
@@ -933,7 +941,8 @@ namespace QuickChecks.Editor
             vlg.childForceExpandHeight = false;
             var fitter = gridGo.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            var gridRect = gridGo.AddComponent<RectTransform>();
+            gridGo.AddComponent<RectTransform>();
+            var gridRect = gridGo.GetComponent<RectTransform>();
             gridRect.anchorMin = new Vector2(0, 1);
             gridRect.anchorMax = new Vector2(1, 1);
             gridRect.pivot = new Vector2(0.5f, 1);
@@ -980,7 +989,7 @@ namespace QuickChecks.Editor
             var dimImg = rootGo.AddComponent<Image>();
             dimImg.color = new Color(0f, 0f, 0f, 0.65f);
             dimImg.raycastTarget = false;
-            var rootRect = rootGo.AddComponent<RectTransform>();
+            var rootRect = rootGo.GetComponent<RectTransform>();
             rootRect.anchorMin = Vector2.zero;
             rootRect.anchorMax = Vector2.one;
             rootRect.pivot = new Vector2(0.5f, 0.5f);
@@ -992,7 +1001,7 @@ namespace QuickChecks.Editor
             panelGo.transform.SetParent(rootGo.transform, false);
             var panelImg = panelGo.AddComponent<Image>();
             panelImg.color = Phase2UiPalette.PanelSurface;
-            var panelRect = panelGo.AddComponent<RectTransform>();
+            var panelRect = panelGo.GetComponent<RectTransform>();
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1008,7 +1017,7 @@ namespace QuickChecks.Editor
             msgText.color = Phase2UiPalette.TextPrimary;
             msgText.enableWordWrapping = true;
             msgText.raycastTarget = false;
-            var msgR = msgGo.AddComponent<RectTransform>();
+            var msgR = msgGo.GetComponent<RectTransform>();
             msgR.anchorMin = new Vector2(0.5f, 0.7f);
             msgR.anchorMax = new Vector2(0.5f, 0.7f);
             msgR.pivot = new Vector2(0.5f, 0.5f);
@@ -1021,7 +1030,7 @@ namespace QuickChecks.Editor
             var okImg = okGo.AddComponent<Image>();
             okImg.color = Phase2UiPalette.AccentCyan;
             okBtn.targetGraphic = okImg;
-            var okRect = okGo.AddComponent<RectTransform>();
+            var okRect = okGo.GetComponent<RectTransform>();
             okRect.anchorMin = new Vector2(0.7f, 0.18f);
             okRect.anchorMax = new Vector2(0.7f, 0.18f);
             okRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1035,7 +1044,7 @@ namespace QuickChecks.Editor
             okLabel.alignment = TextAlignmentOptions.Center;
             okLabel.color = Phase2UiPalette.TextOnAccent;
             okLabel.raycastTarget = false;
-            var okLabelR = okLabelGo.AddComponent<RectTransform>();
+            var okLabelR = okLabelGo.GetComponent<RectTransform>();
             okLabelR.anchorMin = Vector2.zero; okLabelR.anchorMax = Vector2.one;
             okLabelR.pivot = new Vector2(0.5f, 0.5f);
             okLabelR.offsetMin = Vector2.zero; okLabelR.offsetMax = Vector2.zero;
@@ -1047,7 +1056,7 @@ namespace QuickChecks.Editor
             var cancelImg = cancelGo.AddComponent<Image>();
             cancelImg.color = new Color(0.15f, 0.2f, 0.2f, 0.9f);
             cancelBtn.targetGraphic = cancelImg;
-            var cancelRect = cancelGo.AddComponent<RectTransform>();
+            var cancelRect = cancelGo.GetComponent<RectTransform>();
             cancelRect.anchorMin = new Vector2(0.3f, 0.18f);
             cancelRect.anchorMax = new Vector2(0.3f, 0.18f);
             cancelRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1061,7 +1070,7 @@ namespace QuickChecks.Editor
             cancelLabel.alignment = TextAlignmentOptions.Center;
             cancelLabel.color = Color.white;
             cancelLabel.raycastTarget = false;
-            var cancelLabelR = cancelLabelGo.AddComponent<RectTransform>();
+            var cancelLabelR = cancelLabelGo.GetComponent<RectTransform>();
             cancelLabelR.anchorMin = Vector2.zero; cancelLabelR.anchorMax = Vector2.one;
             cancelLabelR.pivot = new Vector2(0.5f, 0.5f);
             cancelLabelR.offsetMin = Vector2.zero; cancelLabelR.offsetMax = Vector2.zero;
@@ -1092,7 +1101,7 @@ namespace QuickChecks.Editor
             var dimImg = rootGo.AddComponent<Image>();
             dimImg.color = new Color(0f, 0f, 0f, 0.75f);
             dimImg.raycastTarget = false;  // visual only — clicks reach the panel/buttons
-            var rootRect = rootGo.AddComponent<RectTransform>();
+            var rootRect = rootGo.GetComponent<RectTransform>();
             rootRect.anchorMin = Vector2.zero;
             rootRect.anchorMax = Vector2.one;
             rootRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1104,7 +1113,7 @@ namespace QuickChecks.Editor
             panelGo.transform.SetParent(rootGo.transform, false);
             var panelImg = panelGo.AddComponent<Image>();
             panelImg.color = Phase2UiPalette.PanelSurface;
-            var panelRect = panelGo.AddComponent<RectTransform>();
+            var panelRect = panelGo.GetComponent<RectTransform>();
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1130,7 +1139,7 @@ namespace QuickChecks.Editor
             trackLabel.alignment = TextAlignmentOptions.Center;
             trackLabel.color = Phase2UiPalette.TextDim;
             trackLabel.raycastTarget = false;
-            var trackLabelRect = trackLabelGo.AddComponent<RectTransform>();
+            var trackLabelRect = trackLabelGo.GetComponent<RectTransform>();
             trackLabelRect.anchorMin = new Vector2(0.5f, 1f);
             trackLabelRect.anchorMax = new Vector2(0.5f, 1f);
             trackLabelRect.pivot = new Vector2(0.5f, 1f);
@@ -1146,7 +1155,7 @@ namespace QuickChecks.Editor
             loadingLabel.alignment = TextAlignmentOptions.Center;
             loadingLabel.color = Phase2UiPalette.TextPrimary;
             loadingLabel.raycastTarget = false;
-            var loadingRect = loadingGo.AddComponent<RectTransform>();
+            var loadingRect = loadingGo.GetComponent<RectTransform>();
             loadingRect.anchorMin = new Vector2(0.5f, 0.5f);
             loadingRect.anchorMax = new Vector2(0.5f, 0.5f);
             loadingRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1163,7 +1172,7 @@ namespace QuickChecks.Editor
             errorLabel.color = new Color(1f, 0.42f, 0.42f);
             errorLabel.enableWordWrapping = true;
             errorLabel.raycastTarget = false;
-            var errorRect = errorGo.AddComponent<RectTransform>();
+            var errorRect = errorGo.GetComponent<RectTransform>();
             errorRect.anchorMin = new Vector2(0.5f, 0.5f);
             errorRect.anchorMax = new Vector2(0.5f, 0.5f);
             errorRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1181,7 +1190,8 @@ namespace QuickChecks.Editor
             vlg.childControlHeight = false;
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
-            var rowsRect = rowsGo.AddComponent<RectTransform>();
+            rowsGo.AddComponent<RectTransform>();
+            var rowsRect = rowsGo.GetComponent<RectTransform>();
             rowsRect.anchorMin = new Vector2(0, 0.18f);
             rowsRect.anchorMax = new Vector2(1, 0.88f);
             rowsRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1197,7 +1207,7 @@ namespace QuickChecks.Editor
             yourRankLabel.alignment = TextAlignmentOptions.Center;
             yourRankLabel.color = Phase2UiPalette.AccentCyan;
             yourRankLabel.raycastTarget = false;
-            var yourRankRect = yourRankGo.AddComponent<RectTransform>();
+            var yourRankRect = yourRankGo.GetComponent<RectTransform>();
             yourRankRect.anchorMin = new Vector2(0.5f, 0.10f);
             yourRankRect.anchorMax = new Vector2(0.5f, 0.10f);
             yourRankRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1211,7 +1221,7 @@ namespace QuickChecks.Editor
             var closeImg = closeGo.AddComponent<Image>();
             closeImg.color = new Color(0.5f, 0.5f, 0.5f, 0.3f);
             closeBtn.targetGraphic = closeImg;
-            var closeRect = closeGo.AddComponent<RectTransform>();
+            var closeRect = closeGo.GetComponent<RectTransform>();
             closeRect.anchorMin = new Vector2(1, 1);
             closeRect.anchorMax = new Vector2(1, 1);
             closeRect.pivot = new Vector2(1, 1);
@@ -1226,7 +1236,7 @@ namespace QuickChecks.Editor
             closeLabel.alignment = TextAlignmentOptions.Center;
             closeLabel.color = Phase2UiPalette.TextPrimary;
             closeLabel.raycastTarget = false;
-            var closeLabelR = closeLabelGo.AddComponent<RectTransform>();
+            var closeLabelR = closeLabelGo.GetComponent<RectTransform>();
             closeLabelR.anchorMin = Vector2.zero; closeLabelR.anchorMax = Vector2.one;
             closeLabelR.pivot = new Vector2(0.5f, 0.5f);
             closeLabelR.offsetMin = Vector2.zero; closeLabelR.offsetMax = Vector2.zero;
@@ -1292,7 +1302,7 @@ namespace QuickChecks.Editor
             var backImg = backGo.AddComponent<Image>();
             backImg.color = Phase2UiPalette.PanelSurface;
             backBtn.targetGraphic = backImg;
-            var backRect = backGo.AddComponent<RectTransform>();
+            var backRect = backGo.GetComponent<RectTransform>();
             backRect.anchorMin = new Vector2(0, 1);
             backRect.anchorMax = new Vector2(0, 1);
             backRect.pivot = new Vector2(0, 1);
@@ -1307,7 +1317,7 @@ namespace QuickChecks.Editor
             blText.alignment = TextAlignmentOptions.Center;
             blText.color = Phase2UiPalette.TextPrimary;
             blText.raycastTarget = false;
-            var blR = blGo.AddComponent<RectTransform>();
+            var blR = blGo.GetComponent<RectTransform>();
             blR.anchorMin = Vector2.zero; blR.anchorMax = Vector2.one;
             blR.pivot = new Vector2(0.5f, 0.5f);
             blR.offsetMin = Vector2.zero; blR.offsetMax = Vector2.zero;
@@ -1315,7 +1325,8 @@ namespace QuickChecks.Editor
             // Scrollable kart grid
             var scrollGo = new GameObject("KartScroll");
             scrollGo.transform.SetParent(canvasGo.transform, false);
-            var scrollRectGo = scrollGo.AddComponent<RectTransform>();
+            scrollGo.AddComponent<RectTransform>();
+            var scrollRectGo = scrollGo.GetComponent<RectTransform>();
             scrollRectGo.anchorMin = new Vector2(0, 0);
             scrollRectGo.anchorMax = new Vector2(1, 1);
             scrollRectGo.pivot = new Vector2(0.5f, 0.5f);
@@ -1338,7 +1349,8 @@ namespace QuickChecks.Editor
             vlg.childForceExpandHeight = false;
             var fitter = gridGo.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            var gridRect = gridGo.AddComponent<RectTransform>();
+            gridGo.AddComponent<RectTransform>();
+            var gridRect = gridGo.GetComponent<RectTransform>();
             gridRect.anchorMin = new Vector2(0, 1);
             gridRect.anchorMax = new Vector2(1, 1);
             gridRect.pivot = new Vector2(0.5f, 1);
@@ -1355,7 +1367,7 @@ namespace QuickChecks.Editor
             raceImg.color = Phase2UiPalette.AccentCyan;
             raceImg.raycastTarget = true;
             raceBtn.targetGraphic = raceImg;
-            var raceRect = raceGo.AddComponent<RectTransform>();
+            var raceRect = raceGo.GetComponent<RectTransform>();
             raceRect.anchorMin = new Vector2(0.5f, 0.04f);
             raceRect.anchorMax = new Vector2(0.5f, 0.04f);
             raceRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1369,7 +1381,7 @@ namespace QuickChecks.Editor
             rlText.alignment = TextAlignmentOptions.Center;
             rlText.color = Phase2UiPalette.TextOnAccent;
             rlText.raycastTarget = false;
-            var rlR = rlGo.AddComponent<RectTransform>();
+            var rlR = rlGo.GetComponent<RectTransform>();
             rlR.anchorMin = Vector2.zero; rlR.anchorMax = Vector2.one;
             rlR.pivot = new Vector2(0.5f, 0.5f);
             rlR.offsetMin = Vector2.zero; rlR.offsetMax = Vector2.zero;
@@ -1471,7 +1483,7 @@ namespace QuickChecks.Editor
             bgGo.transform.SetParent(canvasGo.transform, false);
             var bgImg = bgGo.AddComponent<Image>();
             bgImg.color = new Color(0.055f, 0.078f, 0.078f);  // #0E1414
-            var bgRect = bgGo.AddComponent<RectTransform>();
+            var bgRect = bgGo.GetComponent<RectTransform>();
             bgRect.anchorMin = Vector2.zero;
             bgRect.anchorMax = Vector2.one;
             bgRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1491,7 +1503,7 @@ namespace QuickChecks.Editor
                 text.color = color;
                 text.raycastTarget = false;
                 text.enableWordWrapping = true;
-                var rect = go.AddComponent<RectTransform>();
+                var rect = go.GetComponent<RectTransform>();
                 rect.anchorMin = anchor;
                 rect.anchorMax = anchor;
                 rect.pivot = new Vector2(0.5f, 0.5f);
@@ -1545,7 +1557,8 @@ namespace QuickChecks.Editor
             // --- Comparison panel (Vs CPU / Online) ---
             var cmpGo = new GameObject("ComparisonPanel");
             cmpGo.transform.SetParent(canvasGo.transform, false);
-            var cmpRect = cmpGo.AddComponent<RectTransform>();
+            cmpGo.AddComponent<RectTransform>();
+            var cmpRect = cmpGo.GetComponent<RectTransform>();
             cmpRect.anchorMin = new Vector2(0.5f, 0.5f);
             cmpRect.anchorMax = new Vector2(0.5f, 0.5f);
             cmpRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1563,7 +1576,7 @@ namespace QuickChecks.Editor
                 t.alignment = align;
                 t.color = color;
                 t.raycastTarget = false;
-                var r = go.AddComponent<RectTransform>();
+                var r = go.GetComponent<RectTransform>();
                 r.anchorMin = new Vector2(x, 1f);
                 r.anchorMax = new Vector2(x, 1f);
                 r.pivot = new Vector2(0.5f, 1f);
@@ -1594,7 +1607,8 @@ namespace QuickChecks.Editor
             // --- Ranking panel (Pass & Play) ---
             var rankGo = new GameObject("RankingPanel");
             rankGo.transform.SetParent(canvasGo.transform, false);
-            var rankRect = rankGo.AddComponent<RectTransform>();
+            rankGo.AddComponent<RectTransform>();
+            var rankRect = rankGo.GetComponent<RectTransform>();
             rankRect.anchorMin = new Vector2(0.5f, 0.5f);
             rankRect.anchorMax = new Vector2(0.5f, 0.5f);
             rankRect.pivot = new Vector2(0.5f, 1f);
@@ -1605,7 +1619,8 @@ namespace QuickChecks.Editor
             // Ranking rows container (rows are dynamically added at runtime)
             var rowsGo = new GameObject("RankingRowsContainer");
             rowsGo.transform.SetParent(rankGo.transform, false);
-            var rowsRect = rowsGo.AddComponent<RectTransform>();
+            rowsGo.AddComponent<RectTransform>();
+            var rowsRect = rowsGo.GetComponent<RectTransform>();
             rowsRect.anchorMin = new Vector2(0, 0);
             rowsRect.anchorMax = new Vector2(1, 1);
             rowsRect.pivot = new Vector2(0.5f, 1f);
@@ -1629,7 +1644,7 @@ namespace QuickChecks.Editor
             retryImg.color = new Color(0.247f, 0.878f, 0.760f, 0.9f);  // cyan
             retryImg.raycastTarget = true;
             retryBtn.targetGraphic = retryImg;
-            var retryRect = retryGo.AddComponent<RectTransform>();
+            var retryRect = retryGo.GetComponent<RectTransform>();
             retryRect.anchorMin = new Vector2(0.3f, 0.08f);
             retryRect.anchorMax = new Vector2(0.3f, 0.08f);
             retryRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1643,7 +1658,7 @@ namespace QuickChecks.Editor
             rlText.alignment = TextAlignmentOptions.Center;
             rlText.color = new Color(0.055f, 0.078f, 0.078f);
             rlText.raycastTarget = false;
-            var rlR = rlGo.AddComponent<RectTransform>();
+            var rlR = rlGo.GetComponent<RectTransform>();
             rlR.anchorMin = Vector2.zero; rlR.anchorMax = Vector2.one;
             rlR.pivot = new Vector2(0.5f, 0.5f);
             rlR.offsetMin = Vector2.zero; rlR.offsetMax = Vector2.zero;
@@ -1655,7 +1670,7 @@ namespace QuickChecks.Editor
             menuImg.color = new Color(0.15f, 0.2f, 0.2f, 0.9f);
             menuImg.raycastTarget = true;
             menuBtn.targetGraphic = menuImg;
-            var menuRect = menuGo.AddComponent<RectTransform>();
+            var menuRect = menuGo.GetComponent<RectTransform>();
             menuRect.anchorMin = new Vector2(0.7f, 0.08f);
             menuRect.anchorMax = new Vector2(0.7f, 0.08f);
             menuRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1669,7 +1684,7 @@ namespace QuickChecks.Editor
             mlText.alignment = TextAlignmentOptions.Center;
             mlText.color = Color.white;
             mlText.raycastTarget = false;
-            var mlR = mlGo.AddComponent<RectTransform>();
+            var mlR = mlGo.GetComponent<RectTransform>();
             mlR.anchorMin = Vector2.zero; mlR.anchorMax = Vector2.one;
             mlR.pivot = new Vector2(0.5f, 0.5f);
             mlR.offsetMin = Vector2.zero; mlR.offsetMax = Vector2.zero;
@@ -1682,7 +1697,7 @@ namespace QuickChecks.Editor
             lbImg.color = new Color(0.42f, 0.58f, 1f, 0.9f);  // blue accent for leaderboard
             lbImg.raycastTarget = true;
             lbBtn.targetGraphic = lbImg;
-            var lbRect = lbGo.AddComponent<RectTransform>();
+            var lbRect = lbGo.GetComponent<RectTransform>();
             lbRect.anchorMin = new Vector2(0.5f, 0.08f);
             lbRect.anchorMax = new Vector2(0.5f, 0.08f);
             lbRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1697,7 +1712,7 @@ namespace QuickChecks.Editor
             lblText.alignment = TextAlignmentOptions.Center;
             lblText.color = Color.white;
             lblText.raycastTarget = false;
-            var lblR = lblGo.AddComponent<RectTransform>();
+            var lblR = lblGo.GetComponent<RectTransform>();
             lblR.anchorMin = Vector2.zero; lblR.anchorMax = Vector2.one;
             lblR.pivot = new Vector2(0.5f, 0.5f);
             lblR.offsetMin = Vector2.zero; lblR.offsetMax = Vector2.zero;
@@ -1816,7 +1831,8 @@ namespace QuickChecks.Editor
             // Scrollable track list
             var scrollGo = new GameObject("TrackScroll");
             scrollGo.transform.SetParent(canvasGo.transform, false);
-            var scrollRectGo = scrollGo.AddComponent<RectTransform>();
+            scrollGo.AddComponent<RectTransform>();
+            var scrollRectGo = scrollGo.GetComponent<RectTransform>();
             scrollRectGo.anchorMin = new Vector2(0, 0);
             scrollRectGo.anchorMax = new Vector2(1, 1);
             scrollRectGo.pivot = new Vector2(0.5f, 0.5f);
@@ -1839,7 +1855,8 @@ namespace QuickChecks.Editor
             vlg.childForceExpandHeight = false;
             var fitter = contentGo.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            var contentRect = contentGo.AddComponent<RectTransform>();
+            contentGo.AddComponent<RectTransform>();
+            var contentRect = contentGo.GetComponent<RectTransform>();
             contentRect.anchorMin = new Vector2(0, 1);
             contentRect.anchorMax = new Vector2(1, 1);
             contentRect.pivot = new Vector2(0.5f, 1);
@@ -1931,7 +1948,8 @@ namespace QuickChecks.Editor
             // --- Bottom bar: tool palette ---
             var paletteGo = new GameObject("ToolPalette");
             paletteGo.transform.SetParent(canvasGo.transform, false);
-            var paletteRect = paletteGo.AddComponent<RectTransform>();
+            paletteGo.AddComponent<RectTransform>();
+            var paletteRect = paletteGo.GetComponent<RectTransform>();
             paletteRect.anchorMin = new Vector2(0, 0);
             paletteRect.anchorMax = new Vector2(1, 0);
             paletteRect.pivot = new Vector2(0.5f, 0);
@@ -1963,7 +1981,8 @@ namespace QuickChecks.Editor
             // --- Selected item panel (right side, hidden by default) ---
             var selectedPanelGo = new GameObject("SelectedItemPanel");
             selectedPanelGo.transform.SetParent(canvasGo.transform, false);
-            var selectedRect = selectedPanelGo.AddComponent<RectTransform>();
+            selectedPanelGo.AddComponent<RectTransform>();
+            var selectedRect = selectedPanelGo.GetComponent<RectTransform>();
             selectedRect.anchorMin = new Vector2(1, 0.5f);
             selectedRect.anchorMax = new Vector2(1, 0.5f);
             selectedRect.pivot = new Vector2(1, 0.5f);
@@ -1993,7 +2012,8 @@ namespace QuickChecks.Editor
 
             var sizeSliderGo = new GameObject("SizeSlider");
             sizeSliderGo.transform.SetParent(selectedPanelGo.transform, false);
-            var sizeSliderRect = sizeSliderGo.AddComponent<RectTransform>();
+            sizeSliderGo.AddComponent<RectTransform>();
+            var sizeSliderRect = sizeSliderGo.GetComponent<RectTransform>();
             sizeSliderRect.sizeDelta = new Vector2(0, 40);
             var sizeSliderBg = sizeSliderGo.AddComponent<Image>();
             sizeSliderBg.color = new Color(0.05f, 0.07f, 0.07f, 1f);
@@ -2004,7 +2024,7 @@ namespace QuickChecks.Editor
             var sizeFillImg = sizeFill.AddComponent<Image>();
             sizeFillImg.color = Phase2UiPalette.AccentCyan;
             sizeFillImg.raycastTarget = false;
-            var sizeFillRect = sizeFill.AddComponent<RectTransform>();
+            var sizeFillRect = sizeFill.GetComponent<RectTransform>();
             sizeFillRect.anchorMin = Vector2.zero; sizeFillRect.anchorMax = Vector2.one;
             sizeFillRect.offsetMin = Vector2.zero; sizeFillRect.offsetMax = Vector2.zero;
             var sizeHandle = new GameObject("Handle");
@@ -2012,7 +2032,7 @@ namespace QuickChecks.Editor
             var sizeHandleImg = sizeHandle.AddComponent<Image>();
             sizeHandleImg.color = Phase2UiPalette.TextPrimary;
             sizeHandleImg.raycastTarget = true;
-            var sizeHandleRect = sizeHandle.AddComponent<RectTransform>();
+            var sizeHandleRect = sizeHandle.GetComponent<RectTransform>();
             sizeHandleRect.sizeDelta = new Vector2(20, 40);
             sizeSlider.targetGraphic = sizeHandleImg;
             sizeSlider.fillRect = sizeFillRect;
@@ -2089,7 +2109,7 @@ namespace QuickChecks.Editor
             img.color = bg;
             img.raycastTarget = true;
             btn.targetGraphic = img;
-            var rect = go.AddComponent<RectTransform>();
+            var rect = go.GetComponent<RectTransform>();
             rect.anchorMin = anchor;
             rect.anchorMax = anchor;
             rect.pivot = anchorPivot ?? new Vector2(0.5f, 0.5f);
@@ -2104,7 +2124,7 @@ namespace QuickChecks.Editor
             labelT.alignment = TextAlignmentOptions.Center;
             labelT.color = labelColor;
             labelT.raycastTarget = false;
-            var labelR = labelGo.AddComponent<RectTransform>();
+            var labelR = labelGo.GetComponent<RectTransform>();
             labelR.anchorMin = Vector2.zero; labelR.anchorMax = Vector2.one;
             labelR.pivot = new Vector2(0.5f, 0.5f);
             labelR.offsetMin = Vector2.zero; labelR.offsetMax = Vector2.zero;
@@ -2117,7 +2137,8 @@ namespace QuickChecks.Editor
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
-            var rect = go.AddComponent<RectTransform>();
+            go.AddComponent<RectTransform>();
+            var rect = go.GetComponent<RectTransform>();
             rect.anchorMin = anchor; rect.anchorMax = anchor;
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = size;
@@ -2127,7 +2148,8 @@ namespace QuickChecks.Editor
 
             var textAreaGo = new GameObject("TextArea");
             textAreaGo.transform.SetParent(go.transform, false);
-            var textAreaRect = textAreaGo.AddComponent<RectTransform>();
+            textAreaGo.AddComponent<RectTransform>();
+            var textAreaRect = textAreaGo.GetComponent<RectTransform>();
             textAreaRect.anchorMin = Vector2.zero; textAreaRect.anchorMax = Vector2.one;
             textAreaRect.pivot = new Vector2(0.5f, 0.5f);
             textAreaRect.offsetMin = new Vector2(10, 5); textAreaRect.offsetMax = new Vector2(-10, -5);
@@ -2141,7 +2163,7 @@ namespace QuickChecks.Editor
             text.color = Phase2UiPalette.TextPrimary;
             text.raycastTarget = false;
             text.richText = false;
-            var textR = textGo.AddComponent<RectTransform>();
+            var textR = textGo.GetComponent<RectTransform>();
             textR.anchorMin = Vector2.zero; textR.anchorMax = Vector2.one;
             textR.offsetMin = Vector2.zero; textR.offsetMax = Vector2.zero;
 
@@ -2154,7 +2176,7 @@ namespace QuickChecks.Editor
             ph.color = Phase2UiPalette.TextDim;
             ph.fontStyle = FontStyles.Italic;
             ph.raycastTarget = false;
-            var phR = phGo.AddComponent<RectTransform>();
+            var phR = phGo.GetComponent<RectTransform>();
             phR.anchorMin = Vector2.zero; phR.anchorMax = Vector2.one;
             phR.offsetMin = Vector2.zero; phR.offsetMax = Vector2.zero;
 
