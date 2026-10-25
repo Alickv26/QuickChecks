@@ -326,19 +326,7 @@ namespace QuickChecks.UI
         private bool IsKartUnlocked(KartStats kart)
         {
             if (kart == null) return false;
-            if (kart.unlockAfterTrackIndex < 0) return true;  // Starter
-
-            // Check progression (highest track index the player has unlocked)
-            int highestUnlocked = GameFlowManager.Instance?.profile?.highestUnlockedTrackIndex ?? 0;
-            if (highestUnlocked < kart.unlockAfterTrackIndex) return false;
-
-            // Check premium for paid karts
-            if (!kart.isFree)
-            {
-                var em = Monetization.EntitlementManager.Instance;
-                if (em == null || !em.IsPremium) return false;
-            }
-
+            // TEMP: all karts unlocked for beta testing
             return true;
         }
 
