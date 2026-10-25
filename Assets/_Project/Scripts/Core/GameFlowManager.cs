@@ -38,6 +38,11 @@ namespace QuickChecks.Core
         public KartStats selectedKart;
         public RaceMode selectedMode = RaceMode.Solo;
 
+        [Header("Pass & Play kart selections (one per player)")]
+        [Tooltip("For Pass & Play mode: each player picks their own kart. This list carries " +
+                 "all selections to the Race scene. For Solo/CPU, only selectedKart is used.")]
+        public System.Collections.Generic.List<KartStats> pendingKartSelections = new();
+
         [Header("Pending External Ghost (set by Leaderboard 'Replay' button)")]
         [Tooltip("If non-null, RaceSceneController loads this ghost into SoloGhostPlayer on race start, " +
                  "replacing the player's local best. Cleared after the race ends.")]

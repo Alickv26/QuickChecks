@@ -799,7 +799,29 @@ namespace QuickChecks.Prototype
             var kartSwipeEvent = ScriptableObject.CreateInstance<Core.SwipeEvent>();
             _perKartSwipeEvents.Add(kartSwipeEvent);
             kart.SetSwipeEvent(kartSwipeEvent);
-            SetField(kart, "stats", kartStats);
+
+            // Per-player kart stats: in P&P mode, each player may have picked a different kart.
+            // Fall back to the shared kartStats if no per-player selection exists.
+            KartStats statsForThisKart = kartStats;
+            if (GameFlowManager.Instance != null &&
+                GameFlowManager.Instance.pendingKartSelections != null &&
+                playerIndex < GameFlowManager.Instance.pendingKartSelections.Count)
+            {
+                var playerKart = GameFlowManager.Instance.pendingKartSelections[playerIndex];
+                if (playerKart != null)
+                {
+                    statsForThisKart = playerKart;
+                    Debug.Log($"[RaceScene] Using player {playerIndex}'s kart: {playerKart.displayName}");
+                }
+            }
+            SetField(kart, "stats", statsForThisKart);
+
+            // Also tint the kart's SpriteRenderer to the player's kart color
+            var sr = kartGo.GetComponent<SpriteRenderer>();
+            if (sr != null && statsForThisKart != null)
+            {
+                sr.color = statsForThisKart.kartColor;
+            }
 
             // Add SwipeDetector (disabled by default — TurnManager enables it per turn)
             var sd = kartGo.AddComponent<SwipeDetector>();

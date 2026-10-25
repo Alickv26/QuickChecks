@@ -46,16 +46,25 @@ namespace QuickChecks.UI
         private KartStats _selectedKart;
         private TrackDefinition _selectedTrack;
 
+        // P&P multi-player selection state
+        private int _currentPlayerIndex = 0;  // 0-based
+        private int _totalPlayers = 1;
+        private bool _isMultiKartMode = false;
+        private System.Collections.Generic.List<KartStats> _playerKarts = new();
+
         private void Start()
         {
-            if (titleText != null) titleText.text = "Select Kart";
-
-            // Resolve the selected track from GameFlowManager
+            // Detect if this is a Pass & Play multi-kart selection
             if (GameFlowManager.Instance != null)
             {
                 _selectedTrack = GameFlowManager.Instance.selectedTrack;
                 _selectedKart = GameFlowManager.Instance.selectedKart;
+                var mode = GameFlowManager.Instance.selectedMode;
+                _isMultiKartMode = mode.IsPassPlay();
+                _totalPlayers = mode.PlayerCount();
             }
+
+            UpdateTitleForCurrentPlayer();
 
             if (trackLabel != null)
             {
@@ -344,7 +353,6 @@ namespace QuickChecks.UI
                 int playerHighest = GameFlowManager.Instance?.profile?.highestUnlockedTrackIndex ?? 0;
                 if (!kart.isFree && playerHighest >= kart.unlockAfterTrackIndex)
                 {
-                    // Player has progression but no premium — paywall
                     ShowToast($"Unlock all karts for $4.99?");
                 }
                 else
@@ -358,15 +366,124 @@ namespace QuickChecks.UI
             if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
             Debug.Log($"[KartSelect] Selected kart: {kart.displayName} ({kart.kartId})");
 
+            if (_isMultiKartMode)
+            {
+                // P&P: add this kart to the list for the current player
+                while (_playerKarts.Count <= _currentPlayerIndex)
+                    _playerKarts.Add(null);
+                _playerKarts[_currentPlayerIndex] = kart;
+
+                if (_currentPlayerIndex < _totalPlayers - 1)
+                {
+                    // More players to select — show pass overlay
+                    _currentPlayerIndex++;
+                    ShowPassOverlay();
+                    return;
+                }
+                else
+                {
+                    // All players have selected — set the list on GameFlowManager + start race
+                    if (GameFlowManager.Instance != null)
+                    {
+                        GameFlowManager.Instance.pendingKartSelections = new System.Collections.Generic.List<KartStats>(_playerKarts);
+                        // Also set selectedKart to the first player's pick (for Solo fallback)
+                        GameFlowManager.Instance.selectedKart = _playerKarts[0];
+                    }
+                    StartRace();
+                    return;
+                }
+            }
+
+            // Solo/CPU: single selection
             _selectedKart = kart;
             if (GameFlowManager.Instance != null)
             {
                 GameFlowManager.Instance.selectedKart = kart;
             }
 
-            // Rebuild grid to update "SELECTED" chip on the newly chosen card
+            // Rebuild grid to update "SELECTED" chip
             BuildKartGrid();
             UpdateRaceButton();
+        }
+
+        /// <summary>Shows the "Pass to Player N" overlay between P&P kart selections.</summary>
+        private void ShowPassOverlay()
+        {
+            // Reuse the toast dialog as the pass overlay
+            if (toastDialog == null)
+            {
+                // No toast available — just update the title + rebuild grid
+                UpdateTitleForCurrentPlayer();
+                _selectedKart = null;
+                BuildKartGrid();
+                UpdateRaceButton();
+                return;
+            }
+
+            if (toastText != null)
+            {
+                toastText.text = $"Pass to Player {_currentPlayerIndex + 1}\n\nTap OK when ready.";
+                toastText.color = Phase2UiPalette.AccentCyan;
+            }
+            if (toastOkButton != null)
+            {
+                toastOkButton.onClick.RemoveAllListeners();
+                toastOkButton.onClick.AddListener(() =>
+                {
+                    if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+                    toastDialog.SetActive(false);
+                    UpdateTitleForCurrentPlayer();
+                    _selectedKart = null;
+                    BuildKartGrid();
+                    UpdateRaceButton();
+                });
+            }
+            toastDialog.SetActive(true);
+        }
+
+        private void UpdateTitleForCurrentPlayer()
+        {
+            if (titleText == null) return;
+            if (_isMultiKartMode)
+            {
+                titleText.text = $"Player {_currentPlayerIndex + 1}: Select Kart";
+            }
+            else
+            {
+                titleText.text = "Select Kart";
+            }
+            titleText.color = Phase2UiPalette.AccentCyan;
+        }
+
+        private void StartRace()
+        {
+            if (_selectedTrack == null)
+            {
+                ShowToast("No track selected.");
+                return;
+            }
+
+            KartStats kart = _isMultiKartMode
+                ? _playerKarts[0]
+                : _selectedKart;
+
+            if (kart == null)
+            {
+                ShowToast("Select a kart first.");
+                return;
+            }
+
+            Debug.Log($"[KartSelect] START RACE — mode={(_isMultiKartMode ? "P&P" : "Solo/CPU")}, " +
+                      $"track={_selectedTrack.trackId}, karts={(_isMultiKartMode ? _playerKarts.Count : 1)}");
+
+            if (GameFlowManager.Instance != null)
+            {
+                GameFlowManager.Instance.StartRace(_selectedTrack, kart);
+            }
+            else
+            {
+                SceneManager.LoadScene("Race");
+            }
         }
 
         private void UpdateRaceButton()
@@ -386,23 +503,14 @@ namespace QuickChecks.UI
 
         private void OnRaceClicked()
         {
-            if (_selectedKart == null)
+            if (_isMultiKartMode)
             {
-                ShowToast("Select a kart first.");
+                // P&P mode — race starts automatically after all players pick.
+                // If the player taps the button before all have picked, show a hint.
+                ShowToast($"Player {_currentPlayerIndex + 1} of {_totalPlayers} — pick a kart first.");
                 return;
             }
-            if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
-            Debug.Log($"[KartSelect] START RACE — kart={_selectedKart.kartId}, " +
-                      $"track={(_selectedTrack != null ? _selectedTrack.trackId : "unknown")}");
-
-            if (GameFlowManager.Instance != null && _selectedTrack != null)
-            {
-                GameFlowManager.Instance.StartRace(_selectedTrack, _selectedKart);
-            }
-            else
-            {
-                SceneManager.LoadScene("Race");
-            }
+            StartRace();
         }
 
         private void OnBackClicked()
