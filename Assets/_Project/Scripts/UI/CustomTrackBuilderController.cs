@@ -173,7 +173,7 @@ namespace QuickChecks.UI
 
             RebuildTrackPreview();
             UpdateModeIndicators();
-            UpdateStatus("DRAW: tap to place points. FREE DRAW: drag to trace a line. Need 4+ to save.");
+            UpdateStatus("DRAW: tap to place points. FREE DRAW: drag to trace. Need 6+ to build.");
         }
 
         private void WireButton(Button btn, Action onClick)
@@ -494,8 +494,11 @@ namespace QuickChecks.UI
         {
             _track.splinePoints.Add(CustomTrackData.SerializableVector2.From(pos));
             RebuildTrackPreview();
-            UpdateStatus($"Point {_track.splinePoints.Count} added. " +
-                         (_track.splinePoints.Count < 4 ? $"Need {4 - _track.splinePoints.Count} more to save." : "Ready to save!"));
+            int remaining = 6 - _track.splinePoints.Count;
+            if (remaining > 0)
+                UpdateStatus($"Point {_track.splinePoints.Count} added. Need {remaining} more to build track.");
+            else
+                UpdateStatus($"Point {_track.splinePoints.Count} added. Track is ready — test it!");
         }
 
         private void PlaceObstacle(string type, Vector3 pos, Vector2 defaultSize)
@@ -659,8 +662,8 @@ namespace QuickChecks.UI
             if (_trackPreviewRoot != null) Destroy(_trackPreviewRoot);
             _trackPreviewRoot = new GameObject("TrackPreview");
 
-            // Only build the actual track mesh if we have 4+ points
-            if (_track.splinePoints.Count >= 4)
+            // Only build the actual track mesh if we have enough points for a closed loop (6 = 3*2 segments)
+            if (_track.splinePoints.Count >= 6)
             {
                 var def = CustomTrackLibrary.ToTrackDefinition(_track);
                 var builderGo = new GameObject("SplineBuilder");
@@ -801,9 +804,9 @@ namespace QuickChecks.UI
 
         private bool ValidateTrack(out string error)
         {
-            if (_track.splinePoints.Count < 4)
+            if (_track.splinePoints.Count < 6)
             {
-                error = $"Need at least 4 points to save. You have {_track.splinePoints.Count}.";
+                error = $"Need at least 6 points to build a track. You have {_track.splinePoints.Count}.";
                 return false;
             }
             if (string.IsNullOrEmpty(trackNameInput?.text?.Trim()))
