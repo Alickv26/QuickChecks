@@ -816,9 +816,9 @@ namespace QuickChecks.Editor
             var audioGo = new GameObject("[AudioBootstrap]");
             audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
 
-            // Controller
-            var ctrlGo = new GameObject("[ModeSelectController]");
-            var ctrl = ctrlGo.AddComponent<QuickChecks.UI.ModeSelectController>();
+            // Controller — attach to the CardContainer GameObject so it receives pointer events
+            // (IPointerDownHandler/IPointerUpHandler fire on the GameObject with the Image + raycastTarget=true)
+            var ctrl = cardContainerGo.AddComponent<QuickChecks.UI.ModeSelectController>();
             var so = new SerializedObject(ctrl);
             so.FindProperty("backButton").objectReferenceValue = backBtn;
             so.FindProperty("titleText").objectReferenceValue = titleText;
