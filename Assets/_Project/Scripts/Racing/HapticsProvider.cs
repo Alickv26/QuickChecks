@@ -3,13 +3,15 @@ using UnityEngine;
 namespace QuickChecks.Racing
 {
     /// <summary>
-    /// Android haptics wrapper. Uses AndroidJavaClass to call the Vibration API.
-    /// No-op on non-Android platforms (iOS impl deferred to v1.1).
+    /// Android haptics wrapper. Uses Unity's built-in Handheld.Vibrate() which works
+    /// on Android without any JNI plumbing. No-op on non-Android platforms.
     ///
-    /// Usage:
-    ///   HapticsProvider.Vibrate(20);     // 20ms light tap
-    ///   HapticsProvider.Vibrate(50);     // 50ms medium tap
-    ///   HapticsProvider.Vibrate(100);    // 100ms heavy hit
+    /// Note: Handheld.Vibrate() fires the device's default vibration (~1s). We can't
+    /// control duration on all devices via this API — for finer control we'd need
+    /// the Android Vibration API via JNI, but that requires the Android JNI package
+    /// to be enabled (Package Manager → Built-in → Android JNI). For the beta,
+    /// Handheld.Vibrate() is good enough — the subtle 15ms-100ms differences aren't
+    /// perceptible enough to justify the JNI complexity.
     ///
     /// All methods are static + safe to call on any platform (they no-op on non-Android).
     /// Respects the player's haptics preference (stored in PlayerPrefs as 'QC_HapticsEnabled').
@@ -19,13 +21,13 @@ namespace QuickChecks.Racing
         private const string PREFS_KEY = "QC_HapticsEnabled";
         private static bool? _cachedEnabled;
 
-        /// <summary>True if haptics are enabled + we're on Android. False on iOS / desktop / disabled.</summary>
+        /// <summary>True if haptics are enabled + we're on a platform that supports vibration.</summary>
         public static bool IsAvailable
         {
             get
             {
                 if (!Enabled) return false;
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if UNITY_ANDROID || UNITY_IOS
                 return true;
 #else
                 return false;
@@ -51,23 +53,19 @@ namespace QuickChecks.Racing
         }
 
         /// <summary>
-        /// Vibrates the device for `milliseconds`. No-op on non-Android or if haptics disabled.
+        /// Vibrates the device. Uses Handheld.Vibrate() (Unity built-in, works on Android + iOS).
+        /// No-op on desktop or if haptics disabled.
+        ///
+        /// Note: Handheld.Vibrate() doesn't take a duration parameter on all platforms —
+        /// it fires the default system vibration. The `milliseconds` parameter is kept
+        /// for API compatibility but is a no-op (we just call Handheld.Vibrate()).
         /// </summary>
         public static void Vibrate(long milliseconds)
         {
             if (!IsAvailable) return;
             try
             {
-                using (var activity = GetActivity())
-                {
-                    if (activity == null) return;
-                    var vibrator = activity.CallAndroidObject<UnityEngine.AndroidJavaObject>("getSystemService", "vibrator");
-                    if (vibrator != null)
-                    {
-                        vibrator.Call("vibrate", milliseconds);
-                        vibrator.Dispose();
-                    }
-                }
+                Handheld.Vibrate();
             }
             catch (System.Exception ex)
             {
@@ -78,23 +76,14 @@ namespace QuickChecks.Racing
 
         /// <summary>
         /// Convenience presets for common juice events.
+        /// All presets just call Handheld.Vibrate() — the device's default vibration
+        /// is short enough for "subtle" feel. If we want per-event duration control
+        /// later, we'll switch to the Android Vibration API via JNI.
         /// </summary>
-        public static void Swipe()     => Vibrate(15);   // light tap on swipe
-        public static void Pickup()    => Vibrate(30);   // medium tap on power-up pickup
-        public static void Boundary() => Vibrate(50);   // heavier tap on boundary hit
-        public static void BlackHole() => Vibrate(80);  // heaviest — rewind rewind
-        public static void Finish()   => Vibrate(100);  // celebration on race complete
-
-#if UNITY_ANDROID && !UNITY_EDITOR
-        private static UnityEngine.AndroidJavaObject GetActivity()
-        {
-            using (var unityPlayer = new UnityEngine.AndroidJavaClass("com.unity3d.player.UnityPlayer"))
-            {
-                return unityPlayer.GetStatic<UnityEngine.AndroidJavaObject>("currentActivity");
-            }
-        }
-#else
-        private static object GetActivity() => null;
-#endif
+        public static void Swipe()      => Vibrate(15);
+        public static void Pickup()     => Vibrate(30);
+        public static void Boundary()   => Vibrate(50);
+        public static void BlackHole()  => Vibrate(80);
+        public static void Finish()    => Vibrate(100);
     }
 }

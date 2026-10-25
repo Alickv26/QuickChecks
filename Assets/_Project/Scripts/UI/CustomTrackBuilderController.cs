@@ -214,8 +214,10 @@ namespace QuickChecks.UI
         private void Update()
         {
             // Pan camera with WASD / arrow keys (for desktop testing)
-            float panX = Input.GetAxisRaw("Horizontal");
-            float panY = Input.GetAxisRaw("Vertical");
+            // Note: fully-qualify as UnityEngine.Input because our QuickChecks.Input
+            // namespace shadows UnityEngine.Input.
+            float panX = UnityEngine.Input.GetAxisRaw("Horizontal");
+            float panY = UnityEngine.Input.GetAxisRaw("Vertical");
             if (Mathf.Abs(panX) > 0.01f || Mathf.Abs(panY) > 0.01f)
             {
                 var pos = builderCamera.transform.position;
@@ -225,7 +227,7 @@ namespace QuickChecks.UI
             }
 
             // Mouse wheel zoom
-            float scroll = Input.mouseScrollDelta.y;
+            float scroll = UnityEngine.Input.mouseScrollDelta.y;
             if (Mathf.Abs(scroll) > 0.01f)
             {
                 builderCamera.orthographicSize = Mathf.Clamp(
@@ -233,19 +235,19 @@ namespace QuickChecks.UI
             }
 
             // Handle tap / click / drag
-            if (Input.GetMouseButtonDown(0))
+            if (UnityEngine.Input.GetMouseButtonDown(0))
             {
-                Vector3 worldPos = builderCamera.ScreenToWorldPoint(Input.mousePosition);
+                Vector3 worldPos = builderCamera.ScreenToWorldPoint(UnityEngine.Input.mousePosition);
                 worldPos.z = 0;
                 HandlePointerDown(worldPos);
             }
-            else if (Input.GetMouseButton(0) && _isDragging)
+            else if (UnityEngine.Input.GetMouseButton(0) && _isDragging)
             {
-                Vector3 worldPos = builderCamera.ScreenToWorldPoint(Input.mousePosition);
+                Vector3 worldPos = builderCamera.ScreenToWorldPoint(UnityEngine.Input.mousePosition);
                 worldPos.z = 0;
                 HandlePointerDrag(worldPos);
             }
-            else if (Input.GetMouseButtonUp(0) && _isDragging)
+            else if (UnityEngine.Input.GetMouseButtonUp(0) && _isDragging)
             {
                 _isDragging = false;
             }
