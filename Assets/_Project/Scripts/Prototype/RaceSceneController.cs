@@ -705,8 +705,12 @@ namespace QuickChecks.Prototype
             string playerName = _turnManager.Players[playerIndex].playerName;
             Debug.Log($"[RaceScene] Turn started for player {playerIndex} ({playerName}).");
 
-            // Enable the active player's SwipeDetector
-            SetActiveSwipeDetector(playerIndex);
+            // Enable the active player's SwipeDetector — BUT ONLY for human players.
+            // CPU players use CPUPlayer.TakeTurn() which fires the swipe event directly.
+            // If we enable the CPU's SwipeDetector, the human can swipe during the CPU's turn
+            // and accidentally move the CPU's kart.
+            bool isHuman = !_turnManager.Players[playerIndex].isCPU;
+            SetActiveSwipeDetector(isHuman ? playerIndex : -1);
 
             // Camera follows the active kart
             if (_cameraRig != null && _allKarts.Count > playerIndex)

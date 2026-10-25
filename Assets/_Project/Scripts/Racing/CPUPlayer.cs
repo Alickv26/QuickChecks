@@ -113,20 +113,27 @@ namespace QuickChecks.Racing
             float angleOffset = Random.Range(-noiseDeg, noiseDeg);
             direction = Rotate(direction, angleOffset);
 
-            // Magnitude: aim to reach the checkpoint but not overshoot wildly.
-            // Use a MINIMUM so CPU doesn't make tiny swipes — was better before
-            // the wall avoidance changes reduced the multiplier too much.
+            // Magnitude: scale by distance to checkpoint, but always strong enough to be competitive.
+            // The old formula was: optimalMag = min(distance * 2, maxSpeed * 0.85) * Random.Range(0.75, 0.95)
+            // This could result in very weak swipes when distance was small or when the random scale was low.
+            //
+            // New approach: aim for a magnitude that covers ~80% of the distance to the checkpoint,
+            // with a minimum of 70% of max speed so every swipe is meaningful.
             var stats = _kart.Stats;
-            float optimalMag = Mathf.Min(distance * 2.0f, stats.maxSpeed * 0.85f);
-            // Floor: at least 60% of max speed so every swipe is meaningful
-            optimalMag = Mathf.Max(optimalMag, stats.maxSpeed * 0.6f);
+            float optimalMag = Mathf.Min(distance * 1.5f, stats.maxSpeed * 0.9f);
+            // Floor: at least 70% of max speed so every swipe is competitive
+            optimalMag = Mathf.Max(optimalMag, stats.maxSpeed * 0.7f);
 
+            // Difficulty scaling: higher difficulty = closer to optimal magnitude
+            // Easy: 70-90% of optimal (weaker, more variable)
+            // Medium: 85-100% of optimal
+            // Hard: 95-105% of optimal (slightly overshoots, aggressive)
             Vector2 magRange = difficulty switch
             {
-                Difficulty.Easy => easyMagnitudeRange,
-                Difficulty.Medium => mediumMagnitudeRange,
-                Difficulty.Hard => hardMagnitudeRange,
-                _ => mediumMagnitudeRange
+                Difficulty.Easy => new Vector2(0.70f, 0.90f),
+                Difficulty.Medium => new Vector2(0.85f, 1.00f),
+                Difficulty.Hard => new Vector2(0.95f, 1.05f),
+                _ => new Vector2(0.85f, 1.00f)
             };
             float scale = Random.Range(magRange.x, magRange.y);
             float magnitude = optimalMag * scale;
