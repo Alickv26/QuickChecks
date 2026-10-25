@@ -97,6 +97,10 @@ namespace QuickChecks.Track.Obstacles
                     new Color(0.15f, 0f, 0.2f), 12, 4f, 0.4f);
             }
 
+            // Visual feedback: dark purple flash + "REWIND -N" popup on the kart
+            var visualFeedback = kart.GetComponent<Racing.KartVisualFeedback>();
+            if (visualFeedback != null) visualFeedback.OnBlackHoleRewind(rewindSwipes);
+
             // Start the smooth rewind animation.
             StartCoroutine(RewindRoutine(kart, kart.transform.position, kart.transform.eulerAngles.z,
                                          targetPos, targetRot, rewindDuration));

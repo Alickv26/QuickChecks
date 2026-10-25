@@ -255,6 +255,10 @@ namespace QuickChecks.Racing
                 JuiceManager.Instance.HapticBoundary();
             }
 
+            // Visual feedback: red flash + "BUMP!" popup on the kart
+            var visualFeedback = GetComponent<KartVisualFeedback>();
+            if (visualFeedback != null) visualFeedback.OnWallHit();
+
             Debug.Log($"[Kart] Collision with '{collision.gameObject.name}' — kart stopped (golf-feel).");
         }
 

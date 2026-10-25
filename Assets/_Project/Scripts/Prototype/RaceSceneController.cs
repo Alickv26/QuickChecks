@@ -211,6 +211,7 @@ namespace QuickChecks.Prototype
             var glow = kartGo.AddComponent<Racing.KartGlow>();  // Neon glow for active kart
             glow.SetGlowColor(PLAYER_COLORS[0]);  // Player 1 = cyan
             _allKartGlows.Add(glow);
+            var visualFeedback = kartGo.AddComponent<Racing.KartVisualFeedback>();
             var pus = kartGo.AddComponent<PowerUpSystem>();
             var ct = kartGo.AddComponent<CheckpointTracker>();
 
@@ -842,6 +843,9 @@ namespace QuickChecks.Prototype
             var glow = kartGo.AddComponent<Racing.KartGlow>();
             glow.SetGlowColor(PLAYER_COLORS[playerIndex % PLAYER_COLORS.Length]);
             _allKartGlows.Add(glow);
+
+            // Add visual feedback (power-up tint + wall/gravel/black hole flash)
+            kartGo.AddComponent<Racing.KartVisualFeedback>();
 
             _allKarts.Add(kart);
 

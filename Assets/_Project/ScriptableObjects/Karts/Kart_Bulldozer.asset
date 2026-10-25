@@ -24,5 +24,5 @@ MonoBehaviour:
   unlockAfterTrackIndex: 3
   archetypeLabel: Heavy hitter
   description: Low impulse but huge max speed + monster boost power-up.
-  isFree: 0
+  isFree: 1
   kartColor: {r: 0.42, g: 0.58, b: 1, a: 1}

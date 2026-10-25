@@ -307,7 +307,7 @@ namespace QuickChecks.Track
             def.displayName = "Neon Sweep";
             def.difficultyStars = 2;
             def.isClosedLoop = true;
-            def.isFree = false;  // First paid track (Decision 16: tracks 4-8 require IAP)
+            def.isFree = true;  // TEMP: free for beta testing
             def.trackIndex = 3;
             def.trackWidth = 4.5f;
             def.lapCount = 1;
@@ -429,7 +429,7 @@ namespace QuickChecks.Track
             def.displayName = "Hairpin Highway";
             def.difficultyStars = 3;
             def.isClosedLoop = true;
-            def.isFree = false;  // Paid (Decision 16)
+            def.isFree = true;  // TEMP: free for beta testing
             def.trackIndex = 4;
             def.trackWidth = 4f;  // Narrower — punishes overshoots
             def.lapCount = 1;
@@ -559,7 +559,7 @@ namespace QuickChecks.Track
             def.displayName = "Slipstream";
             def.difficultyStars = 3;
             def.isClosedLoop = true;
-            def.isFree = false;
+            def.isFree = true;  // TEMP: free for beta testing
             def.trackIndex = 5;
             def.trackWidth = 5f;  // Slightly wider — high-speed forgives less
             def.lapCount = 1;
@@ -684,7 +684,7 @@ namespace QuickChecks.Track
             def.displayName = "Maze Run";
             def.difficultyStars = 4;
             def.isClosedLoop = true;
-            def.isFree = false;
+            def.isFree = true;  // TEMP: free for beta testing
             def.trackIndex = 6;
             def.trackWidth = 3.5f;  // Narrow — precision required
             def.lapCount = 1;
@@ -860,7 +860,7 @@ namespace QuickChecks.Track
             def.displayName = "Final Check";
             def.difficultyStars = 5;
             def.isClosedLoop = true;
-            def.isFree = false;
+            def.isFree = true;  // TEMP: free for beta testing
             def.trackIndex = 7;
             def.trackWidth = 3.5f;  // Narrow — endgame precision
             def.lapCount = 1;

@@ -24,5 +24,5 @@ MonoBehaviour:
   unlockAfterTrackIndex: 4
   archetypeLabel: All-rounder
   description: Balanced with a slightly better boost — reliable endgame pick.
-  isFree: 0
+  isFree: 1
   kartColor: {r: 0.725, g: 0.514, b: 1, a: 1}

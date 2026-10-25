@@ -44,6 +44,10 @@ namespace QuickChecks.Track.Obstacles
 
             kart.SetGravelMode(true, gravelFrictionMultiplier, gravelSwipeMultiplier);
             Debug.Log($"[GravelSpot] {kart.gameObject.name} entered gravel — friction x{gravelFrictionMultiplier}, swipe x{gravelSwipeMultiplier}.");
+
+            // Visual feedback: brown tint + "SLOWED" popup
+            var visualFeedback = other.GetComponent<Racing.KartVisualFeedback>();
+            if (visualFeedback != null) visualFeedback.SetGravelActive(true);
         }
 
         private void OnTriggerExit2D(Collider2D other)
@@ -53,6 +57,10 @@ namespace QuickChecks.Track.Obstacles
 
             kart.SetGravelMode(false, 1f, 1f);
             Debug.Log($"[GravelSpot] {kart.gameObject.name} exited gravel — normal friction/swipe restored.");
+
+            // Remove gravel visual feedback
+            var visualFeedback = other.GetComponent<Racing.KartVisualFeedback>();
+            if (visualFeedback != null) visualFeedback.SetGravelActive(false);
         }
     }
 }

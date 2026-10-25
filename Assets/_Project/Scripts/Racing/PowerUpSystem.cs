@@ -36,6 +36,19 @@ namespace QuickChecks.Racing
         /// </summary>
         public event Action<PowerUpBase> OnCollected;
 
+        /// <summary>
+        /// Fired when a power-up effect STARTS (instant-use on pickup, or held on Use()).
+        /// Subscribers: KartVisualFeedback (tints the kart to the power-up's effectColor).
+        /// Args: the power-up whose effect just started.
+        /// </summary>
+        public event Action<PowerUpBase> OnEffectStarted;
+
+        /// <summary>
+        /// Fired when a power-up effect EXPIRES (duration runs out, or effect resolves).
+        /// Subscribers: KartVisualFeedback (restores the kart's original color).
+        /// </summary>
+        public event Action<PowerUpBase> OnEffectExpired;
+
         private void Update()
         {
             if (_effectTimer > 0f)
@@ -64,11 +77,15 @@ namespace QuickChecks.Racing
                         {
                             _activePowerUp.OnExpire(kart);
                         }
-                        catch (System.Exception ex)
+                        catch (Exception ex)
                         {
                             Debug.LogError($"[PowerUpSystem] OnExpire threw: {ex.Message}");
                         }
                         Debug.Log($"[PowerUpSystem] Effect '{_activePowerUp.powerUpId}' expired on {kart.gameObject.name}.");
+
+                        // Fire OnEffectExpired so visual feedback can restore the kart's color.
+                        try { OnEffectExpired?.Invoke(_activePowerUp); }
+                        catch (Exception ex) { Debug.LogError($"[PowerUpSystem] OnEffectExpired subscriber threw: {ex.Message}"); }
                     }
                     _activePowerUp = null;
                     _effectTimer = 0f;
@@ -148,6 +165,10 @@ namespace QuickChecks.Racing
             powerUp.OnPickup(kart);
             Debug.Log($"[PowerUpSystem] Activated '{powerUp.powerUpId}' on {kart.gameObject.name} " +
                       $"(duration {powerUp.durationSec}s).");
+
+            // Fire OnEffectStarted so visual feedback can tint the kart.
+            try { OnEffectStarted?.Invoke(powerUp); }
+            catch (Exception ex) { Debug.LogError($"[PowerUpSystem] OnEffectStarted subscriber threw: {ex.Message}"); }
         }
 
         /// <summary>Clears all power-up state (used on race reset).</summary>
