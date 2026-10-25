@@ -177,7 +177,7 @@ namespace QuickChecks.Track
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
                     t = 0.3f,
-                    lateralOffset = 0f,
+                    lateralOffset = 1.0f,
                     size = new Vector2(1.5f, 1.5f),  // Small wall — plenty of room around
                     teleportDistance = 0f
                 },
@@ -236,8 +236,8 @@ namespace QuickChecks.Track
                 new Vector2(-10, -7),
                 new Vector2(-13, -4),
                 // Segment 6: Left side going up (back to start)
-                new Vector2(-16, -2),
-                new Vector2(-18, 0),  // wrap to start
+                new Vector2(-17, -1),
+                new Vector2(-18, -2),
             };
 
             // 3 power-ups: Boost + Bounce + Trail Wall
@@ -273,7 +273,7 @@ namespace QuickChecks.Track
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
                     t = 0.2f,
-                    lateralOffset = 0f,
+                    lateralOffset = 1.0f,
                     size = new Vector2(1.5f, 1.5f),  // Small wall
                     teleportDistance = 0f
                 },
@@ -384,7 +384,7 @@ namespace QuickChecks.Track
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
                     t = 0.1f,
-                    lateralOffset = 0f,
+                    lateralOffset = 1.0f,
                     size = new Vector2(1.5f, 1.5f),  // Small wall
                     teleportDistance = 0f
                 },
@@ -400,7 +400,7 @@ namespace QuickChecks.Track
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
                     t = 0.6f,
-                    lateralOffset = 0f,
+                    lateralOffset = -1.0f,
                     size = new Vector2(1.5f, 1.5f),  // Small wall
                     teleportDistance = 0f
                 },
@@ -468,10 +468,10 @@ namespace QuickChecks.Track
                 new Vector2(-12, 0),
                 // Segment 7: Up the left side
                 new Vector2(-14, 4),
-                new Vector2(-16, 7),
-                // Segment 8: Fourth hairpin (top-left, U-turn right back to start)
-                new Vector2(-17, 9),
-                new Vector2(-18, 9),
+                new Vector2(-16, 5),
+                // Segment 8: Approach finish line from the left (aligned with start direction)
+                new Vector2(-20, 7),
+                new Vector2(-20, 8),
             };
 
             // 4 power-ups: Phase Dodge (for hairpins) + Shield (for gravel) + 2 Boost
@@ -514,7 +514,7 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.BlackHole,
-                    t = 0.28f, lateralOffset = 0.5f,
+                    t = 0.28f, lateralOffset = 1.5f,
                     size = new Vector2(1.0f, 1.0f),
                     teleportDistance = 10f  // ~4 swipes rewind
                 },
@@ -522,7 +522,7 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.45f, lateralOffset = 0f,
+                    t = 0.45f, lateralOffset = 1.5f,
                     size = new Vector2(2f, 2f),
                     teleportDistance = 0f
                 },
@@ -538,7 +538,7 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.BlackHole,
-                    t = 0.75f, lateralOffset = -0.5f,
+                    t = 0.75f, lateralOffset = -1.5f,
                     size = new Vector2(1.0f, 1.0f),
                     teleportDistance = 10f
                 }
@@ -639,7 +639,7 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.12f, lateralOffset = 0f,
+                    t = 0.12f, lateralOffset = 1.5f,
                     size = new Vector2(2f, 2f),
                     teleportDistance = 0f
                 },
@@ -791,7 +791,7 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.08f, lateralOffset = 0f,
+                    t = 0.08f, lateralOffset = 1.5f,
                     size = new Vector2(2f, 2f),
                     teleportDistance = 0f
                 },
@@ -815,7 +815,7 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.42f, lateralOffset = 0f,
+                    t = 0.42f, lateralOffset = -1.5f,
                     size = new Vector2(2f, 2f),
                     teleportDistance = 0f
                 },
@@ -831,7 +831,7 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.65f, lateralOffset = 0f,
+                    t = 0.65f, lateralOffset = 1.5f,
                     size = new Vector2(2f, 2f),
                     teleportDistance = 0f
                 },
@@ -964,7 +964,7 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.06f, lateralOffset = 0f,
+                    t = 0.06f, lateralOffset = 1.5f,
                     size = new Vector2(2f, 2f),
                     teleportDistance = 0f
                 },
@@ -988,7 +988,7 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.28f, lateralOffset = 0f,
+                    t = 0.28f, lateralOffset = -1.5f,
                     size = new Vector2(2f, 2f),
                     teleportDistance = 0f
                 },
@@ -1012,7 +1012,7 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.60f, lateralOffset = 0f,
+                    t = 0.60f, lateralOffset = 1.5f,
                     size = new Vector2(2f, 2f),
                     teleportDistance = 0f
                 },
