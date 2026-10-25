@@ -90,8 +90,10 @@ namespace QuickChecks.UI
             if (descriptionText != null) descriptionText.text = powerUp.effectDescription ?? "";
             if (accentBar != null) accentBar.color = powerUp.effectColor;
 
-            // Make panel visible
+            // Make panel visible — this also activates the PowerUpPickupNotifier GameObject
+            // itself (which must be active for StartCoroutine to work)
             panelRoot.SetActive(true);
+            gameObject.SetActive(true);
             if (_canvasGroup != null) _canvasGroup.alpha = 1f;
 
             // Restart the fade-out timer
