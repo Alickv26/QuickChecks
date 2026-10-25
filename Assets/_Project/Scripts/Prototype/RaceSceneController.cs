@@ -228,12 +228,9 @@ namespace QuickChecks.Prototype
             SetField(pus, "kart", _kart);
             SetField(_cameraRig, "target", kartGo.transform);
 
-            // Wire the power-up pickup notifier to this kart's PowerUpSystem
-            // (Notifier was built in BuildHUD; we link it to the kart here once both exist.)
-            if (_powerUpNotifier != null)
-            {
-                _powerUpNotifier.WatchKart(pus);
-            }
+            // NOTE: PowerUpPickupNotifier is wired at the END of BuildHUD() (which runs
+            // after BuildKart) via _powerUpNotifier.WatchKart(pus). Don't wire it here —
+            // _powerUpNotifier is null at this point because BuildHUD hasn't run yet.
 
             // Wire feedback + audio (was missing — no particles/whoosh in Race scene)
             var feedback = kartGo.GetComponent<SwipeFeedback>();
@@ -520,6 +517,19 @@ namespace QuickChecks.Prototype
             SetField(_powerUpNotifier, "accentBar", accentImg);
             SetField(_powerUpNotifier, "nameText", nameText);
             SetField(_powerUpNotifier, "descriptionText", descText);
+
+            // NOW wire the notifier to the player's kart PowerUpSystem.
+            // This must happen HERE (end of BuildHUD) because BuildKart runs BEFORE BuildHUD —
+            // the notifier didn't exist when BuildKart tried to wire it.
+            if (_kart != null)
+            {
+                var pus = _kart.GetComponent<PowerUpSystem>();
+                if (pus != null && _powerUpNotifier != null)
+                {
+                    _powerUpNotifier.WatchKart(pus);
+                    Debug.Log("[RaceScene] PowerUpPickupNotifier wired to player kart's PowerUpSystem.");
+                }
+            }
         }
 
         private UI.PowerUpPickupNotifier _powerUpNotifier;
