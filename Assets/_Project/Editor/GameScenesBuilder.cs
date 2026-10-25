@@ -810,6 +810,28 @@ namespace QuickChecks.Editor
                 new Color(0.5f, 0.5f, 0.5f, 0.5f), new Vector2(0.9f, 0.08f), new Vector2(150, 25),
                 TextAlignmentOptions.Right, false, canvasGo.transform);
 
+            // --- Sub-option panel (shown when tapping vs CPU or Local PvP) ---
+            var subPanelGo = new GameObject("SubOptionPanel");
+            subPanelGo.transform.SetParent(canvasGo.transform, false);
+            var subPanelRect = subPanelGo.AddComponent<RectTransform>();
+            subPanelRect.anchorMin = new Vector2(0.15f, 0.20f);
+            subPanelRect.anchorMax = new Vector2(0.85f, 0.55f);
+            subPanelRect.pivot = new Vector2(0.5f, 0.5f);
+            subPanelRect.offsetMin = Vector2.zero;
+            subPanelRect.offsetMax = Vector2.zero;
+            var subPanelImg = subPanelGo.AddComponent<Image>();
+            subPanelImg.color = new Color(0.05f, 0.08f, 0.08f, 0.95f);
+            subPanelImg.raycastTarget = true;
+            var subPanelVlg = subPanelGo.AddComponent<VerticalLayoutGroup>();
+            subPanelVlg.spacing = 12;
+            subPanelVlg.padding = new RectOffset(30, 30, 30, 30);
+            subPanelVlg.childAlignment = TextAnchor.MiddleCenter;
+            subPanelVlg.childControlWidth = true;
+            subPanelVlg.childControlHeight = false;
+            subPanelVlg.childForceExpandWidth = true;
+            subPanelVlg.childForceExpandHeight = false;
+            subPanelGo.SetActive(false);
+
             // GameFlowManager + AudioBootstrap
             var flowGo = new GameObject("[GameFlowManager]");
             flowGo.AddComponent<GameFlowManager>();
@@ -817,7 +839,6 @@ namespace QuickChecks.Editor
             audioGo.AddComponent<QuickChecks.Audio.AudioBootstrap>();
 
             // Controller — attach to the CardContainer GameObject so it receives pointer events
-            // (IPointerDownHandler/IPointerUpHandler fire on the GameObject with the Image + raycastTarget=true)
             var ctrl = cardContainerGo.AddComponent<QuickChecks.UI.ModeSelectController>();
             var so = new SerializedObject(ctrl);
             so.FindProperty("backButton").objectReferenceValue = backBtn;
@@ -828,8 +849,9 @@ namespace QuickChecks.Editor
             so.FindProperty("cardIcon").objectReferenceValue = iconImg;
             so.FindProperty("cardNameText").objectReferenceValue = cardNameText;
             so.FindProperty("cardDescText").objectReferenceValue = cardDescText;
-            so.FindProperty("cardPlayerCountText").objectReferenceValue = chipLabel;
             so.FindProperty("cardBadgeText").objectReferenceValue = badgeText;
+            so.FindProperty("subOptionPanel").objectReferenceValue = subPanelGo;
+            so.FindProperty("subOptionContainer").objectReferenceValue = subPanelGo.transform;
             so.FindProperty("dotsContainer").objectReferenceValue = dotsGo.transform;
             so.ApplyModifiedPropertiesWithoutUndo();
 

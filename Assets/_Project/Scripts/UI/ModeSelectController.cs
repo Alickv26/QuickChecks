@@ -11,17 +11,17 @@ using QuickChecks.Audio;
 namespace QuickChecks.UI
 {
     /// <summary>
-    /// Swipeable carousel mode select. One large card at a time, swipe left/right to browse.
-    /// Tap the card to select that mode.
+    /// Swipeable carousel mode select with 4 top-level cards:
+    ///   1. Solo Practice
+    ///   2. vs CPU → tap to reveal difficulty sub-options (Easy / Medium / Hard)
+    ///   3. Local PvP → tap to reveal player count sub-options (2P / 3P / 4P)
+    ///   4. Online (coming soon)
     ///
-    /// Each card shows:
-    ///   - Large colored circle (icon) — color-coded per category
-    ///   - Mode name (large text)
-    ///   - Description (small text)
-    ///   - Player count chip (e.g. "1P", "2P")
+    /// Swipe left/right to browse the 4 cards. Tap to select.
+    /// For vs CPU + Local PvP, tapping shows inline sub-option buttons.
+    /// Pick a sub-option → goes to Track Select.
     ///
-    /// Dot indicators at the bottom show which card is active.
-    /// Online card is dimmed (60% alpha) + "COMING v1.1" badge.
+    /// Dot indicators at the bottom show: Solo · vs CPU · Local PvP · Online
     /// </summary>
     public class ModeSelectController : MonoBehaviour,
         IPointerDownHandler, IPointerUpHandler
@@ -31,13 +31,16 @@ namespace QuickChecks.UI
         [SerializeField] private TMP_Text statusText;
 
         [Header("Card References")]
-        [SerializeField] private RectTransform cardContainer;  // parent of the single visible card
+        [SerializeField] private RectTransform cardContainer;
         [SerializeField] private Image cardBackground;
-        [SerializeField] private Image cardIcon;             // large colored circle
+        [SerializeField] private Image cardIcon;
         [SerializeField] private TMP_Text cardNameText;
         [SerializeField] private TMP_Text cardDescText;
-        [SerializeField] private TMP_Text cardPlayerCountText;
-        [SerializeField] private TMP_Text cardBadgeText;     // "COMING v1.1" for online
+        [SerializeField] private TMP_Text cardBadgeText;
+
+        [Header("Sub-option panel (shown when tapping vs CPU or Local PvP)")]
+        [SerializeField] private GameObject subOptionPanel;
+        [SerializeField] private Transform subOptionContainer;
 
         [Header("Dots")]
         [SerializeField] private Transform dotsContainer;
@@ -46,18 +49,21 @@ namespace QuickChecks.UI
         [SerializeField] private float swipeThreshold = 80f;
         [SerializeField] private float cardTransitionDuration = 0.25f;
 
-        // Mode data (icon color + name + description per mode)
-        private struct ModeInfo
+        // --- Mode data ---
+
+        private enum CardType { Solo, VsCpu, LocalPvp, Online }
+
+        private struct CardInfo
         {
-            public RaceMode mode;
+            public CardType type;
             public string name;
             public string description;
             public Color color;
-            public string playerCount;
+            public string dotLabel;
             public bool isLocked;
         }
 
-        private ModeInfo[] _modes;
+        private CardInfo[] _cards;
         private int _currentIdx = 0;
         private Vector2 _pointerDownPos;
         private bool _isSwiping = false;
@@ -73,87 +79,53 @@ namespace QuickChecks.UI
                 EnsureHoverFx(backButton);
             }
 
-            BuildModeData();
+            if (subOptionPanel != null) subOptionPanel.SetActive(false);
+
+            BuildCardData();
             BuildDots();
-            ShowMode(0, animate: false);
+            ShowCard(0, animate: false);
 
             Debug.Log("[ModeSelect] Ready. Swipe to browse, tap to select.");
         }
 
-        private void BuildModeData()
+        private void BuildCardData()
         {
-            _modes = new ModeInfo[]
+            _cards = new CardInfo[]
             {
-                new ModeInfo
+                new CardInfo
                 {
-                    mode = RaceMode.Solo,
+                    type = CardType.Solo,
                     name = "Solo Practice",
                     description = "Race alone against your personal best ghost.\nFewest swipes wins.",
                     color = new Color(0.247f, 0.878f, 0.760f),  // cyan
-                    playerCount = "1P",
+                    dotLabel = "Solo",
                     isLocked = false
                 },
-                new ModeInfo
+                new CardInfo
                 {
-                    mode = RaceMode.VsCpuEasy,
-                    name = "vs CPU — Easy",
-                    description = "Relaxed AI. Generous aim, low pressure.\nGreat for learning tracks.",
-                    color = new Color(0.42f, 0.79f, 0.47f),  // green
-                    playerCount = "1v1",
-                    isLocked = false
-                },
-                new ModeInfo
-                {
-                    mode = RaceMode.VsCpuMedium,
-                    name = "vs CPU — Medium",
-                    description = "Sharp AI. Close to a real player.\nTests your precision.",
+                    type = CardType.VsCpu,
+                    name = "vs CPU",
+                    description = "Race against an AI opponent.\nTap to choose difficulty.",
                     color = new Color(1f, 0.82f, 0.4f),  // yellow
-                    playerCount = "1v1",
+                    dotLabel = "vs CPU",
                     isLocked = false
                 },
-                new ModeInfo
+                new CardInfo
                 {
-                    mode = RaceMode.VsCpuHard,
-                    name = "vs CPU — Hard",
-                    description = "Ruthless AI. Near-perfect aim.\nPunishes every mistake.",
-                    color = new Color(1f, 0.42f, 0.42f),  // red
-                    playerCount = "1v1",
-                    isLocked = false
-                },
-                new ModeInfo
-                {
-                    mode = RaceMode.PassPlay2,
-                    name = "Pass & Play — 2P",
-                    description = "Two players, one device.\nTake turns swiping.",
+                    type = CardType.LocalPvp,
+                    name = "Local PvP",
+                    description = "Pass & play on one device.\nTap to choose player count.",
                     color = new Color(0.42f, 0.58f, 1f),  // blue
-                    playerCount = "2P",
+                    dotLabel = "Local PvP",
                     isLocked = false
                 },
-                new ModeInfo
+                new CardInfo
                 {
-                    mode = RaceMode.PassPlay3,
-                    name = "Pass & Play — 3P",
-                    description = "Three players, one device.\nTake turns swiping.",
-                    color = new Color(0.42f, 0.58f, 1f),  // blue
-                    playerCount = "3P",
-                    isLocked = false
-                },
-                new ModeInfo
-                {
-                    mode = RaceMode.PassPlay4,
-                    name = "Pass & Play — 4P",
-                    description = "Four players, one device.\nTake turns swiping.",
-                    color = new Color(0.42f, 0.58f, 1f),  // blue
-                    playerCount = "4P",
-                    isLocked = false
-                },
-                new ModeInfo
-                {
-                    mode = RaceMode.Online,
+                    type = CardType.Online,
                     name = "Online Match",
                     description = "Real-time turn-based matches\nagainst players worldwide.",
                     color = new Color(0.725f, 0.514f, 1f),  // purple
-                    playerCount = "1v1",
+                    dotLabel = "Online",
                     isLocked = true
                 },
             };
@@ -165,16 +137,42 @@ namespace QuickChecks.UI
             for (int i = 0; i < dotsContainer.childCount; i++)
                 Destroy(dotsContainer.GetChild(i).gameObject);
 
-            for (int i = 0; i < _modes.Length; i++)
+            for (int i = 0; i < _cards.Length; i++)
             {
                 var dotGo = new GameObject($"Dot_{i}");
                 dotGo.transform.SetParent(dotsContainer, false);
+
+                // Dot circle
                 var dotImg = dotGo.AddComponent<Image>();
                 dotImg.raycastTarget = false;
                 var dotLayout = dotGo.AddComponent<LayoutElement>();
-                dotLayout.preferredWidth = 12;
-                dotLayout.preferredHeight = 12;
+                dotLayout.preferredWidth = 10;
+                dotLayout.preferredHeight = 10;
                 dotLayout.flexibleWidth = 0;
+
+                // Label below the dot
+                var labelGo = new GameObject("Label");
+                labelGo.transform.SetParent(dotGo.transform, false);
+                var label = labelGo.AddComponent<TextMeshProUGUI>();
+                label.text = _cards[i].dotLabel;
+                label.fontSize = 16;
+                label.alignment = TextAlignmentOptions.Center;
+                label.color = new Color(0.5f, 0.5f, 0.5f, 0.6f);
+                label.raycastTarget = false;
+                var labelRect = labelGo.GetComponent<RectTransform>();
+                labelRect.anchorMin = new Vector2(0.5f, 0);
+                labelRect.anchorMax = new Vector2(0.5f, 0);
+                labelRect.pivot = new Vector2(0.5f, 1);
+                labelRect.anchoredPosition = new Vector2(0, -14);
+                labelRect.sizeDelta = new Vector2(100, 18);
+
+                // Add a vertical layout so the dot + label stack
+                var vlg = dotGo.AddComponent<VerticalLayoutGroup>();
+                vlg.spacing = 4;
+                vlg.childAlignment = TextAnchor.MiddleCenter;
+                vlg.childControlWidth = false;
+                vlg.childControlHeight = false;
+                vlg.padding = new RectOffset(8, 8, 0, 18);
             }
             UpdateDots();
         }
@@ -182,67 +180,77 @@ namespace QuickChecks.UI
         private void UpdateDots()
         {
             if (dotsContainer == null) return;
-            for (int i = 0; i < dotsContainer.childCount && i < _modes.Length; i++)
+            for (int i = 0; i < dotsContainer.childCount && i < _cards.Length; i++)
             {
-                var img = dotsContainer.GetChild(i).GetComponent<Image>();
-                if (img == null) continue;
-                img.color = i == _currentIdx
-                    ? new Color(0.247f, 0.878f, 0.760f, 1f)   // cyan active
-                    : new Color(0.4f, 0.4f, 0.4f, 0.5f);       // dim inactive
+                var dotTransform = dotsContainer.GetChild(i);
+                var dotImg = dotTransform.GetComponent<Image>();
+                if (dotImg != null)
+                {
+                    dotImg.color = i == _currentIdx
+                        ? new Color(0.247f, 0.878f, 0.760f, 1f)   // cyan active
+                        : new Color(0.4f, 0.4f, 0.4f, 0.4f);       // dim inactive
+                }
+                // Also color the label
+                var label = dotTransform.Find("Label");
+                if (label != null)
+                {
+                    var labelT = label.GetComponent<TextMeshProUGUI>();
+                    if (labelT != null)
+                    {
+                        labelT.color = i == _currentIdx
+                            ? new Color(0.247f, 0.878f, 0.760f, 1f)
+                            : new Color(0.5f, 0.5f, 0.5f, 0.5f);
+                    }
+                }
             }
         }
 
-        private void ShowMode(int index, bool animate = true)
+        private void ShowCard(int index, bool animate = true)
         {
-            if (_modes == null || index < 0 || index >= _modes.Length) return;
+            if (_cards == null || index < 0 || index >= _cards.Length) return;
             _currentIdx = index;
-            var m = _modes[index];
+            var c = _cards[index];
 
-            // Card background — tinted with the mode's color
+            // Hide sub-options when switching cards
+            if (subOptionPanel != null) subOptionPanel.SetActive(false);
+
+            // Card background
             if (cardBackground != null)
             {
-                float alpha = m.isLocked ? 0.35f : 0.12f;
-                cardBackground.color = new Color(m.color.r, m.color.g, m.color.b, alpha);
+                float alpha = c.isLocked ? 0.35f : 0.12f;
+                cardBackground.color = new Color(c.color.r, c.color.g, c.color.b, alpha);
             }
 
-            // Icon circle
+            // Icon
             if (cardIcon != null)
             {
-                cardIcon.color = m.isLocked
-                    ? new Color(m.color.r * 0.5f, m.color.g * 0.5f, m.color.b * 0.5f, 0.6f)
-                    : m.color;
+                cardIcon.color = c.isLocked
+                    ? new Color(c.color.r * 0.5f, c.color.g * 0.5f, c.color.b * 0.5f, 0.6f)
+                    : c.color;
             }
 
             // Text
             if (cardNameText != null)
             {
-                cardNameText.text = m.name;
-                cardNameText.color = m.isLocked ? new Color(0.5f, 0.5f, 0.5f, 0.6f) : Phase2UiPalette.TextPrimary;
+                cardNameText.text = c.name;
+                cardNameText.color = c.isLocked ? new Color(0.5f, 0.5f, 0.5f, 0.6f) : Phase2UiPalette.TextPrimary;
             }
             if (cardDescText != null)
             {
-                cardDescText.text = m.description;
-                cardDescText.color = m.isLocked ? new Color(0.5f, 0.5f, 0.5f, 0.5f) : new Color(0.8f, 0.8f, 0.8f, 0.9f);
-            }
-            if (cardPlayerCountText != null)
-            {
-                cardPlayerCountText.text = m.playerCount;
-                cardPlayerCountText.color = m.isLocked ? new Color(0.5f, 0.5f, 0.5f, 0.5f) : m.color;
+                cardDescText.text = c.description;
+                cardDescText.color = c.isLocked ? new Color(0.5f, 0.5f, 0.5f, 0.5f) : new Color(0.8f, 0.8f, 0.8f, 0.9f);
             }
 
-            // Badge (Online only)
+            // Badge
             if (cardBadgeText != null)
             {
-                cardBadgeText.gameObject.SetActive(m.isLocked);
-                if (m.isLocked) cardBadgeText.text = "COMING IN v1.1";
+                cardBadgeText.gameObject.SetActive(c.isLocked);
+                if (c.isLocked) cardBadgeText.text = "COMING IN v1.1";
             }
 
             UpdateDots();
 
-            if (animate)
-            {
-                StartCoroutine(SlideCardAnimation());
-            }
+            if (animate) StartCoroutine(SlideCardAnimation());
         }
 
         private IEnumerator SlideCardAnimation()
@@ -255,7 +263,7 @@ namespace QuickChecks.UI
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / cardTransitionDuration);
-                t = 1f - Mathf.Pow(1f - t, 3f);  // ease-out cubic
+                t = 1f - Mathf.Pow(1f - t, 3f);
                 cardContainer.anchoredPosition = Vector2.LerpUnclamped(startPos, endPos, t);
                 yield return null;
             }
@@ -263,7 +271,7 @@ namespace QuickChecks.UI
         }
 
         // =====================================================================
-        // Swipe detection (IPointerDownHandler + IPointerUpHandler)
+        // Swipe + tap detection
         // =====================================================================
 
         public void OnPointerDown(PointerEventData eventData)
@@ -279,51 +287,130 @@ namespace QuickChecks.UI
 
             Vector2 delta = eventData.position - _pointerDownPos;
 
-            // Check if it's a swipe (horizontal movement > threshold)
             if (Mathf.Abs(delta.x) > swipeThreshold)
             {
-                if (delta.x < 0)
+                // Swipe
+                if (delta.x < 0 && _currentIdx < _cards.Length - 1)
                 {
-                    // Swipe left → next mode
-                    if (_currentIdx < _modes.Length - 1)
-                    {
-                        ShowMode(_currentIdx + 1);
-                        if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
-                    }
+                    ShowCard(_currentIdx + 1);
+                    if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
                 }
-                else
+                else if (delta.x > 0 && _currentIdx > 0)
                 {
-                    // Swipe right → previous mode
-                    if (_currentIdx > 0)
-                    {
-                        ShowMode(_currentIdx - 1);
-                        if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
-                    }
+                    ShowCard(_currentIdx - 1);
+                    if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
                 }
             }
             else
             {
-                // Tap (not a swipe) → select this mode
-                OnModeSelected();
+                // Tap
+                OnCardTapped();
             }
         }
 
-        private void OnModeSelected()
+        private void OnCardTapped()
         {
-            var m = _modes[_currentIdx];
+            var c = _cards[_currentIdx];
             if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
 
-            if (m.isLocked)
+            if (c.isLocked)
             {
                 ShowStatus("Online multiplayer is coming in v1.1. Stay tuned!");
                 return;
             }
 
-            Debug.Log($"[ModeSelect] Mode selected: {m.name} ({m.mode.PlayerCount()} players)");
+            switch (c.type)
+            {
+                case CardType.Solo:
+                    SelectMode(RaceMode.Solo);
+                    break;
+                case CardType.VsCpu:
+                    ShowSubOptions("Choose Difficulty", new (string, RaceMode)[]
+                    {
+                        ("Easy", RaceMode.VsCpuEasy),
+                        ("Medium", RaceMode.VsCpuMedium),
+                        ("Hard", RaceMode.VsCpuHard),
+                    });
+                    break;
+                case CardType.LocalPvp:
+                    ShowSubOptions("Choose Players", new (string, RaceMode)[]
+                    {
+                        ("2 Players", RaceMode.PassPlay2),
+                        ("3 Players", RaceMode.PassPlay3),
+                        ("4 Players", RaceMode.PassPlay4),
+                    });
+                    break;
+            }
+        }
+
+        // =====================================================================
+        // Sub-option panel
+        // =====================================================================
+
+        private void ShowSubOptions(string title, (string label, RaceMode mode)[] options)
+        {
+            if (subOptionPanel == null || subOptionContainer == null)
+            {
+                // Fallback: just pick the first option
+                SelectMode(options[0].mode);
+                return;
+            }
+
+            // Clear existing sub-option buttons
+            for (int i = subOptionContainer.childCount - 1; i >= 0; i--)
+                Destroy(subOptionContainer.GetChild(i).gameObject);
+
+            // Build sub-option buttons
+            foreach (var opt in options)
+            {
+                var btnGo = new GameObject($"SubOpt_{opt.label}");
+                btnGo.transform.SetParent(subOptionContainer, false);
+                var btn = btnGo.AddComponent<Button>();
+                var img = btnGo.AddComponent<Image>();
+                img.color = new Color(_cards[_currentIdx].color.r, _cards[_currentIdx].color.g, _cards[_currentIdx].color.b, 0.3f);
+                img.raycastTarget = true;
+                btn.targetGraphic = img;
+                var rect = btnGo.GetComponent<RectTransform>();
+                rect.sizeDelta = new Vector2(0, 70);
+
+                var labelGo = new GameObject("Label");
+                labelGo.transform.SetParent(btnGo.transform, false);
+                var label = labelGo.AddComponent<TextMeshProUGUI>();
+                label.text = opt.label;
+                label.fontSize = 32;
+                label.alignment = TextAlignmentOptions.Center;
+                label.color = Phase2UiPalette.TextPrimary;
+                label.raycastTarget = false;
+                var labelRect = labelGo.GetComponent<RectTransform>();
+                labelRect.anchorMin = Vector2.zero; labelRect.anchorMax = Vector2.one;
+                labelRect.pivot = new Vector2(0.5f, 0.5f);
+                labelRect.offsetMin = Vector2.zero; labelRect.offsetMax = Vector2.zero;
+
+                if (btn.GetComponent<ButtonHoverFx>() == null)
+                    btn.gameObject.AddComponent<ButtonHoverFx>();
+
+                var mode = opt.mode;
+                btn.onClick.AddListener(() =>
+                {
+                    if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+                    SelectMode(mode);
+                });
+            }
+
+            subOptionPanel.SetActive(true);
+        }
+
+        // =====================================================================
+        // Mode selection
+        // =====================================================================
+
+        private void SelectMode(RaceMode mode)
+        {
+            Debug.Log($"[ModeSelect] Mode selected: {mode.DisplayName()} ({mode.PlayerCount()} players)");
 
             if (GameFlowManager.Instance != null)
             {
-                GameFlowManager.Instance.selectedMode = m.mode;
+                GameFlowManager.Instance.selectedMode = mode;
                 GameFlowManager.Instance.GoToTrackSelect();
             }
             else
@@ -332,14 +419,17 @@ namespace QuickChecks.UI
             }
         }
 
-        // Desktop: arrow keys to navigate
+        // =====================================================================
+        // Desktop keyboard
+        // =====================================================================
+
         private void Update()
         {
             if (UnityEngine.Input.GetKeyDown(KeyCode.RightArrow))
             {
-                if (_currentIdx < _modes.Length - 1)
+                if (_currentIdx < _cards.Length - 1)
                 {
-                    ShowMode(_currentIdx + 1);
+                    ShowCard(_currentIdx + 1);
                     if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
                 }
             }
@@ -347,13 +437,13 @@ namespace QuickChecks.UI
             {
                 if (_currentIdx > 0)
                 {
-                    ShowMode(_currentIdx - 1);
+                    ShowCard(_currentIdx - 1);
                     if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
                 }
             }
             else if (UnityEngine.Input.GetKeyDown(KeyCode.Return) || UnityEngine.Input.GetKeyDown(KeyCode.Space))
             {
-                OnModeSelected();
+                OnCardTapped();
             }
         }
 
