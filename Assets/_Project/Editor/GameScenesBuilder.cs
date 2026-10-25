@@ -1114,7 +1114,7 @@ namespace QuickChecks.Editor
             var titleText = Phase2UiPalette.CreateText("Title", "Leaderboard", 56, Phase2UiPalette.AccentCyan,
                 new Vector2(0.5f, 0.95f), new Vector2(800, 80), parent: canvas);
             titleText.transform.SetParent(panelGo.transform, false);
-            var titleRect = titleText.AddComponent<RectTransform>();
+            var titleRect = titleText.GetComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0.5f, 1f);
             titleRect.anchorMax = new Vector2(0.5f, 1f);
             titleRect.pivot = new Vector2(0.5f, 1f);
