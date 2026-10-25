@@ -60,15 +60,15 @@ namespace QuickChecks.Camera
 
         /// <summary>
         /// Called by PinchZoomInput when user pinches. Player override takes precedence.
-        /// zoomDelta is already a scaled value (delta distance × sensitivity) from PinchZoomInput.
-        /// We just clamp the resulting target zoom — no additional scaling here.
+        ///
+        /// Direction convention:
+        ///   zoomDelta NEGATIVE = zoom IN (fingers apart on touch, scroll up on mouse) → decrease ortho size
+        ///   zoomDelta POSITIVE = zoom OUT (fingers together on touch, scroll down on mouse) → increase ortho size
         /// </summary>
         public void ApplyPinchZoom(float zoomDelta)
         {
             if (inputSettings == null) return;
 
-            // zoomDelta is positive when fingers move apart (zoom out, increase ortho size).
-            // zoomDelta is negative when fingers move together (zoom in, decrease ortho size).
             _targetZoom = Mathf.Clamp(
                 _targetZoom + zoomDelta,
                 inputSettings.minCameraZoom,

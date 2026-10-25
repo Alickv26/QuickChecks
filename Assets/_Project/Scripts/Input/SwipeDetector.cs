@@ -77,6 +77,9 @@ namespace QuickChecks.Input
 
         private void Update()
         {
+            // Suppress all input while a two-finger gesture is active (pinch/pan)
+            if (PinchZoomInput.IsTwoFingerGestureActive) return;
+
 #if UNITY_EDITOR || UNITY_STANDALONE
             HandleMouseInput();
 #endif
