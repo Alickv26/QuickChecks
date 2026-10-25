@@ -1927,22 +1927,23 @@ namespace QuickChecks.Editor
 
             // --- Top bar: name input + Save + Test + Back ---
             var trackNameInput = CreateSimpleInputField(canvasGo.transform, "TrackNameInput",
-                "Track name…", new Vector2(0.5f, 0.96f), new Vector2(800, 60));
+                "Track name…", new Vector2(0.5f, 0.96f), new Vector2(700, 60));
 
+            // Top bar buttons — evenly spaced, smaller, fit 4 in a row
             var saveBtn = CreateSimpleButton(canvasGo.transform, "SaveButton", "Save",
-                new Vector2(0.3f, 0.89f), new Vector2(0, 0), new Vector2(200, 70),
+                new Vector2(0.15f, 0.88f), new Vector2(0, 0), new Vector2(180, 60),
                 Phase2UiPalette.AccentCyan, Phase2UiPalette.TextOnAccent);
 
-            var testBtn = CreateSimpleButton(canvasGo.transform, "TestButton", "Test",
-                new Vector2(0.5f, 0.89f), new Vector2(0, 0), new Vector2(200, 70),
+            var testBtn = CreateSimpleButton(canvasGo.transform, "TestButton", "Test Race",
+                new Vector2(0.40f, 0.88f), new Vector2(0, 0), new Vector2(180, 60),
                 new Color(0.42f, 0.79f, 0.47f, 0.9f), Color.white);
 
             var backBtn = CreateSimpleButton(canvasGo.transform, "BackButton", "< Back",
-                new Vector2(0.7f, 0.89f), new Vector2(0, 0), new Vector2(200, 70),
+                new Vector2(0.65f, 0.88f), new Vector2(0, 0), new Vector2(180, 60),
                 Phase2UiPalette.PanelSurface, Phase2UiPalette.TextPrimary);
 
-            var clearBtn = CreateSimpleButton(canvasGo.transform, "ClearAllButton", "Clear",
-                new Vector2(0.9f, 0.89f), new Vector2(0, 0), new Vector2(160, 70),
+            var clearBtn = CreateSimpleButton(canvasGo.transform, "ClearAllButton", "Clear All",
+                new Vector2(0.88f, 0.88f), new Vector2(0, 0), new Vector2(180, 60),
                 new Color(1f, 0.42f, 0.42f, 0.9f), Color.white);
 
             // --- Bottom bar: tool palette ---
@@ -2048,10 +2049,17 @@ namespace QuickChecks.Editor
 
             selectedPanelGo.SetActive(false);
 
-            // --- Status text (just above palette) ---
-            var statusText = Phase2UiPalette.CreateText("StatusText", "", 24,
+            // --- Mode indicator text (top-left, just below the back button row) ---
+            var modeIndicatorText = Phase2UiPalette.CreateText("ModeIndicator", "Mode: DRAW", 24,
+                Phase2UiPalette.AccentCyan,
+                new Vector2(0.05f, 0.82f), new Vector2(400, 30),
+                TextAlignmentOptions.Left, false, canvasGo.transform);
+
+            // --- Status text (bottom-center, ABOVE the palette so it doesn't overlap) ---
+            var statusText = Phase2UiPalette.CreateText("StatusText", "", 22,
                 Phase2UiPalette.TextPrimary,
-                new Vector2(0.5f, 0.13f), new Vector2(1000, 40), parent: canvasGo.transform);
+                new Vector2(0.5f, 0.16f), new Vector2(1000, 30),
+                TextAlignmentOptions.Center, false, canvasGo.transform);
 
             // GameFlowManager
             var flowGo = new GameObject("[GameFlowManager]");
@@ -2083,6 +2091,7 @@ namespace QuickChecks.Editor
             so.FindProperty("sizeSlider").objectReferenceValue = sizeSlider;
             so.FindProperty("deleteSelectedItemButton").objectReferenceValue = deleteItemBtn;
             so.FindProperty("statusText").objectReferenceValue = statusText;
+            so.FindProperty("modeIndicatorText").objectReferenceValue = modeIndicatorText;
             so.FindProperty("builderCamera").objectReferenceValue = cam;
             so.ApplyModifiedPropertiesWithoutUndo();
 

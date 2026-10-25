@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using TMPro;
 using QuickChecks.Core;
@@ -21,13 +22,12 @@ namespace QuickChecks.UI
     ///   Boost / Shield / Magnet / Slingshot — tap to place a power-up pickup
     ///   Select    — tap placed items to select; drag to move; delete via button
     ///
-    /// UI:
-    ///   - Top: track name input + Save + Test + Back buttons
-    ///   - Bottom: tool palette (mode buttons)
-    ///   - Side (when item selected): size slider + delete button
-    ///
-    /// The track is previewed live via SplineTrackBuilder.Build, rebuilt whenever points
-    /// or obstacles change.
+    /// Mobile support:
+    ///   - Single-finger drag on empty world space = place point / obstacle (depends on mode)
+    ///   - Single-finger drag on existing point/obstacle = move it
+    ///   - Two-finger pinch = zoom
+    ///   - Two-finger drag = pan camera
+    ///   - UI elements (buttons, inputs) block world taps — EventSystem check
     /// </summary>
     public class CustomTrackBuilderController : MonoBehaviour
     {
@@ -56,6 +56,7 @@ namespace QuickChecks.UI
 
         [Header("Status")]
         [SerializeField] private TMP_Text statusText;
+        [SerializeField] private TMP_Text modeIndicatorText;
 
         [Header("Camera")]
         [SerializeField] private UnityEngine.Camera builderCamera;
@@ -75,12 +76,23 @@ namespace QuickChecks.UI
         private readonly List<GameObject> _powerUpMarkers = new();
 
         // Drag state
-        private int _selectedPointIdx = -1;       // -1 = none
+        private int _selectedPointIdx = -1;
         private int _selectedObstacleIdx = -1;
         private int _selectedPowerUpIdx = -1;
         private bool _isDragging = false;
-        private const float POINT_SELECT_RADIUS = 1.2f;
-        private const float OBstacle_SELECT_RADIUS = 2.5f;
+        private const float POINT_SELECT_RADIUS = 1.5f;
+        private const float OBSTACLE_SELECT_RADIUS = 3.0f;
+
+        // Touch state for pinch-zoom + pan
+        private bool _isPinching = false;
+        private float _lastPinchDistance = 0f;
+        private bool _isTwoFingerPanning = false;
+        private Vector2 _lastTwoFingerCenter = Vector2.zero;
+
+        // Drag threshold — prevents accidental placement when the player is trying to pan
+        private bool _hasMovedSinceDown = false;
+        private Vector3 _pointerDownWorldPos;
+        private const float DRAG_THRESHOLD = 0.5f;
 
         private void Start()
         {
@@ -88,14 +100,14 @@ namespace QuickChecks.UI
             if (GameFlowManager.Instance != null && GameFlowManager.Instance.pendingCustomTrack != null)
             {
                 _track = GameFlowManager.Instance.pendingCustomTrack;
-                GameFlowManager.Instance.pendingCustomTrack = null;  // consume
+                GameFlowManager.Instance.pendingCustomTrack = null;
                 Debug.Log($"[CustomBuilder] Editing existing track: {_track.trackName}");
             }
             else
             {
                 _track = new CustomTrackData
                 {
-                    trackId = "",  // assigned on save
+                    trackId = "",
                     trackName = "My Custom Track",
                     authorId = GameFlowManager.Instance?.profile?.playerId ?? "anon",
                     authorName = GameFlowManager.Instance?.profile?.displayName ?? "Player",
@@ -154,7 +166,7 @@ namespace QuickChecks.UI
 
             RebuildTrackPreview();
             UpdateModeIndicators();
-            UpdateStatus("Tap empty space to add track points. Min 4 points to save.");
+            UpdateStatus("Tap empty space to add track points. Need 4+ to save.");
         }
 
         private void WireButton(Button btn, Action onClick)
@@ -185,7 +197,6 @@ namespace QuickChecks.UI
 
         private void UpdateModeIndicators()
         {
-            // Visually distinguish active mode button (cyan bg) from inactive (dim bg)
             SetModeButtonColor(drawModeButton, _mode == BuilderMode.Draw);
             SetModeButtonColor(wallModeButton, _mode == BuilderMode.Wall);
             SetModeButtonColor(gravelModeButton, _mode == BuilderMode.Gravel);
@@ -195,6 +206,26 @@ namespace QuickChecks.UI
             SetModeButtonColor(magnetModeButton, _mode == BuilderMode.Magnet);
             SetModeButtonColor(slingshotModeButton, _mode == BuilderMode.Slingshot);
             SetModeButtonColor(selectModeButton, _mode == BuilderMode.Select);
+
+            // Show current mode in the status text
+            if (modeIndicatorText != null)
+            {
+                string modeName = _mode switch
+                {
+                    BuilderMode.Draw => "DRAW",
+                    BuilderMode.Wall => "WALL",
+                    BuilderMode.Gravel => "GRAVEL",
+                    BuilderMode.BlackHole => "BLACK HOLE",
+                    BuilderMode.Boost => "BOOST",
+                    BuilderMode.Shield => "SHIELD",
+                    BuilderMode.Magnet => "MAGNET",
+                    BuilderMode.Slingshot => "SLINGSHOT",
+                    BuilderMode.Select => "SELECT",
+                    _ => "DRAW"
+                };
+                modeIndicatorText.text = $"Mode: {modeName}";
+                modeIndicatorText.color = Phase2UiPalette.AccentCyan;
+            }
         }
 
         private static void SetModeButtonColor(Button btn, bool isActive)
@@ -203,19 +234,24 @@ namespace QuickChecks.UI
             var img = btn.GetComponent<Image>();
             if (img == null) return;
             img.color = isActive
-                ? new Color(0.247f, 0.878f, 0.760f, 0.9f)   // cyan accent (active)
-                : new Color(0.086f, 0.110f, 0.110f, 0.9f);    // dark teal (inactive)
+                ? new Color(0.247f, 0.878f, 0.760f, 0.9f)
+                : new Color(0.086f, 0.110f, 0.110f, 0.9f);
+
+            // Also change the label color for contrast
+            var label = btn.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null)
+            {
+                label.color = isActive ? new Color(0.055f, 0.078f, 0.078f) : Phase2UiPalette.TextPrimary;
+            }
         }
 
         // =====================================================================
-        // Input handling
+        // Input handling — supports both mouse (desktop) + touch (mobile)
         // =====================================================================
 
         private void Update()
         {
-            // Pan camera with WASD / arrow keys (for desktop testing)
-            // Note: fully-qualify as UnityEngine.Input because our QuickChecks.Input
-            // namespace shadows UnityEngine.Input.
+            // Desktop: pan with WASD / arrow keys
             float panX = UnityEngine.Input.GetAxisRaw("Horizontal");
             float panY = UnityEngine.Input.GetAxisRaw("Vertical");
             if (Mathf.Abs(panX) > 0.01f || Mathf.Abs(panY) > 0.01f)
@@ -226,7 +262,7 @@ namespace QuickChecks.UI
                 builderCamera.transform.position = pos;
             }
 
-            // Mouse wheel zoom
+            // Desktop: mouse wheel zoom
             float scroll = UnityEngine.Input.mouseScrollDelta.y;
             if (Mathf.Abs(scroll) > 0.01f)
             {
@@ -234,23 +270,93 @@ namespace QuickChecks.UI
                     builderCamera.orthographicSize - scroll * 2f, 6f, 30f);
             }
 
-            // Handle tap / click / drag
+            // Touch handling (mobile)
+            if (UnityEngine.Input.touchCount == 2)
+            {
+                HandleTwoFingerGesture();
+                return;  // two-finger gestures suppress single-finger world taps
+            }
+            else
+            {
+                _isPinching = false;
+                _isTwoFingerPanning = false;
+            }
+
+            // Single-finger / mouse tap handling
             if (UnityEngine.Input.GetMouseButtonDown(0))
             {
+                // Check if pointer is over a UI element — if so, don't place/drag in the world
+                if (IsPointerOverUI()) return;
+
                 Vector3 worldPos = builderCamera.ScreenToWorldPoint(UnityEngine.Input.mousePosition);
                 worldPos.z = 0;
+                _pointerDownWorldPos = worldPos;
+                _hasMovedSinceDown = false;
                 HandlePointerDown(worldPos);
             }
             else if (UnityEngine.Input.GetMouseButton(0) && _isDragging)
             {
+                if (IsPointerOverUI()) return;
+
                 Vector3 worldPos = builderCamera.ScreenToWorldPoint(UnityEngine.Input.mousePosition);
                 worldPos.z = 0;
+
+                // Check if the pointer moved enough to be a drag (not a tap)
+                float dragDist = Vector3.Distance(_pointerDownWorldPos, worldPos);
+                if (dragDist > DRAG_THRESHOLD)
+                {
+                    _hasMovedSinceDown = true;
+                }
+
                 HandlePointerDrag(worldPos);
             }
             else if (UnityEngine.Input.GetMouseButtonUp(0) && _isDragging)
             {
                 _isDragging = false;
+                _hasMovedSinceDown = false;
             }
+        }
+
+        /// <summary>
+        /// Two-finger gesture: pinch to zoom + two-finger drag to pan.
+        /// </summary>
+        private void HandleTwoFingerGesture()
+        {
+            var t0 = UnityEngine.Input.GetTouch(0);
+            var t1 = UnityEngine.Input.GetTouch(1);
+
+            // Pinch zoom
+            float currentDist = Vector2.Distance(t0.position, t1.position);
+            if (_isPinching)
+            {
+                float zoomDelta = (_lastPinchDistance - currentDist) * 0.02f;
+                builderCamera.orthographicSize = Mathf.Clamp(
+                    builderCamera.orthographicSize + zoomDelta, 6f, 30f);
+            }
+            _lastPinchDistance = currentDist;
+            _isPinching = true;
+
+            // Two-finger pan (drag both fingers in the same direction)
+            Vector2 currentCenter = (t0.position + t1.position) / 2f;
+            if (_isTwoFingerPanning)
+            {
+                Vector2 delta = currentCenter - _lastTwoFingerCenter;
+                // Convert screen delta to world delta (invert because camera moves opposite to drag)
+                float worldUnitsPerScreenPixel = builderCamera.orthographicSize * 2f / Screen.height;
+                var camPos = builderCamera.transform.position;
+                camPos.x -= delta.x * worldUnitsPerScreenPixel;
+                camPos.y -= delta.y * worldUnitsPerScreenPixel;
+                builderCamera.transform.position = camPos;
+            }
+            _lastTwoFingerCenter = currentCenter;
+            _isTwoFingerPanning = true;
+        }
+
+        /// <summary>True if the pointer is over any UI element (buttons, inputs, etc.)</summary>
+        private bool IsPointerOverUI()
+        {
+            if (EventSystem.current == null) return false;
+            return EventSystem.current.IsPointerOverGameObject();
         }
 
         private void HandlePointerDown(Vector3 worldPos)
@@ -350,8 +456,8 @@ namespace QuickChecks.UI
         {
             _track.splinePoints.Add(CustomTrackData.SerializableVector2.From(pos));
             RebuildTrackPreview();
-            UpdateStatus($"Point {_track.splinePoints.Count} added at ({pos.x:F1}, {pos.y:F1}). " +
-                         $"Need 4+ to save.");
+            UpdateStatus($"Point {_track.splinePoints.Count} added. " +
+                         (_track.splinePoints.Count < 4 ? $"Need {4 - _track.splinePoints.Count} more to save." : "Ready to save!"));
         }
 
         private void PlaceObstacle(string type, Vector3 pos, Vector2 defaultSize)
@@ -366,7 +472,7 @@ namespace QuickChecks.UI
                 lateralOffset = 0f
             });
             RebuildTrackPreview();
-            UpdateStatus($"{type} placed at ({pos.x:F1}, {pos.y:F1}). Switch to Select mode to move/resize.");
+            UpdateStatus($"{type} placed. Switch to Select mode to move/resize.");
         }
 
         private void PlacePowerUp(string type, Vector3 pos)
@@ -379,14 +485,13 @@ namespace QuickChecks.UI
                 lateralOffset = 0f
             });
             RebuildTrackPreview();
-            UpdateStatus($"{type} power-up placed at ({pos.x:F1}, {pos.y:F1}).");
+            UpdateStatus($"{type} power-up placed.");
         }
 
         /// <summary>Estimates the spline parameter t (0-1) closest to the given world position.</summary>
         private float EstimateTAtPosition(Vector3 pos)
         {
             if (_track.splinePoints.Count < 2) return 0f;
-            // Sample 20 points along the spline, find the closest one
             float bestT = 0f;
             float bestDist = float.MaxValue;
             for (int i = 0; i <= 20; i++)
@@ -414,7 +519,7 @@ namespace QuickChecks.UI
 
         private int FindNearestObstacleIndex(Vector3 pos)
         {
-            float bestDist = OBstacle_SELECT_RADIUS;
+            float bestDist = OBSTACLE_SELECT_RADIUS;
             int bestIdx = -1;
             for (int i = 0; i < _track.obstacles.Count; i++)
             {
@@ -427,7 +532,7 @@ namespace QuickChecks.UI
 
         private int FindNearestPowerUpIndex(Vector3 pos)
         {
-            float bestDist = OBstacle_SELECT_RADIUS;
+            float bestDist = OBSTACLE_SELECT_RADIUS;
             int bestIdx = -1;
             for (int i = 0; i < _track.powerUps.Count; i++)
             {
@@ -456,11 +561,12 @@ namespace QuickChecks.UI
                 {
                     var o = _track.obstacles[_selectedObstacleIdx];
                     sizeSlider.value = Mathf.Max(o.size.x, o.size.y);
+                    sizeSlider.interactable = true;
                 }
                 else
                 {
-                    sizeSlider.value = 1.5f;  // power-ups are always size 1.5
-                    sizeSlider.interactable = isObstacle;  // can't resize power-ups
+                    sizeSlider.value = 1.5f;
+                    sizeSlider.interactable = false;  // can't resize power-ups
                 }
             }
         }
@@ -515,7 +621,7 @@ namespace QuickChecks.UI
             if (_trackPreviewRoot != null) Destroy(_trackPreviewRoot);
             _trackPreviewRoot = new GameObject("TrackPreview");
 
-            // Only build the actual track mesh if we have 4+ points (spline needs control points)
+            // Only build the actual track mesh if we have 4+ points
             if (_track.splinePoints.Count >= 4)
             {
                 var def = CustomTrackLibrary.ToTrackDefinition(_track);
@@ -556,10 +662,10 @@ namespace QuickChecks.UI
                 var p = _track.powerUps[i];
                 Color col = p.type switch
                 {
-                    "Boost" => new Color(1f, 0.42f, 0.42f),       // coral
-                    "Shield" => new Color(0.31f, 0.80f, 0.77f),   // mint
-                    "Magnet" => new Color(0.78f, 0.64f, 1f),       // lavender
-                    "Slingshot" => new Color(0.72f, 0.51f, 1f),    // purple
+                    "Boost" => new Color(1f, 0.42f, 0.42f),
+                    "Shield" => new Color(0.31f, 0.80f, 0.77f),
+                    "Magnet" => new Color(0.78f, 0.64f, 1f),
+                    "Slingshot" => new Color(0.72f, 0.51f, 1f),
                     _ => Color.white
                 };
                 var marker = CreateMarker($"PU_{p.type}_{i}", p.position.ToVector2(), 0.7f, col, sortingOrder: 18);
@@ -652,14 +758,14 @@ namespace QuickChecks.UI
             _track.powerUps.Clear();
             DeselectAll();
             RebuildTrackPreview();
-            UpdateStatus("Track cleared.");
+            UpdateStatus("Track cleared. Tap empty space to add points.");
         }
 
         private bool ValidateTrack(out string error)
         {
             if (_track.splinePoints.Count < 4)
             {
-                error = "Need at least 4 points to save. Tap empty space to add points.";
+                error = $"Need at least 4 points to save. You have {_track.splinePoints.Count}.";
                 return false;
             }
             if (string.IsNullOrEmpty(trackNameInput?.text?.Trim()))
