@@ -1978,6 +1978,7 @@ namespace QuickChecks.Editor
             paletteHlg.childForceExpandHeight = false;
 
             var drawBtn = CreatePaletteButton(paletteGo.transform, "DrawBtn", "Draw");
+            var freeDrawBtn = CreatePaletteButton(paletteGo.transform, "FreeDrawBtn", "Free Draw");
             var wallBtn = CreatePaletteButton(paletteGo.transform, "WallBtn", "Wall");
             var gravelBtn = CreatePaletteButton(paletteGo.transform, "GravelBtn", "Gravel");
             var blackHoleBtn = CreatePaletteButton(paletteGo.transform, "BlackHoleBtn", "Black Hole");
@@ -2087,6 +2088,7 @@ namespace QuickChecks.Editor
             so.FindProperty("backButton").objectReferenceValue = backBtn;
             so.FindProperty("clearAllButton").objectReferenceValue = clearBtn;
             so.FindProperty("drawModeButton").objectReferenceValue = drawBtn;
+            so.FindProperty("freeDrawModeButton").objectReferenceValue = freeDrawBtn;
             so.FindProperty("wallModeButton").objectReferenceValue = wallBtn;
             so.FindProperty("gravelModeButton").objectReferenceValue = gravelBtn;
             so.FindProperty("blackHoleModeButton").objectReferenceValue = blackHoleBtn;

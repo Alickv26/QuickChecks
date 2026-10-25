@@ -40,6 +40,7 @@ namespace QuickChecks.UI
 
         [Header("Tool palette buttons")]
         [SerializeField] private Button drawModeButton;
+        [SerializeField] private Button freeDrawModeButton;
         [SerializeField] private Button wallModeButton;
         [SerializeField] private Button gravelModeButton;
         [SerializeField] private Button blackHoleModeButton;
@@ -66,7 +67,7 @@ namespace QuickChecks.UI
         [SerializeField] private Color selectedPointColor = new(1f, 0.82f, 0.4f);
 
         // State
-        private enum BuilderMode { Draw, Wall, Gravel, BlackHole, Boost, Shield, Magnet, Slingshot, Select }
+        private enum BuilderMode { Draw, FreeDraw, Wall, Gravel, BlackHole, Boost, Shield, Magnet, Slingshot, Select }
         private BuilderMode _mode = BuilderMode.Draw;
 
         private CustomTrackData _track;
@@ -93,6 +94,11 @@ namespace QuickChecks.UI
         private bool _hasMovedSinceDown = false;
         private Vector3 _pointerDownWorldPos;
         private const float DRAG_THRESHOLD = 0.5f;
+
+        // Free-draw state — player drags to trace a continuous line; we sample points
+        private bool _isFreeDrawing = false;
+        private float _lastFreeDrawSampleDist = 0f;
+        private const float FREE_DRAW_SAMPLE_INTERVAL = 3.0f;  // sample a point every 3 world units of drag
 
         private void Start()
         {
@@ -134,6 +140,7 @@ namespace QuickChecks.UI
             WireButton(clearAllButton, OnClearAllClicked);
 
             WireModeButton(drawModeButton, BuilderMode.Draw);
+            WireModeButton(freeDrawModeButton, BuilderMode.FreeDraw);
             WireModeButton(wallModeButton, BuilderMode.Wall);
             WireModeButton(gravelModeButton, BuilderMode.Gravel);
             WireModeButton(blackHoleModeButton, BuilderMode.BlackHole);
@@ -166,7 +173,7 @@ namespace QuickChecks.UI
 
             RebuildTrackPreview();
             UpdateModeIndicators();
-            UpdateStatus("Tap empty space to add track points. Need 4+ to save.");
+            UpdateStatus("DRAW: tap to place points. FREE DRAW: drag to trace a line. Need 4+ to save.");
         }
 
         private void WireButton(Button btn, Action onClick)
@@ -198,6 +205,7 @@ namespace QuickChecks.UI
         private void UpdateModeIndicators()
         {
             SetModeButtonColor(drawModeButton, _mode == BuilderMode.Draw);
+            SetModeButtonColor(freeDrawModeButton, _mode == BuilderMode.FreeDraw);
             SetModeButtonColor(wallModeButton, _mode == BuilderMode.Wall);
             SetModeButtonColor(gravelModeButton, _mode == BuilderMode.Gravel);
             SetModeButtonColor(blackHoleModeButton, _mode == BuilderMode.BlackHole);
@@ -212,7 +220,8 @@ namespace QuickChecks.UI
             {
                 string modeName = _mode switch
                 {
-                    BuilderMode.Draw => "DRAW",
+                    BuilderMode.Draw => "DRAW (tap points)",
+                    BuilderMode.FreeDraw => "FREE DRAW (drag to trace)",
                     BuilderMode.Wall => "WALL",
                     BuilderMode.Gravel => "GRAVEL",
                     BuilderMode.BlackHole => "BLACK HOLE",
@@ -292,9 +301,21 @@ namespace QuickChecks.UI
                 worldPos.z = 0;
                 _pointerDownWorldPos = worldPos;
                 _hasMovedSinceDown = false;
+
+                // Free-draw mode: start the free-draw gesture (don't place a point yet —
+                // we sample points as the drag continues)
+                if (_mode == BuilderMode.FreeDraw)
+                {
+                    _isFreeDrawing = true;
+                    _lastFreeDrawSampleDist = 0f;
+                    // Place the first point immediately
+                    AddPoint(worldPos);
+                    return;
+                }
+
                 HandlePointerDown(worldPos);
             }
-            else if (UnityEngine.Input.GetMouseButton(0) && _isDragging)
+            else if (UnityEngine.Input.GetMouseButton(0) && (_isDragging || _isFreeDrawing))
             {
                 if (IsPointerOverUI()) return;
 
@@ -308,11 +329,28 @@ namespace QuickChecks.UI
                     _hasMovedSinceDown = true;
                 }
 
+                // Free-draw mode: sample points along the drag path at regular intervals
+                if (_isFreeDrawing)
+                {
+                    // Check distance from the last sampled point
+                    if (_track.splinePoints.Count > 0)
+                    {
+                        var lastPoint = _track.splinePoints[_track.splinePoints.Count - 1].ToVector2();
+                        float distFromLast = Vector2.Distance(lastPoint, worldPos);
+                        if (distFromLast >= FREE_DRAW_SAMPLE_INTERVAL)
+                        {
+                            AddPoint(worldPos);
+                        }
+                    }
+                    return;
+                }
+
                 HandlePointerDrag(worldPos);
             }
-            else if (UnityEngine.Input.GetMouseButtonUp(0) && _isDragging)
+            else if (UnityEngine.Input.GetMouseButtonUp(0) && (_isDragging || _isFreeDrawing))
             {
                 _isDragging = false;
+                _isFreeDrawing = false;
                 _hasMovedSinceDown = false;
             }
         }
