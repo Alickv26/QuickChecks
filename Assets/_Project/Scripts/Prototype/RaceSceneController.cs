@@ -817,10 +817,10 @@ namespace QuickChecks.Prototype
             SetField(kart, "stats", statsForThisKart);
 
             // Also tint the kart's SpriteRenderer to the player's kart color
-            var sr = kartGo.GetComponent<SpriteRenderer>();
-            if (sr != null && statsForThisKart != null)
+            var kartSr = kartGo.GetComponent<SpriteRenderer>();
+            if (kartSr != null && statsForThisKart != null)
             {
-                sr.color = statsForThisKart.kartColor;
+                kartSr.color = statsForThisKart.kartColor;
             }
 
             // Add SwipeDetector (disabled by default — TurnManager enables it per turn)
