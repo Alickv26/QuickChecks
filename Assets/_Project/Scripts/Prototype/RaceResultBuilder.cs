@@ -92,9 +92,33 @@ namespace QuickChecks.Prototype
                 bool isOpponent = isOnline && !isHuman;
                 bool isDnf = p.isFinished && p.finishTimeMs < 0;
 
+                // Look up the kart name/ID for this player from GameFlowManager.pendingKartSelections
+                string kartName = "";
+                string kartId = "";
+                if (Core.GameFlowManager.Instance != null &&
+                    Core.GameFlowManager.Instance.pendingKartSelections != null &&
+                    i < Core.GameFlowManager.Instance.pendingKartSelections.Count)
+                {
+                    var kart = Core.GameFlowManager.Instance.pendingKartSelections[i];
+                    if (kart != null)
+                    {
+                        kartName = kart.displayName;
+                        kartId = kart.kartId;
+                    }
+                }
+                // Fall back to the shared selectedKart if no per-player selection
+                if (string.IsNullOrEmpty(kartName) && Core.GameFlowManager.Instance?.selectedKart != null)
+                {
+                    kartName = Core.GameFlowManager.Instance.selectedKart.displayName;
+                    kartId = Core.GameFlowManager.Instance.selectedKart.kartId;
+                }
+
                 var entry = new RaceResultData.PlayerResult
                 {
                     playerName = p.playerName,
+                    kartName = kartName,
+                    kartId = kartId,
+                    playerIndex = i,
                     isHuman = isHuman,
                     isCPU = p.isCPU && !isOnline,
                     isOnlineOpponent = isOpponent,

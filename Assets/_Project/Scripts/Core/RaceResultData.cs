@@ -46,9 +46,12 @@ namespace QuickChecks.Core
         public class PlayerResult
         {
             [JsonProperty] public string playerName;
+            [JsonProperty] public string kartName;         // kart display name (e.g. "Drifter")
+            [JsonProperty] public string kartId;            // kart ID (e.g. "kart_drifter")
             [JsonProperty] public bool isCPU;
             [JsonProperty] public bool isHuman;
             [JsonProperty] public bool isOnlineOpponent;
+            [JsonProperty] public int playerIndex;          // 0-based — used to map to player color
             [JsonProperty] public int swipes;
             [JsonProperty] public long finishTimeMs;     // -1 = DNF
             [JsonProperty] public bool isFinished;

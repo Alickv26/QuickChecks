@@ -750,6 +750,8 @@ namespace QuickChecks.Editor
 
             var scroll = scrollGo.AddComponent<ScrollRect>();
             scroll.horizontal = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 15f;
             scroll.vertical = true;
 
             var contentGo = new GameObject("Content");
@@ -927,6 +929,8 @@ namespace QuickChecks.Editor
 
             var scroll = scrollGo.AddComponent<ScrollRect>();
             scroll.horizontal = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 15f;
             scroll.vertical = true;
 
             var gridGo = new GameObject("TrackGrid");
@@ -1335,6 +1339,8 @@ namespace QuickChecks.Editor
 
             var scroll = scrollGo.AddComponent<ScrollRect>();
             scroll.horizontal = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 15f;
             scroll.vertical = true;
 
             var gridGo = new GameObject("KartGrid");
@@ -1841,6 +1847,8 @@ namespace QuickChecks.Editor
 
             var scroll = scrollGo.AddComponent<ScrollRect>();
             scroll.horizontal = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 15f;
             scroll.vertical = true;
 
             var contentGo = new GameObject("Content");

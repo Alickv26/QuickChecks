@@ -424,6 +424,14 @@ namespace QuickChecks.UI
             }
         }
 
+        // Player colors (matches RaceSceneController.PLAYER_COLORS)
+        private static readonly Color[] PLAYER_COLORS = {
+            new Color(0.247f, 0.878f, 0.760f),  // P1: cyan
+            new Color(1f, 0.42f, 0.42f),         // P2: red
+            new Color(0.42f, 0.79f, 0.47f),      // P3: green
+            new Color(0.42f, 0.58f, 1f),          // P4: blue
+        };
+
         private GameObject CreateRuntimeRankingRow(RaceResultData.PlayerResult p, int rowIdx, RaceResultData r)
         {
             var go = new GameObject($"Row_{rowIdx}_{p.playerName}");
@@ -432,34 +440,59 @@ namespace QuickChecks.UI
             rt.anchorMin = new Vector2(0, 1);
             rt.anchorMax = new Vector2(1, 1);
             rt.pivot = new Vector2(0.5f, 1);
-            rt.sizeDelta = new Vector2(0, 70);
-            rt.anchoredPosition = new Vector2(0, -rowIdx * 80);
+            rt.sizeDelta = new Vector2(0, 80);
+            rt.anchoredPosition = new Vector2(0, -rowIdx * 90);
 
-            // Background strip — winner gets cyan tint
+            // Background strip — winner gets cyan tint, player's row gets their player color tint
             var bg = go.AddComponent<Image>();
             bool isWinner = p.rank == 1;
+            Color playerColor = p.playerIndex >= 0 && p.playerIndex < PLAYER_COLORS.Length
+                ? PLAYER_COLORS[p.playerIndex]
+                : textOffWhite;
             bg.color = isWinner
-                ? new Color(0.247f, 0.878f, 0.760f, 0.12f)
-                : new Color(1f, 1f, 1f, 0.03f);
+                ? new Color(playerColor.r, playerColor.g, playerColor.b, 0.15f)
+                : new Color(playerColor.r, playerColor.g, playerColor.b, 0.05f);
 
-            // Horizontal layout: rank | name | swipes | time
+            // Horizontal layout: rank | color-dot + name + kart | swipes | time
             var hlg = go.AddComponent<HorizontalLayoutGroup>();
             hlg.padding = new RectOffset(20, 20, 8, 8);
-            hlg.spacing = 24;
+            hlg.spacing = 16;
             hlg.childAlignment = TextAnchor.MiddleLeft;
             hlg.childControlWidth = true;
             hlg.childControlHeight = false;
             hlg.childForceExpandWidth = true;
             hlg.childForceExpandHeight = false;
 
-            AddRowLabel(go, p.rank > 0 ? $"{p.rank}." : "—", 60,
+            // Rank number
+            AddRowLabel(go, p.rank > 0 ? $"{p.rank}." : "—", 50,
                 isWinner ? victoryGreen : dimPlayer, 36);
-            AddRowLabel(go, p.playerName + (p.isHuman ? "  [YOU]" : ""), 0,
-                isWinner ? victoryGreen : textOffWhite, 32);
-            AddRowLabel(go, p.SwipesDisplay, 140,
-                isWinner ? victoryGreen : textOffWhite, 32);
-            AddRowLabel(go, p.TimeDisplay, 160,
-                isWinner ? victoryGreen : dimPlayer, 32);
+
+            // Color dot (small square showing the player's color)
+            var dotGo = new GameObject("ColorDot");
+            dotGo.transform.SetParent(go.transform, false);
+            var dotImg = dotGo.AddComponent<Image>();
+            dotImg.color = playerColor;
+            dotImg.raycastTarget = false;
+            var dotLayout = dotGo.AddComponent<LayoutElement>();
+            dotLayout.preferredWidth = 20;
+            dotLayout.flexibleWidth = 0;
+            var dotR = dotGo.GetComponent<RectTransform>();
+            dotR.sizeDelta = new Vector2(20, 20);
+
+            // Name + kart (e.g. "Player 1 [Drifter]")
+            string nameDisplay = p.playerName;
+            if (!string.IsNullOrEmpty(p.kartName)) nameDisplay += $"  [{p.kartName}]";
+            if (p.isHuman) nameDisplay += "  [YOU]";
+            AddRowLabel(go, nameDisplay, 0,
+                isWinner ? victoryGreen : textOffWhite, 28);
+
+            // Swipes
+            AddRowLabel(go, p.SwipesDisplay, 120,
+                isWinner ? victoryGreen : accentCyan, 32);
+
+            // Time
+            AddRowLabel(go, p.TimeDisplay, 140,
+                isWinner ? victoryGreen : dimPlayer, 28);
 
             return go;
         }
