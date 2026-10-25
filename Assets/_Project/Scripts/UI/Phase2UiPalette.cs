@@ -106,9 +106,10 @@ namespace QuickChecks.UI
         /// <summary>Creates a GameObject with a TextMeshProUGUI anchored to a normalised screen position.</summary>
         public static TMP_Text CreateText(string name, string content, float fontSize, Color color,
             Vector2 anchor, Vector2 size, TextAlignmentOptions align = TextAlignmentOptions.Center,
-            bool raycastTarget = false)
+            bool raycastTarget = false, Transform parent = null)
         {
             var go = new GameObject(name);
+            if (parent != null) go.transform.SetParent(parent, false);
             var text = go.AddComponent<TextMeshProUGUI>();
             text.text = content;
             text.fontSize = fontSize;
@@ -125,9 +126,11 @@ namespace QuickChecks.UI
         }
 
         /// <summary>Creates a coloured Image anchored to a normalised position.</summary>
-        public static Image CreateImage(string name, Color color, Vector2 anchor, Vector2 size, bool raycast = true)
+        public static Image CreateImage(string name, Color color, Vector2 anchor, Vector2 size,
+            bool raycast = true, Transform parent = null)
         {
             var go = new GameObject(name);
+            if (parent != null) go.transform.SetParent(parent, false);
             var img = go.AddComponent<Image>();
             img.color = color;
             img.raycastTarget = raycast;

@@ -99,12 +99,12 @@ namespace QuickChecks.Editor
 
             // Title (centered, accent cyan)
             var titleText = Phase2UiPalette.CreateText("Title", "QuickChecks", 96, Phase2UiPalette.AccentCyan,
-                new Vector2(0.5f, 0.72f), new Vector2(900, 120));
+                new Vector2(0.5f, 0.72f), new Vector2(900, 120), parent: canvasGo.transform);
 
             // Subtitle (pulses at runtime — see MainMenuController)
             var subtitleText = Phase2UiPalette.CreateText("Subtitle", "Swipe Golf Racing", 42,
                 new Color(0.247f, 0.878f, 0.760f, 0.7f),
-                new Vector2(0.5f, 0.62f), new Vector2(700, 60));
+                new Vector2(0.5f, 0.62f), new Vector2(700, 60), parent: canvasGo.transform);
 
             // PLAY button (large, accent cyan)
             var playGo = new GameObject("PlayButton");
@@ -698,12 +698,12 @@ namespace QuickChecks.Editor
 
             // Title (centered, top)
             var titleText = Phase2UiPalette.CreateText("Title", "Select Mode", 56, Phase2UiPalette.AccentCyan,
-                new Vector2(0.5f, 0.96f), new Vector2(900, 80));
+                new Vector2(0.5f, 0.96f), new Vector2(900, 80), parent: canvasGo.transform);
 
             // Status text (bottom-center — shows transient messages like "Online coming in v1.1")
             var statusText = Phase2UiPalette.CreateText("StatusText", "", 28,
                 Phase2UiPalette.AccentCyan,
-                new Vector2(0.5f, 0.04f), new Vector2(1000, 40));
+                new Vector2(0.5f, 0.04f), new Vector2(1000, 40), parent: canvasGo.transform);
 
             // Back button (top-left)
             var backGo = new GameObject("BackButton");
@@ -735,7 +735,7 @@ namespace QuickChecks.Editor
             // Scroll container for the cards (handles landscape overflow on small screens)
             var scrollGo = new GameObject("CardScroll");
             scrollGo.transform.SetParent(canvasGo.transform, false);
-            var scrollRect = scrollGo.GetComponent<RectTransform>();
+            var scrollRect = scrollGo.AddComponent<RectTransform>();
             scrollRect.anchorMin = new Vector2(0, 0);
             scrollRect.anchorMax = new Vector2(1, 1);
             scrollRect.pivot = new Vector2(0.5f, 0.5f);
@@ -874,11 +874,11 @@ namespace QuickChecks.Editor
 
             // Title (top center)
             var titleText = Phase2UiPalette.CreateText("Title", "Select Track", 56, Phase2UiPalette.AccentCyan,
-                new Vector2(0.5f, 0.96f), new Vector2(900, 80));
+                new Vector2(0.5f, 0.96f), new Vector2(900, 80), parent: canvasGo.transform);
 
             // Mode label (small, below title — shows current mode like "SOLO PRACTICE")
             var modeLabel = Phase2UiPalette.CreateText("ModeLabel", "", 28, Phase2UiPalette.TextDim,
-                new Vector2(0.5f, 0.91f), new Vector2(700, 36));
+                new Vector2(0.5f, 0.91f), new Vector2(700, 36), parent: canvasGo.transform);
 
             // Back button (top-left)
             var backGo = new GameObject("BackButton");
@@ -910,7 +910,7 @@ namespace QuickChecks.Editor
             // Scrollable track grid
             var scrollGo = new GameObject("TrackScroll");
             scrollGo.transform.SetParent(canvasGo.transform, false);
-            var scrollRectGo = scrollGo.GetComponent<RectTransform>();
+            var scrollRectGo = scrollGo.AddComponent<RectTransform>();
             scrollRectGo.anchorMin = new Vector2(0, 0);
             scrollRectGo.anchorMax = new Vector2(1, 1);
             scrollRectGo.pivot = new Vector2(0.5f, 0.5f);
@@ -1112,7 +1112,7 @@ namespace QuickChecks.Editor
 
             // Title
             var titleText = Phase2UiPalette.CreateText("Title", "Leaderboard", 56, Phase2UiPalette.AccentCyan,
-                new Vector2(0.5f, 0.95f), new Vector2(800, 80));
+                new Vector2(0.5f, 0.95f), new Vector2(800, 80), parent: canvasGo.transform);
             titleText.transform.SetParent(panelGo.transform, false);
             var titleRect = titleText.GetComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0.5f, 1f);
@@ -1279,11 +1279,11 @@ namespace QuickChecks.Editor
 
             // Title (top center)
             var titleText = Phase2UiPalette.CreateText("Title", "Select Kart", 56, Phase2UiPalette.AccentCyan,
-                new Vector2(0.5f, 0.96f), new Vector2(900, 80));
+                new Vector2(0.5f, 0.96f), new Vector2(900, 80), parent: canvasGo.transform);
 
             // Track label (small, below title — shows the selected track)
             var trackLabel = Phase2UiPalette.CreateText("TrackLabel", "", 26, Phase2UiPalette.TextDim,
-                new Vector2(0.5f, 0.91f), new Vector2(800, 36));
+                new Vector2(0.5f, 0.91f), new Vector2(800, 36), parent: canvasGo.transform);
 
             // Back button (top-left)
             var backGo = new GameObject("BackButton");
@@ -1315,7 +1315,7 @@ namespace QuickChecks.Editor
             // Scrollable kart grid
             var scrollGo = new GameObject("KartScroll");
             scrollGo.transform.SetParent(canvasGo.transform, false);
-            var scrollRectGo = scrollGo.GetComponent<RectTransform>();
+            var scrollRectGo = scrollGo.AddComponent<RectTransform>();
             scrollRectGo.anchorMin = new Vector2(0, 0);
             scrollRectGo.anchorMax = new Vector2(1, 1);
             scrollRectGo.pivot = new Vector2(0.5f, 0.5f);
@@ -1796,7 +1796,7 @@ namespace QuickChecks.Editor
 
             // Title
             var titleText = Phase2UiPalette.CreateText("Title", "Custom Tracks", 56, Phase2UiPalette.AccentCyan,
-                new Vector2(0.5f, 0.96f), new Vector2(900, 80));
+                new Vector2(0.5f, 0.96f), new Vector2(900, 80), parent: canvasGo.transform);
 
             // Back button (top-left)
             var backBtn = CreateSimpleButton(canvasGo.transform, "BackButton", "< Back",
@@ -1810,13 +1810,13 @@ namespace QuickChecks.Editor
 
             // Empty state label
             var emptyLabel = Phase2UiPalette.CreateText("EmptyState", "", 28, Phase2UiPalette.TextDim,
-                new Vector2(0.5f, 0.5f), new Vector2(800, 100));
+                new Vector2(0.5f, 0.5f), new Vector2(800, 100), parent: canvasGo.transform);
             emptyLabel.gameObject.SetActive(false);
 
             // Scrollable track list
             var scrollGo = new GameObject("TrackScroll");
             scrollGo.transform.SetParent(canvasGo.transform, false);
-            var scrollRectGo = scrollGo.GetComponent<RectTransform>();
+            var scrollRectGo = scrollGo.AddComponent<RectTransform>();
             scrollRectGo.anchorMin = new Vector2(0, 0);
             scrollRectGo.anchorMax = new Vector2(1, 1);
             scrollRectGo.pivot = new Vector2(0.5f, 0.5f);
@@ -2031,7 +2031,7 @@ namespace QuickChecks.Editor
             // --- Status text (just above palette) ---
             var statusText = Phase2UiPalette.CreateText("StatusText", "", 24,
                 Phase2UiPalette.TextPrimary,
-                new Vector2(0.5f, 0.13f), new Vector2(1000, 40));
+                new Vector2(0.5f, 0.13f), new Vector2(1000, 40), parent: canvasGo.transform);
 
             // GameFlowManager
             var flowGo = new GameObject("[GameFlowManager]");
