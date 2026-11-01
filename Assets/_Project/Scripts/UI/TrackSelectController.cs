@@ -131,11 +131,21 @@ namespace QuickChecks.UI
             bool unlocked = IsTrackUnlocked(track);
             int bestSwipes = GameFlowManager.Instance?.GetBestSwipesForTrack(track.trackId) ?? 0;
             int stars = bestSwipes > 0 ? StarRating.Calculate(bestSwipes, track.parSwipeCount) : 0;
-            Color accent = Phase2UiPalette.AccentCyan;
+
+            // Difficulty accent color
+            Color accent = track.difficultyStars switch
+            {
+                1 => new Color(0.42f, 0.79f, 0.47f),  // green (easy)
+                2 => new Color(0.247f, 0.878f, 0.760f), // cyan (medium)
+                3 => new Color(1f, 0.82f, 0.4f),        // yellow (hard)
+                4 => new Color(1f, 0.42f, 0.42f),        // red (expert)
+                5 => new Color(0.725f, 0.514f, 1f),      // purple (expert+)
+                _ => Phase2UiPalette.AccentCyan
+            };
 
             var go = new GameObject($"TrackCard_{index}");
             var rect = go.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(0, 200);
+            rect.sizeDelta = new Vector2(0, 240);
 
             var img = go.AddComponent<Image>();
             img.color = unlocked ? Phase2UiPalette.CardSurface : Phase2UiPalette.CardLocked;
@@ -143,6 +153,18 @@ namespace QuickChecks.UI
             var button = go.AddComponent<Button>();
             button.targetGraphic = img;
             button.interactable = unlocked;
+
+            // Difficulty-colored top stripe (visual only)
+            var stripeGo = new GameObject("DifficultyStripe");
+            stripeGo.transform.SetParent(go.transform, false);
+            var stripeImg = stripeGo.AddComponent<Image>();
+            stripeImg.color = unlocked ? accent : new Color(0.3f, 0.3f, 0.3f, 0.5f);
+            stripeImg.raycastTarget = false;
+            var stripeRect = stripeGo.GetComponent<RectTransform>();
+            stripeRect.anchorMin = new Vector2(0, 1);
+            stripeRect.anchorMax = new Vector2(1, 1);
+            stripeRect.pivot = new Vector2(0.5f, 1);
+            stripeRect.sizeDelta = new Vector2(0, 6);
 
             // Horizontal layout: index | text column | chip
             var hlg = go.AddComponent<HorizontalLayoutGroup>();

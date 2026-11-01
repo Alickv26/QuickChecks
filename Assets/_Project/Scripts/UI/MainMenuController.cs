@@ -30,6 +30,7 @@ namespace QuickChecks.UI
         [SerializeField] private Button customTracksButton;
         [SerializeField] private TMP_Text titleText;
         [SerializeField] private TMP_Text subtitleText;
+        [SerializeField] private TMP_Text footerText;
 
         [Header("Settings Dialog")]
         [SerializeField] private GameObject settingsDialog;
@@ -90,8 +91,22 @@ namespace QuickChecks.UI
 
         private void Start()
         {
-            if (titleText != null) titleText.text = "QuickChecks";
-            if (subtitleText != null) subtitleText.text = "Swipe Golf Racing";
+            if (titleText != null)
+            {
+                titleText.text = "QuickChecks";
+                titleText.fontSize = 88;
+                titleText.fontStyle = FontStyles.Bold;
+                titleText.characterSpacing = 6;
+            }
+            if (subtitleText != null)
+            {
+                subtitleText.text = "Swipe Golf Racing";
+                subtitleText.fontSize = 36;
+                subtitleText.fontStyle = FontStyles.Italic;
+            }
+
+            // Update footer with player display name
+            UpdateFooter();
 
             // Defensive: hide the settings dialog again in case anything re-enabled it
             // between Awake and Start.
@@ -484,6 +499,24 @@ namespace QuickChecks.UI
                     yield return null;
                 }
             }
+        }
+
+        private void UpdateFooter()
+        {
+            if (footerText == null) return;
+            string name = "";
+            if (GameFlowManager.Instance?.profile != null)
+            {
+                name = GameFlowManager.Instance.profile.displayName;
+            }
+            if (string.IsNullOrEmpty(name))
+            {
+                name = Supabase.Multiplayer.SupabaseAuth.Instance?.DisplayName ?? "Player";
+            }
+            footerText.text = $"Playing as: {name}";
+            footerText.fontSize = 20;
+            footerText.color = new Color(0.5f, 0.5f, 0.5f, 0.7f);
+            footerText.alignment = TextAlignmentOptions.Center;
         }
 
         private static void EnsureHoverFx(Button btn)

@@ -213,8 +213,7 @@ namespace QuickChecks.Editor
             so.FindProperty("customTracksButton").objectReferenceValue = customBtn;
             so.FindProperty("titleText").objectReferenceValue = titleText;
             so.FindProperty("subtitleText").objectReferenceValue = subtitleText;
-
-            // Settings dialog refs
+            so.FindProperty("footerText").objectReferenceValue = footerText;
             so.FindProperty("settingsDialog").objectReferenceValue = settingsDialog.Root;
             so.FindProperty("settingsCloseButton").objectReferenceValue = settingsDialog.CloseButton;
             so.FindProperty("displayNameInput").objectReferenceValue = settingsDialog.DisplayNameInput;
