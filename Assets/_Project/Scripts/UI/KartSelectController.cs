@@ -260,17 +260,22 @@ namespace QuickChecks.UI
             var descLayout = descGo.AddComponent<LayoutElement>();
             descLayout.preferredHeight = 50;
 
-            // Stats row (Power / Control / Boost with stars)
-            var statsGo = new GameObject("StatsRow");
-            statsGo.transform.SetParent(textColGo.transform, false);
-            var statsText = statsGo.AddComponent<TextMeshProUGUI>();
-            statsText.text = $"Power {Phase2UiPalette.StarsDisplay(kart.PowerRating)}    " +
-                             $"Control {Phase2UiPalette.StarsDisplay(kart.ControlRating)}    " +
-                             $"Boost {Phase2UiPalette.StarsDisplay(kart.BoostRating)}";
-            statsText.fontSize = 22;
-            statsText.alignment = TextAlignmentOptions.Left;
-            statsText.color = unlocked ? Phase2UiPalette.StarsFilled : Phase2UiPalette.TextDim;
-            statsText.raycastTarget = false;
+            // Stats row — horizontal progress bars for Power / Control / Boost
+            var statsContainer = new GameObject("StatBars");
+            statsContainer.transform.SetParent(textColGo.transform, false);
+            var statsVlg = statsContainer.AddComponent<VerticalLayoutGroup>();
+            statsVlg.spacing = 6;
+            statsVlg.childAlignment = TextAnchor.UpperLeft;
+            statsVlg.childControlWidth = true;
+            statsVlg.childControlHeight = false;
+            statsVlg.childForceExpandWidth = true;
+            statsVlg.childForceExpandHeight = false;
+            var statsLayout = statsContainer.AddComponent<LayoutElement>();
+            statsLayout.preferredHeight = 80;
+
+            CreateStatBar(statsContainer.transform, "Power", kart.PowerRating, unlocked ? new Color(1f, 0.42f, 0.42f) : Phase2UiPalette.TextDim, unlocked);
+            CreateStatBar(statsContainer.transform, "Control", kart.ControlRating, unlocked ? new Color(0.247f, 0.878f, 0.760f) : Phase2UiPalette.TextDim, unlocked);
+            CreateStatBar(statsContainer.transform, "Boost", kart.BoostRating, unlocked ? new Color(1f, 0.82f, 0.4f) : Phase2UiPalette.TextDim, unlocked);
 
             // Numeric stats row
             var numsGo = new GameObject("NumericStats");
@@ -524,6 +529,68 @@ namespace QuickChecks.UI
             }
             if (toastText != null) toastText.text = message;
             toastDialog.SetActive(true);
+        }
+
+        /// <summary>Creates a labeled horizontal progress bar (0-3 rating) for a kart stat.</summary>
+        private void CreateStatBar(Transform parent, string label, int rating, Color barColor, bool unlocked)
+        {
+            var rowGo = new GameObject($"Stat_{label}");
+            rowGo.transform.SetParent(parent, false);
+            var hlg = rowGo.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 8;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = true;
+            hlg.childForceExpandHeight = false;
+
+            // Label (left)
+            var labelGo = new GameObject("Label");
+            labelGo.transform.SetParent(rowGo.transform, false);
+            var labelText = labelGo.AddComponent<TextMeshProUGUI>();
+            labelText.text = label;
+            labelText.fontSize = 18;
+            labelText.alignment = TextAlignmentOptions.Left;
+            labelText.color = unlocked ? Phase2UiPalette.TextPrimary : Phase2UiPalette.TextDim;
+            labelText.raycastTarget = false;
+            var labelLayout = labelGo.AddComponent<LayoutElement>();
+            labelLayout.preferredWidth = 80;
+            labelLayout.flexibleWidth = 0;
+
+            // Bar background (dark)
+            var barBgGo = new GameObject("BarBg");
+            barBgGo.transform.SetParent(rowGo.transform, false);
+            var barBgImg = barBgGo.AddComponent<Image>();
+            barBgImg.color = new Color(0.05f, 0.07f, 0.07f, 1f);
+            barBgImg.raycastTarget = false;
+            var barBgRect = barBgGo.GetComponent<RectTransform>();
+            barBgRect.sizeDelta = new Vector2(0, 12);
+
+            // Fill (colored, width = rating/3)
+            var fillGo = new GameObject("Fill");
+            fillGo.transform.SetParent(barBgGo.transform, false);
+            var fillImg = fillGo.AddComponent<Image>();
+            fillImg.color = unlocked ? barColor : Phase2UiPalette.TextDim;
+            fillImg.raycastTarget = false;
+            var fillRect = fillGo.GetComponent<RectTransform>();
+            fillRect.anchorMin = Vector2.zero;
+            fillRect.anchorMax = new Vector2(rating / 3f, 1f);
+            fillRect.pivot = new Vector2(0, 0.5f);
+            fillRect.offsetMin = Vector2.zero;
+            fillRect.offsetMax = Vector2.zero;
+
+            // Value text (right)
+            var valGo = new GameObject("Value");
+            valGo.transform.SetParent(rowGo.transform, false);
+            var valText = valGo.AddComponent<TextMeshProUGUI>();
+            valText.text = $"{rating}/3";
+            valText.fontSize = 16;
+            valText.alignment = TextAlignmentOptions.Right;
+            valText.color = unlocked ? barColor : Phase2UiPalette.TextDim;
+            valText.raycastTarget = false;
+            var valLayout = valGo.AddComponent<LayoutElement>();
+            valLayout.preferredWidth = 40;
+            valLayout.flexibleWidth = 0;
         }
 
         private static void EnsureHoverFx(Button btn)
