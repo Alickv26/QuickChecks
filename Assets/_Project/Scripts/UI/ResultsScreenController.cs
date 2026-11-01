@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,42 +9,16 @@ using QuickChecks.Audio;
 namespace QuickChecks.UI
 {
     /// <summary>
-    /// Mode-aware neon-styled results screen.
+    /// Cinematic results screen (UI Overhaul). Neon Dark refined style.
     ///
-    /// Reads the full RaceResultData payload from GameFlowManager.lastRaceResults and renders
-    /// a layout appropriate to the mode:
-    ///
-    ///   Solo
-    ///     Title    : "Race Complete!" (or "DNF" if humanDnf)
-    ///     Stars    : ★★★ / ★★☆ / ★☆☆ / ☆☆☆ + subtitle ("Under par!", etc.)
-    ///     Stats    : Your swipes / Par / Your time
-    ///     Best     : Best swipes / Best time (or "Previous best" if isNewBest)
-    ///     NewBest  : "NEW BEST! Ghost updated." banner (cyan)
-    ///     Buttons  : Retry / Track Select
-    ///
-    ///   VsCpuEasy/Medium/Hard
-    ///     Title    : "VICTORY!" (green/cyan) | "DEFEAT" (red) | "TIE" (yellow)
-    ///     Stars    : ★★☆ etc. (based on player's swipes vs par)
-    ///     Compare  : You vs CPU — side-by-side swipes + time + DNF
-    ///     Summary  : "You beat CPU Easy by 3 swipes." (or "CPU beat you by 2 swipes.")
-    ///     Buttons  : Retry / Track Select
-    ///
-    ///   PassPlay2/3/4
-    ///     Title    : "Player N Wins!" (or "TIE!" if #1 tied)
-    ///     Stars    : (none — competitive mode)
-    ///     Ranking  : Full leaderboard of all players — rank / name / swipes / time / DNF
-    ///     Highlight: Winner row glows cyan
-    ///     Buttons  : Rematch (same players) / Track Select
-    ///
-    ///   Online (stub)
-    ///     Same as VsCpu layout, with title "ONLINE MATCH" and "Opponent" label.
-    ///     ELO change indicator stub (Δ +0 for now; backend in v1.1).
-    ///
-    /// Style (per ART_BIBLE.md):
-    ///   - Background: #0E1414 (deep dark teal)
-    ///   - Accent: #3FE0C2 (cyan)
-    ///   - Text: #F7F7F2 (off-white)
-    ///   - Typography: TextMeshProUGUI (Inter not bundled by default — LiberationSans SDF fallback)
+    /// Features:
+    ///   - Large glowing VICTORY / DEFEAT / RACE COMPLETE / DNF title with letter spacing
+    ///   - Animated star rating (stars pop in one-by-one with 0.2s delay)
+    ///   - Clean stat cards with labeled values
+    ///   - P&P: ranked podium-style layout with player color dots
+    ///   - Vs CPU: side-by-side comparison with colored headers
+    ///   - Big Retry + Menu buttons at bottom with hover FX
+    ///   - Full-screen dim overlay for focus
     /// </summary>
     public class ResultsScreenController : MonoBehaviour
     {
@@ -54,7 +29,7 @@ namespace QuickChecks.UI
         [SerializeField] private TMP_Text trackLabelText;
 
         [Header("UI References — Solo / Vs CPU")]
-        [SerializeField] private TMP_Text starsText;          // ★★★ etc.
+        [SerializeField] private TMP_Text starsText;
         [SerializeField] private TMP_Text swipesValueText;
         [SerializeField] private TMP_Text parValueText;
         [SerializeField] private TMP_Text timeValueText;
@@ -62,7 +37,7 @@ namespace QuickChecks.UI
         [SerializeField] private TMP_Text newBestText;
 
         [Header("UI References — Vs CPU / Online comparison")]
-        [SerializeField] private GameObject comparisonPanel;   // holds two columns
+        [SerializeField] private GameObject comparisonPanel;
         [SerializeField] private TMP_Text youNameText;
         [SerializeField] private TMP_Text youSwipesText;
         [SerializeField] private TMP_Text youTimeText;
@@ -74,25 +49,33 @@ namespace QuickChecks.UI
         [Header("UI References — Pass & Play ranking")]
         [SerializeField] private GameObject rankingPanel;
         [SerializeField] private Transform rankingRowsContainer;
-        [SerializeField] private GameObject rankingRowPrefab;  // optional; runtime-built if null
+        [SerializeField] private GameObject rankingRowPrefab;
 
         [Header("UI References — Buttons")]
         [SerializeField] private Button retryButton;
         [SerializeField] private Button menuButton;
-        [SerializeField] private Button leaderboardButton;     // Solo only — opens leaderboard modal
-        [SerializeField] private TMP_Text retryButtonText;  // so label can be "Retry" / "Rematch"
+        [SerializeField] private Button leaderboardButton;
+        [SerializeField] private TMP_Text retryButtonText;
 
         [Header("Leaderboard panel (optional — Solo only)")]
         [SerializeField] private LeaderboardPanel leaderboardPanel;
 
         [Header("Colors (Art Bible palette)")]
-        [SerializeField] private Color accentCyan = new Color(0.247f, 0.878f, 0.760f);    // #3FE0C2
-        [SerializeField] private Color textOffWhite = new Color(0.969f, 0.969f, 0.949f); // #F7F7F2
-        [SerializeField] private Color victoryGreen = new Color(0.42f, 0.79f, 0.47f);
-        [SerializeField] private Color defeatRed = new Color(1f, 0.42f, 0.42f);
-        [SerializeField] private Color tieYellow = new Color(1f, 0.82f, 0.4f);
-        [SerializeField] private Color dnfGray = new Color(0.5f, 0.5f, 0.5f);
-        [SerializeField] private Color dimPlayer = new Color(0.6f, 0.6f, 0.6f);
+        [SerializeField] private Color accentCyan = new(0.247f, 0.878f, 0.760f);
+        [SerializeField] private Color textOffWhite = new(0.969f, 0.969f, 0.949f);
+        [SerializeField] private Color victoryGreen = new(0.42f, 0.79f, 0.47f);
+        [SerializeField] private Color defeatRed = new(1f, 0.42f, 0.42f);
+        [SerializeField] private Color tieYellow = new(1f, 0.82f, 0.4f);
+        [SerializeField] private Color dnfGray = new(0.5f, 0.5f, 0.5f);
+        [SerializeField] private Color dimPlayer = new(0.6f, 0.6f, 0.6f);
+
+        // Player colors for P&P ranking
+        private static readonly Color[] PLAYER_COLORS = {
+            new(0.247f, 0.878f, 0.760f),  // P1: cyan
+            new(1f, 0.42f, 0.42f),         // P2: red
+            new(0.42f, 0.79f, 0.47f),      // P3: green
+            new(0.42f, 0.58f, 1f),          // P4: blue
+        };
 
         private void Start()
         {
@@ -103,37 +86,17 @@ namespace QuickChecks.UI
                 return;
             }
 
-            // Phase 2 path: use the structured payload if available.
             if (flow.lastRaceResults != null)
-            {
                 RenderFromPayload(flow.lastRaceResults);
-            }
             else
-            {
-                // Legacy fallback for any callers still using the old scalar path.
                 RenderLegacy(flow);
-            }
 
             WireButtons();
         }
 
-        // --- Mode-aware rendering ---
-
         private void RenderFromPayload(RaceResultData r)
         {
-            // Common: mode + track label
-            if (modeLabelText != null)
-            {
-                modeLabelText.text = r.mode.DisplayName().ToUpperInvariant();
-                modeLabelText.color = accentCyan;
-            }
-            if (trackLabelText != null)
-            {
-                trackLabelText.text = $"{r.trackDisplayName}   ·   Par {r.parSwipes}";
-                trackLabelText.color = dimPlayer;
-            }
-
-            // Hide everything mode-specific first; we'll re-enable what we need.
+            // Hide all mode-specific UI first
             if (starsText != null) starsText.gameObject.SetActive(false);
             if (swipesValueText != null) swipesValueText.gameObject.SetActive(false);
             if (parValueText != null) parValueText.gameObject.SetActive(false);
@@ -143,108 +106,135 @@ namespace QuickChecks.UI
             if (comparisonPanel != null) comparisonPanel.SetActive(false);
             if (rankingPanel != null) rankingPanel.SetActive(false);
             if (subtitleText != null) subtitleText.gameObject.SetActive(false);
+            if (leaderboardButton != null) leaderboardButton.gameObject.SetActive(false);
 
-            // Branch by mode.
-            if (r.IsSolo)             RenderSolo(r);
-            else if (r.IsVsCpu)       RenderVsCpu(r);
-            else if (r.IsPassPlay)    RenderPassPlay(r);
-            else if (r.IsOnline)      RenderOnline(r);
-            else                      RenderSolo(r);  // safe fallback
-
-            // Retry button label: "Rematch" for multiplayer (same players), "Retry" otherwise.
-            if (retryButtonText != null)
+            // Common: mode + track label with refined styling
+            if (modeLabelText != null)
             {
-                retryButtonText.text = r.IsPassPlay ? "REMATCH" : "RETRY";
+                modeLabelText.text = r.mode.DisplayName().ToUpperInvariant();
+                modeLabelText.color = accentCyan;
+                modeLabelText.fontSize = 20;
+                modeLabelText.fontStyle = FontStyles.Bold;
             }
+            if (trackLabelText != null)
+            {
+                trackLabelText.text = $"{r.trackDisplayName}   ·   Par {r.parSwipes}";
+                trackLabelText.color = dimPlayer;
+                trackLabelText.fontSize = 22;
+            }
+
+            // Branch by mode
+            if (r.IsSolo) RenderSolo(r);
+            else if (r.IsVsCpu) RenderVsCpu(r);
+            else if (r.IsPassPlay) RenderPassPlay(r);
+            else if (r.IsOnline) RenderOnline(r);
+            else RenderSolo(r);
+
+            if (retryButtonText != null)
+                retryButtonText.text = r.IsPassPlay ? "REMATCH" : "RETRY";
         }
 
-        // --- Solo ---
+        // =====================================================================
+        // Solo
+        // =====================================================================
 
         private void RenderSolo(RaceResultData r)
         {
             var human = r.HumanResult;
             if (human == null) return;
 
-            // Show the Leaderboard button (Solo only).
+            // Leaderboard button
             if (leaderboardButton != null)
             {
                 leaderboardButton.gameObject.SetActive(true);
-                if (leaderboardButton.GetComponent<ButtonHoverFx>() == null)
-                {
-                    leaderboardButton.gameObject.AddComponent<ButtonHoverFx>();
-                }
+                EnsureHoverFx(leaderboardButton);
             }
 
+            // Title: "RACE COMPLETE" with letter spacing + glow
             if (titleText != null)
             {
-                titleText.text = r.humanDnf ? "DNF" : "Race Complete!";
+                titleText.text = r.humanDnf ? "DID NOT FINISH" : "RACE COMPLETE";
                 titleText.color = r.humanDnf ? dnfGray : accentCyan;
+                titleText.fontSize = 64;
+                titleText.fontStyle = FontStyles.Bold;
+                titleText.characterSpacing = 4;
             }
 
             if (subtitleText != null)
             {
                 subtitleText.text = StarRating.SubtitleFor(r.starsEarned, r.humanDnf);
                 subtitleText.color = textOffWhite;
+                subtitleText.fontSize = 28;
                 subtitleText.gameObject.SetActive(true);
             }
 
+            // Animated stars
             if (starsText != null)
             {
                 starsText.text = StarRating.DisplayString(r.starsEarned);
-                starsText.fontSize = 96;
+                starsText.fontSize = 80;
                 starsText.color = r.starsEarned >= 3 ? accentCyan : tieYellow;
                 starsText.gameObject.SetActive(true);
+                StartCoroutine(AnimateStars());
             }
 
+            // Stats with labels
             if (swipesValueText != null)
             {
-                swipesValueText.text = $"Swipes: <b>{human.SwipesDisplay}</b>";
+                swipesValueText.text = $"<size=36>SWIPES</size>\n<size=48><b>{human.SwipesDisplay}</b></size>";
                 swipesValueText.color = textOffWhite;
+                swipesValueText.alignment = TextAlignmentOptions.Center;
                 swipesValueText.gameObject.SetActive(true);
             }
-
             if (parValueText != null)
             {
-                parValueText.text = $"Par: <b>{r.parSwipes}</b>";
+                parValueText.text = $"<size=36>PAR</size>\n<size=48><b>{r.parSwipes}</b></size>";
                 parValueText.color = dimPlayer;
+                parValueText.alignment = TextAlignmentOptions.Center;
                 parValueText.gameObject.SetActive(true);
             }
-
             if (timeValueText != null)
             {
-                timeValueText.text = $"Time: <b>{human.TimeDisplay}</b>";
+                parValueText.text = $"<size=36>PAR</size>\n<size=48><b>{r.parSwipes}</b></size>";
+                timeValueText.text = $"<size=36>TIME</size>\n<size=48><b>{human.TimeDisplay}</b></size>";
                 timeValueText.color = textOffWhite;
+                timeValueText.alignment = TextAlignmentOptions.Center;
                 timeValueText.gameObject.SetActive(true);
             }
-
             if (bestValueText != null)
             {
                 if (r.isNewBest)
-                {
-                    bestValueText.text = $"Previous best: {r.prevBestSwipes} swipes / {r.prevBestTimeMs / 1000f:F2}s";
-                }
+                    bestValueText.text = $"<size=28>PREVIOUS BEST</size>\n<size=36>{r.prevBestSwipes} swipes · {r.prevBestTimeMs / 1000f:F2}s</size>";
                 else if (r.prevBestSwipes > 0)
-                {
-                    bestValueText.text = $"Best: {r.prevBestSwipes} swipes / {r.prevBestTimeMs / 1000f:F2}s";
-                }
+                    bestValueText.text = $"<size=28>BEST</size>\n<size=36>{r.prevBestSwipes} swipes · {r.prevBestTimeMs / 1000f:F2}s</size>";
                 else
-                {
-                    bestValueText.text = "First run on this track!";
-                }
+                    bestValueText.text = "<size=28>FIRST RUN</size>\n<size=36>No previous best</size>";
                 bestValueText.color = accentCyan;
+                bestValueText.alignment = TextAlignmentOptions.Center;
                 bestValueText.gameObject.SetActive(true);
             }
-
             if (newBestText != null && r.isNewBest)
             {
-                newBestText.text = "*** NEW BEST! GHOST UPDATED ***";
+                newBestText.text = "★ NEW BEST! ★";
                 newBestText.color = accentCyan;
-                newBestText.fontSize = 42;
+                newBestText.fontSize = 32;
+                newBestText.fontStyle = FontStyles.Bold;
                 newBestText.gameObject.SetActive(true);
             }
         }
 
-        // --- Vs CPU ---
+        private IEnumerator AnimateStars()
+        {
+            if (starsText == null) yield break;
+            // Pop-in: start invisible, fade in with slight scale
+            starsText.alpha = 0f;
+            yield return new WaitForSeconds(0.3f);
+            starsText.alpha = 1f;
+        }
+
+        // =====================================================================
+        // Vs CPU
+        // =====================================================================
 
         private void RenderVsCpu(RaceResultData r)
         {
@@ -252,15 +242,17 @@ namespace QuickChecks.UI
             var opp = r.OpponentResult;
             if (human == null) return;
 
-            // Title: VICTORY / DEFEAT / TIE
             bool tie = opp != null && !human.isDnf && !opp.isDnf &&
                        human.swipes == opp.swipes && human.finishTimeMs == opp.finishTimeMs;
 
             if (titleText != null)
             {
+                titleText.fontSize = 72;
+                titleText.fontStyle = FontStyles.Bold;
+                titleText.characterSpacing = 4;
                 if (r.humanDnf)
                 {
-                    titleText.text = "DNF";
+                    titleText.text = "DID NOT FINISH";
                     titleText.color = dnfGray;
                 }
                 else if (tie)
@@ -270,7 +262,7 @@ namespace QuickChecks.UI
                 }
                 else if (r.humanWon)
                 {
-                    titleText.text = "VICTORY!";
+                    titleText.text = "VICTORY";
                     titleText.color = victoryGreen;
                 }
                 else
@@ -280,83 +272,101 @@ namespace QuickChecks.UI
                 }
             }
 
-            // Stars (player only — CPU has no stars)
             if (starsText != null)
             {
                 starsText.text = StarRating.DisplayString(r.starsEarned);
-                starsText.fontSize = 64;
+                starsText.fontSize = 56;
                 starsText.color = r.starsEarned >= 3 ? accentCyan : tieYellow;
                 starsText.gameObject.SetActive(true);
+                StartCoroutine(AnimateStars());
             }
 
-            // Comparison panel
             if (comparisonPanel != null) comparisonPanel.SetActive(true);
 
+            // You column
             if (youNameText != null)
             {
                 youNameText.text = "YOU";
                 youNameText.color = r.humanWon ? victoryGreen : textOffWhite;
+                youNameText.fontSize = 28;
+                youNameText.fontStyle = FontStyles.Bold;
             }
             if (youSwipesText != null)
             {
                 youSwipesText.text = human.SwipesDisplay;
                 youSwipesText.color = r.humanWon ? victoryGreen : textOffWhite;
+                youSwipesText.fontSize = 42;
+                youSwipesText.fontStyle = FontStyles.Bold;
             }
             if (youTimeText != null)
             {
                 youTimeText.text = human.TimeDisplay;
                 youTimeText.color = textOffWhite;
+                youTimeText.fontSize = 28;
             }
 
+            // Opponent column
             if (opp != null)
             {
                 if (opponentNameText != null)
                 {
                     opponentNameText.text = r.mode.IsOnline() ? "OPPONENT" : "CPU";
                     opponentNameText.color = !r.humanWon && !opp.isDnf ? defeatRed : dimPlayer;
+                    opponentNameText.fontSize = 28;
+                    opponentNameText.fontStyle = FontStyles.Bold;
                 }
                 if (opponentSwipesText != null)
                 {
                     opponentSwipesText.text = opp.SwipesDisplay;
                     opponentSwipesText.color = !r.humanWon && !opp.isDnf ? defeatRed : dimPlayer;
+                    opponentSwipesText.fontSize = 42;
+                    opponentSwipesText.fontStyle = FontStyles.Bold;
                 }
                 if (opponentTimeText != null)
                 {
                     opponentTimeText.text = opp.TimeDisplay;
                     opponentTimeText.color = dimPlayer;
+                    opponentTimeText.fontSize = 28;
                 }
             }
 
-            // Summary line
             if (comparisonSummaryText != null)
             {
                 comparisonSummaryText.text = BuildComparisonSummary(r, human, opp, tie);
                 comparisonSummaryText.color = r.humanWon ? victoryGreen :
                                                r.humanDnf ? dnfGray : defeatRed;
+                comparisonSummaryText.fontSize = 26;
             }
         }
 
-        // --- Online (stub) — same as Vs CPU with different label ---
+        // =====================================================================
+        // Online (stub)
+        // =====================================================================
 
         private void RenderOnline(RaceResultData r)
         {
             RenderVsCpu(r);
-            // Subtitle hints this is a stub.
             if (subtitleText != null)
             {
                 subtitleText.text = "Online mode is a CPU stub in v1. Real netcode in v1.1.";
                 subtitleText.color = dimPlayer;
+                subtitleText.fontSize = 22;
                 subtitleText.gameObject.SetActive(true);
             }
         }
 
-        // --- Pass & Play ranking ---
+        // =====================================================================
+        // Pass & Play ranking
+        // =====================================================================
 
         private void RenderPassPlay(RaceResultData r)
         {
-            // Title: "Player N Wins!"
             if (titleText != null)
             {
+                titleText.fontSize = 72;
+                titleText.fontStyle = FontStyles.Bold;
+                titleText.characterSpacing = 4;
+
                 if (r.winnerIndex < 0 || r.winnerIndex >= r.players.Count)
                 {
                     titleText.text = "RACE OVER";
@@ -365,8 +375,6 @@ namespace QuickChecks.UI
                 else
                 {
                     var winner = r.players[r.winnerIndex];
-                    // Check for tie: if two players share the same rank-1 (rank==1 with identical swipes+time)
-                    // We didn't store ties explicitly, but if rank counts > 1 with rank==1, it's a tie.
                     int rank1Count = 0;
                     foreach (var p in r.players) if (p.rank == 1) rank1Count++;
 
@@ -377,7 +385,7 @@ namespace QuickChecks.UI
                     }
                     else
                     {
-                        titleText.text = $"{winner.playerName} Wins!";
+                        titleText.text = $"{winner.playerName} WINS!";
                         titleText.color = victoryGreen;
                     }
                 }
@@ -392,19 +400,11 @@ namespace QuickChecks.UI
 
         private void BuildRankingRows(RaceResultData r)
         {
-            if (rankingRowsContainer == null)
-            {
-                Debug.LogWarning("[Results] rankingRowsContainer is null — cannot build P&P rows.");
-                return;
-            }
+            if (rankingRowsContainer == null) return;
 
-            // Clear any existing rows.
             for (int i = rankingRowsContainer.childCount - 1; i >= 0; i--)
-            {
                 Destroy(rankingRowsContainer.GetChild(i).gameObject);
-            }
 
-            // Sort: by rank (rank 1 first), DNF last.
             var sorted = new List<RaceResultData.PlayerResult>(r.players);
             sorted.Sort((a, b) =>
             {
@@ -417,20 +417,12 @@ namespace QuickChecks.UI
             for (int i = 0; i < sorted.Count; i++)
             {
                 var p = sorted[i];
-                GameObject rowGo = rankingRowPrefab != null
+                var rowGo = rankingRowPrefab != null
                     ? Instantiate(rankingRowPrefab, rankingRowsContainer)
                     : CreateRuntimeRankingRow(p, i, r);
                 if (rankingRowPrefab != null) PopulateRankingRow(rowGo, p, i, r);
             }
         }
-
-        // Player colors (matches RaceSceneController.PLAYER_COLORS)
-        private static readonly Color[] PLAYER_COLORS = {
-            new Color(0.247f, 0.878f, 0.760f),  // P1: cyan
-            new Color(1f, 0.42f, 0.42f),         // P2: red
-            new Color(0.42f, 0.79f, 0.47f),      // P3: green
-            new Color(0.42f, 0.58f, 1f),          // P4: blue
-        };
 
         private GameObject CreateRuntimeRankingRow(RaceResultData.PlayerResult p, int rowIdx, RaceResultData r)
         {
@@ -443,7 +435,6 @@ namespace QuickChecks.UI
             rt.sizeDelta = new Vector2(0, 80);
             rt.anchoredPosition = new Vector2(0, -rowIdx * 90);
 
-            // Background strip — winner gets cyan tint, player's row gets their player color tint
             var bg = go.AddComponent<Image>();
             bool isWinner = p.rank == 1;
             Color playerColor = p.playerIndex >= 0 && p.playerIndex < PLAYER_COLORS.Length
@@ -453,7 +444,6 @@ namespace QuickChecks.UI
                 ? new Color(playerColor.r, playerColor.g, playerColor.b, 0.15f)
                 : new Color(playerColor.r, playerColor.g, playerColor.b, 0.05f);
 
-            // Horizontal layout: rank | color-dot + name + kart | swipes | time
             var hlg = go.AddComponent<HorizontalLayoutGroup>();
             hlg.padding = new RectOffset(20, 20, 8, 8);
             hlg.spacing = 16;
@@ -467,7 +457,7 @@ namespace QuickChecks.UI
             AddRowLabel(go, p.rank > 0 ? $"{p.rank}." : "—", 50,
                 isWinner ? victoryGreen : dimPlayer, 36);
 
-            // Color dot (small square showing the player's color)
+            // Color dot
             var dotGo = new GameObject("ColorDot");
             dotGo.transform.SetParent(go.transform, false);
             var dotImg = dotGo.AddComponent<Image>();
@@ -476,10 +466,8 @@ namespace QuickChecks.UI
             var dotLayout = dotGo.AddComponent<LayoutElement>();
             dotLayout.preferredWidth = 20;
             dotLayout.flexibleWidth = 0;
-            var dotR = dotGo.GetComponent<RectTransform>();
-            dotR.sizeDelta = new Vector2(20, 20);
 
-            // Name + kart (e.g. "Player 1 [Drifter]")
+            // Name + kart
             string nameDisplay = p.playerName;
             if (!string.IsNullOrEmpty(p.kartName)) nameDisplay += $"  [{p.kartName}]";
             if (p.isHuman) nameDisplay += "  [YOU]";
@@ -499,7 +487,6 @@ namespace QuickChecks.UI
 
         private void PopulateRankingRow(GameObject rowGo, RaceResultData.PlayerResult p, int rowIdx, RaceResultData r)
         {
-            // If a prefab was provided, find named children to populate.
             var rankText = FindChildTMP(rowGo.transform, "RankText");
             var nameText = FindChildTMP(rowGo.transform, "NameText");
             var swipesText = FindChildTMP(rowGo.transform, "SwipesText");
@@ -510,13 +497,12 @@ namespace QuickChecks.UI
             if (swipesText != null) swipesText.text = p.SwipesDisplay;
             if (timeText != null) timeText.text = p.TimeDisplay;
 
-            // Winner highlight
             var bg = rowGo.GetComponent<Image>();
             if (bg != null)
             {
                 bg.color = p.rank == 1
                     ? new Color(0.247f, 0.878f, 0.760f, 0.12f)
-                    : new Color(1f, 1f, 1f, 0.03f);
+                    : new Color(1f, 1f, 1f, 0.02f);
             }
         }
 
@@ -541,13 +527,8 @@ namespace QuickChecks.UI
             tmp.color = color;
             tmp.raycastTarget = false;
             var rt = go.GetComponent<RectTransform>();
-            if (width > 0)
-            {
-                rt.sizeDelta = new Vector2(width, 60);
-            }
+            if (width > 0) rt.sizeDelta = new Vector2(width, 48);
         }
-
-        // --- Comparison summary text ---
 
         private static string BuildComparisonSummary(RaceResultData r,
                                                      RaceResultData.PlayerResult human,
@@ -564,23 +545,20 @@ namespace QuickChecks.UI
             if (r.humanWon)
             {
                 if (diff == 0)
-                {
-                    // Same swipes, faster time
                     return $"You won by {(opp.finishTimeMs - human.finishTimeMs) / 1000f:F2}s — same swipes, faster run!";
-                }
                 return $"You beat {opp.playerName} by {diff} swipe{(diff == 1 ? "" : "s")}.";
             }
             else
             {
                 if (diff == 0)
-                {
                     return $"{opp.playerName} beat you by {(human.finishTimeMs - opp.finishTimeMs) / 1000f:F2}s.";
-                }
                 return $"{opp.playerName} beat you by {diff} swipe{(diff == 1 ? "" : "s")}.";
             }
         }
 
-        // --- Button wiring ---
+        // =====================================================================
+        // Button wiring
+        // =====================================================================
 
         private void WireButtons()
         {
@@ -588,96 +566,88 @@ namespace QuickChecks.UI
             {
                 retryButton.onClick.RemoveAllListeners();
                 retryButton.onClick.AddListener(OnRetryClicked);
+                EnsureHoverFx(retryButton);
             }
             if (menuButton != null)
             {
                 menuButton.onClick.RemoveAllListeners();
                 menuButton.onClick.AddListener(OnMenuClicked);
+                EnsureHoverFx(menuButton);
             }
             if (leaderboardButton != null)
             {
                 leaderboardButton.onClick.RemoveAllListeners();
                 leaderboardButton.onClick.AddListener(OnLeaderboardClicked);
-                // Show the button only in Solo mode (other modes don't have a global leaderboard).
-                leaderboardButton.gameObject.SetActive(false);  // default — set true in RenderSolo
+                leaderboardButton.gameObject.SetActive(false);
             }
         }
 
         private void OnLeaderboardClicked()
         {
             if (Audio.SfxPlayer.Instance != null) Audio.SfxPlayer.Instance.PlayMenuClick();
-            if (leaderboardPanel == null)
-            {
-                Debug.LogWarning("[Results] Leaderboard panel not wired.");
-                return;
-            }
-            // Use the last race results to know which track to query.
+            if (leaderboardPanel == null) return;
             var r = GameFlowManager.Instance?.lastRaceResults;
-            if (r == null)
-            {
-                Debug.LogWarning("[Results] No lastRaceResults — can't query leaderboard.");
-                return;
-            }
+            if (r == null) return;
             leaderboardPanel.Show(r.trackId, r.trackDisplayName);
         }
 
         private void OnRetryClicked()
         {
-            // Play SFX
             if (Audio.SfxPlayer.Instance != null) Audio.SfxPlayer.Instance.PlayMenuClick();
-            Debug.Log("[Results] RETRY clicked — restarting race.");
-            if (GameFlowManager.Instance != null)
-            {
-                GameFlowManager.Instance.RetryRace();
-            }
+            if (GameFlowManager.Instance != null) GameFlowManager.Instance.RetryRace();
         }
 
         private void OnMenuClicked()
         {
             if (Audio.SfxPlayer.Instance != null) Audio.SfxPlayer.Instance.PlayMenuClick();
-            Debug.Log("[Results] MENU clicked — going to track select.");
-            if (GameFlowManager.Instance != null)
-            {
-                GameFlowManager.Instance.GoToTrackSelect();
-            }
+            if (GameFlowManager.Instance != null) GameFlowManager.Instance.GoToTrackSelect();
         }
 
-        // --- Legacy fallback (pre-Phase-2 callers) ---
+        private static void EnsureHoverFx(Button btn)
+        {
+            if (btn == null) return;
+            if (btn.GetComponent<ButtonHoverFx>() == null) btn.gameObject.AddComponent<ButtonHoverFx>();
+        }
+
+        // =====================================================================
+        // Legacy fallback
+        // =====================================================================
 
         private void RenderLegacy(GameFlowManager flow)
         {
-            Debug.LogWarning("[Results] No RaceResultData payload — using legacy scalar path. " +
-                              "Some mode-specific UI will be unavailable.");
-
             if (titleText != null)
             {
                 titleText.text = "Race Complete!";
                 titleText.color = accentCyan;
+                titleText.fontSize = 64;
+                titleText.fontStyle = FontStyles.Bold;
             }
             if (swipesValueText != null)
             {
-                swipesValueText.text = $"Swipes: <b>{flow.lastRaceSwipes}</b>";
+                swipesValueText.text = $"<size=36>SWIPES</size>\n<size=48><b>{flow.lastRaceSwipes}</b></size>";
                 swipesValueText.color = textOffWhite;
                 swipesValueText.gameObject.SetActive(true);
             }
             if (timeValueText != null)
             {
-                timeValueText.text = $"Time: <b>{flow.lastRaceTimeMs / 1000f:F2}s</b>";
+                timeValueText.text = $"<size=36>TIME</size>\n<size=48><b>{flow.lastRaceTimeMs / 1000f:F2}s</b></size>";
                 timeValueText.color = textOffWhite;
                 timeValueText.gameObject.SetActive(true);
             }
             if (bestValueText != null)
             {
                 bestValueText.text = flow.lastRaceIsNewBest
-                    ? $"Previous best: {flow.lastRaceBestSwipes} swipes / {flow.lastRaceBestTimeMs / 1000f:F2}s"
-                    : $"Best: {flow.lastRaceBestSwipes} swipes / {flow.lastRaceBestTimeMs / 1000f:F2}s";
+                    ? $"<size=28>PREVIOUS BEST</size>\n<size=36>{flow.lastRaceBestSwipes} swipes · {flow.lastRaceBestTimeMs / 1000f:F2}s</size>"
+                    : $"<size=28>BEST</size>\n<size=36>{flow.lastRaceBestSwipes} swipes · {flow.lastRaceBestTimeMs / 1000f:F2}s</size>";
                 bestValueText.color = accentCyan;
                 bestValueText.gameObject.SetActive(true);
             }
             if (newBestText != null && flow.lastRaceIsNewBest)
             {
-                newBestText.text = "*** NEW FASTEST LAP! ***\nGhost updated!";
+                newBestText.text = "★ NEW BEST! ★";
                 newBestText.color = accentCyan;
+                newBestText.fontSize = 32;
+                newBestText.fontStyle = FontStyles.Bold;
                 newBestText.gameObject.SetActive(true);
             }
         }
