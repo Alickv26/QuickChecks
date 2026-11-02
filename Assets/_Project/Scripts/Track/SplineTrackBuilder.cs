@@ -159,7 +159,9 @@ namespace QuickChecks.Track
             if (shader == null) shader = Shader.Find("Unlit/Color");
             if (shader == null) shader = Shader.Find("Sprites/Default");
             var mat = new Material(shader);
-            mat.color = trackColor;
+            // URP uses _BaseColor, built-in uses _Color — set both for compatibility
+            mat.SetColor("_BaseColor", trackColor);
+            mat.SetColor("_Color", trackColor);
             meshRenderer.sharedMaterial = mat;
             meshRenderer.sortingOrder = trackSortingOrder;
 
