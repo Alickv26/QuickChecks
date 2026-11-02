@@ -1,5 +1,6 @@
 using UnityEngine;
 using QuickChecks.Camera;
+using QuickChecks.Track;
 
 namespace QuickChecks.Input
 {
@@ -33,6 +34,11 @@ namespace QuickChecks.Input
         [Tooltip("Maximum distance the camera can pan away from the follow target (kart). " +
                  "Prevents the player from panning the track completely off-screen.")]
         [SerializeField] private float maxPanDistance = 12f;
+
+        [Header("Track Bounds")]
+        [Tooltip("When set, the camera is clamped to these bounds (min/max X/Y). " +
+                 "Calculated from the track's spline points + checkpoint positions.")]
+        public Vector4 trackBounds;  // x=minX, y=maxX, z=minY, w=maxY
 
         [Header("Mouse (Editor)")]
         [SerializeField] private float mouseWheelZoomSpeed = 2f;
@@ -160,16 +166,41 @@ namespace QuickChecks.Input
             _panRecenterTimer = panRecenterDelay;
         }
 
-        /// <summary>Clamps the pan offset to maxPanDistance (in world units) from the follow target.</summary>
+        /// <summary>Clamps the pan offset so the camera stays within track bounds + maxPanDistance.</summary>
         private Vector3 ClampPanOffset(Vector3 offset)
         {
-            // Limit how far the camera can drift from the kart
-            float dist = offset.magnitude;
+            if (_cameraRig == null || _cameraRig.target == null) return offset;
+
+            // The camera's world position = followTarget.position + offset
+            Vector3 kartPos = _cameraRig.target.position;
+            Vector3 camPos = kartPos + offset;
+
+            float halfWidth = _camera.orthographicSize * _camera.aspect;
+            float halfHeight = _camera.orthographicSize;
+
+            // 1. Clamp to track bounds (if set) — camera edges must stay within the track area + margin
+            if (trackBounds != Vector4.zero)
+            {
+                float margin = 3f;  // small margin beyond the track edge
+                float minX = trackBounds.x - halfWidth + margin;
+                float maxX = trackBounds.y + halfWidth - margin;
+                float minY = trackBounds.z - halfHeight + margin;
+                float maxY = trackBounds.w + halfHeight - margin;
+
+                // Only clamp if the track is smaller than the viewport (otherwise no clamping needed)
+                if (minX < maxX) camPos.x = Mathf.Clamp(camPos.x, minX, maxX);
+                if (minY < maxY) camPos.y = Mathf.Clamp(camPos.y, minY, maxY);
+            }
+
+            // 2. Also clamp to maxPanDistance from the kart (so the kart is always visible)
+            Vector3 clampedOffset = camPos - kartPos;
+            float dist = clampedOffset.magnitude;
             if (dist > maxPanDistance)
             {
-                offset = offset.normalized * maxPanDistance;
+                clampedOffset = clampedOffset.normalized * maxPanDistance;
             }
-            return offset;
+
+            return clampedOffset;
         }
 
         private void HandleMouseWheel()

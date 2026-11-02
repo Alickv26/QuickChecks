@@ -185,6 +185,25 @@ namespace QuickChecks.Prototype
             var splineBuilder = trackGo.AddComponent<SplineTrackBuilder>();
             _trackData = splineBuilder.Build(_trackDef);
 
+            // Compute track bounds from spline points for camera panning limits
+            var pinchZoom = camGo.GetComponent<QuickChecks.Input.PinchZoomInput>();
+            if (pinchZoom != null && _trackDef.splinePoints != null && _trackDef.splinePoints.Length > 0)
+            {
+                float minX = float.MaxValue, maxX = float.MinValue;
+                float minY = float.MaxValue, maxY = float.MinValue;
+                foreach (var p in _trackDef.splinePoints)
+                {
+                    if (p.x < minX) minX = p.x;
+                    if (p.x > maxX) maxX = p.x;
+                    if (p.y < minY) minY = p.y;
+                    if (p.y > maxY) maxY = p.y;
+                }
+                // Add half track width as margin so boundaries include the track surface
+                float halfW = _trackDef.trackWidth * 0.5f + 2f;
+                pinchZoom.trackBounds = new Vector4(minX - halfW, maxX + halfW, minY - halfW, maxY + halfW);
+                Debug.Log($"[RaceScene] Track bounds set: X[{minX - halfW:F1}, {maxX + halfW:F1}] Y[{minY - halfW:F1}, {maxY + halfW:F1}]");
+            }
+
             Vector2 spawnPos = BezierSpline.EvaluateSpline(_trackDef.splinePoints, 0f, _trackDef.isClosedLoop);
             Vector2 spawnTangent = BezierSpline.EvaluateSplineTangent(_trackDef.splinePoints, 0f, _trackDef.isClosedLoop);
             // Place player 0 at the start line, slightly behind it (so the first swipe crosses the finish)
