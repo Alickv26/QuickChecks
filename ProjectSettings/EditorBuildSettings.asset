@@ -4,5 +4,29 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/_Project/Scenes/MainMenu.unity
+    guid: 57d2714043a9116488ae6b320fe4a05c
+  - enabled: 1
+    path: Assets/_Project/Scenes/ModeSelect.unity
+    guid: 5416fb0055a62d9afb0c69ed7575ab13
+  - enabled: 1
+    path: Assets/_Project/Scenes/TrackSelect.unity
+    guid: 4d4dc7f4a833eb438a511823a0392df1
+  - enabled: 1
+    path: Assets/_Project/Scenes/KartSelect.unity
+    guid: c1461b13bdcd592f79f94d68947d1ac2
+  - enabled: 1
+    path: Assets/_Project/Scenes/Race.unity
+    guid: 0e639e392ff8f42df83ac11c5bde5a78
+  - enabled: 1
+    path: Assets/_Project/Scenes/Results.unity
+    guid: 691abee5cc59d30a4936324cdad07343
+  - enabled: 1
+    path: Assets/_Project/Scenes/CustomTrackSelect.unity
+    guid: 250dddf4a0b500fa1a02fde0822d5a9a
+  - enabled: 1
+    path: Assets/_Project/Scenes/CustomTrackBuilder.unity
+    guid: 4246b8d88ceadd1cfbba24d3b04dad7a
   m_configObjects: {}

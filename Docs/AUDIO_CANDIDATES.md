@@ -24,7 +24,8 @@ For each candidate, click the search link, listen to the track, and fill in:
 | 2 | "Nightcall" (instrumental) | search on Pixabay | [pixabay.com/music/search/retrowave](https://pixabay.com/music/search/retrowave/) | Pixabay License | ~110 | ⏳ |
 | 3 | "Ambient Synth" | search on FMA | [freemusicarchive.org/search?quicksearch=synthwave+ambient](https://freemusicarchive.org/search?quicksearch=synthwave+ambient) | CC-BY | ~100-120 | ⏳ |
 
-**Search terms to try**: "synthwave chill", "retrowave ambient", "calm electronic 110 bpm"
+**Selected trackxxxx**: "jonasblakewood-synthwave-618628.mp3
+"
 
 ---
 

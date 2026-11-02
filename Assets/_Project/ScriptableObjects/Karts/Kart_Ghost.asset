@@ -15,6 +15,10 @@ MonoBehaviour:
   kartId: kart_ghost
   displayName: Ghost
   previewSprite: {fileID: 0}
+  archetypeLabel: Balanced
+  description: A balanced all-rounder kart.
+  isFree: 1
+  kartColor: {r: 1, g: 0.82, b: 0.4, a: 1}
   impulseMultiplier: 1.1
   frictionPerSecond: 0.22
   stopThreshold: 8
