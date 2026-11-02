@@ -154,14 +154,28 @@ namespace QuickChecks.Track
             mesh.RecalculateBounds();
             meshFilter.sharedMesh = mesh;
 
-            // URP Unlit shader works for both URP and fallback to Sprites/Default for built-in pipeline.
+            // Create a solid-color material that works in URP + built-in pipeline.
+            // URP/Unlit requires BOTH _BaseColor AND _BaseMap (texture) — without the texture
+            // it shows magenta/pink (the default fallback). We create a 1x1 solid-color texture.
+            Color32[] px = new Color32[1];
+            px[0] = new Color32(
+                (byte)(trackColor.r * 255),
+                (byte)(trackColor.g * 255),
+                (byte)(trackColor.b * 255),
+                (byte)(trackColor.a * 255));
+            var tex = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            tex.SetPixels32(px);
+            tex.Apply();
+
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
             if (shader == null) shader = Shader.Find("Unlit/Color");
             if (shader == null) shader = Shader.Find("Sprites/Default");
             var mat = new Material(shader);
-            // URP uses _BaseColor, built-in uses _Color — set both for compatibility
-            mat.SetColor("_BaseColor", trackColor);
-            mat.SetColor("_Color", trackColor);
+            // Set the texture on ALL possible property names so it works regardless of shader
+            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex);
+            if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", tex);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", trackColor);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", trackColor);
             meshRenderer.sharedMaterial = mat;
             meshRenderer.sortingOrder = trackSortingOrder;
 
