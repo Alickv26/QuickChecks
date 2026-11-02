@@ -31,10 +31,10 @@ namespace QuickChecks.Input
 
         [Header("Pinch Zoom")]
         [Tooltip("Minimum ortho camera size (closest zoom, for tight sections).")]
-        public float minCameraZoom = 5f;
+        public float minCameraZoom = 4f;
 
         [Tooltip("Maximum ortho camera size (furthest zoom, for long straights).")]
-        public float maxCameraZoom = 20f;
+        public float maxCameraZoom = 30f;
 
         [Tooltip("Pinch sensitivity — higher = more zoom per pinch gesture.")]
         public float pinchSensitivity = 0.15f;

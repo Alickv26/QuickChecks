@@ -4,50 +4,50 @@ using QuickChecks.Camera;
 namespace QuickChecks.Input
 {
     /// <summary>
-    /// Map-style pan and zoom for the camera.
+    /// Map-style pan and zoom for the camera. Works WITH the CameraRig follow,
+    /// not against it.
     ///
-    /// Two-finger gestures:
-    /// - PINCH: fingers move apart = zoom IN (see things bigger = decrease ortho size)
-    ///          fingers move together = zoom OUT (see more = increase ortho size)
-    /// - PAN: both fingers move in the same direction = move camera
+    /// Design:
+    ///   - Two-finger PINCH: zoom in/out (directly sets ortho size, no lerp conflict)
+    ///   - Two-finger PAN: move camera (offset from follow target, not raw position)
+    ///   - Pan creates a persistent offset that the follow camera respects
+    ///   - After pan, follow resumes but with the offset applied (so the camera
+    ///     doesn't snap back to the kart — it stays where the player panned, relative
+    ///     to the follow target)
+    ///   - Zoom and pan work simultaneously (fingers can pinch while drifting)
     ///
-    /// The gesture is classified each frame based on the ratio of:
-    ///   pinch_delta (change in distance between fingers)
-    ///   pan_delta (movement of the midpoint)
-    ///
-    /// If pinch_delta > pan_delta → it's a zoom
-    /// If pan_delta > pinch_delta → it's a pan
-    /// This prevents the random zoom that happens when panning with slightly uneven fingers.
-    ///
-    /// IMPORTANT: two-finger gestures are detected FIRST and suppress single-finger
-    /// input (swipes). This prevents accidental kart swipes while pinching/panning.
+    /// Pan offset is cleared when the player swipes (returns to follow-the-kart).
     /// </summary>
     [RequireComponent(typeof(CameraRig))]
     public class PinchZoomInput : MonoBehaviour
     {
         [Header("Zoom")]
         [Tooltip("How much a pinch gesture affects zoom. Higher = more zoom per pinch pixel.")]
-        [SerializeField] private float zoomSensitivity = 0.02f;
+        [SerializeField] private float zoomSensitivity = 0.015f;
 
         [Header("Pan")]
-        [Tooltip("How much a two-finger drag affects camera pan. Higher = more pan per pixel.")]
+        [Tooltip("How much a two-finger drag affects camera pan.")]
         [SerializeField] private float panSensitivity = 1.0f;
-        [SerializeField] private float panLingerSec = 2f;
+        [Tooltip("After panning, how long before the follow camera re-centers on the kart (seconds).")]
+        [SerializeField] private float panRecenterDelay = 3f;
 
         [Header("Mouse (Editor)")]
-        [SerializeField] private float mouseWheelZoomSpeed = 3f;
+        [SerializeField] private float mouseWheelZoomSpeed = 2f;
 
         private CameraRig _cameraRig;
         private UnityEngine.Camera _camera;
 
+        // Gesture state
         private float _lastPinchDistance;
         private Vector2 _lastMidpoint;
         private bool _gestureActive = false;
+        private float _gestureStartTime;
 
-        private float _panLingerTimer = 0f;
+        // Pan offset — added on top of the follow camera's target position
+        private Vector3 _panOffset = Vector3.zero;
+        private float _panRecenterTimer = 0f;
 
-        /// <summary>True while a two-finger gesture is active. SwipeDetector checks this
-        /// to suppress single-finger swipes during pinch/pan.</summary>
+        // Track whether we're in a two-finger gesture this frame
         public static bool IsTwoFingerGestureActive { get; private set; }
 
         private void Awake()
@@ -61,13 +61,25 @@ namespace QuickChecks.Input
             HandleTouchGesture();
             HandleMouseWheel();
 
-            if (_panLingerTimer > 0f)
+            // Recenter: gradually move panOffset back to zero after panRecenterDelay
+            if (_panRecenterTimer > 0f)
             {
-                _panLingerTimer -= Time.deltaTime;
-                if (_panLingerTimer <= 0f && _cameraRig != null)
+                _panRecenterTimer -= Time.deltaTime;
+                if (_panRecenterTimer <= 0f)
                 {
-                    _cameraRig.enabled = true;
+                    // Smoothly lerp panOffset to zero over 1 second
+                    _panOffset = Vector3.Lerp(_panOffset, Vector3.zero, Time.deltaTime * 2f);
+                    if (_panOffset.magnitude < 0.1f)
+                    {
+                        _panOffset = Vector3.zero;
+                    }
                 }
+            }
+
+            // Apply pan offset to the camera (on top of whatever CameraRig set)
+            if (_panOffset != Vector3.zero)
+            {
+                _camera.transform.position += _panOffset;
             }
         }
 
@@ -80,7 +92,6 @@ namespace QuickChecks.Input
                 return;
             }
 
-            // Two fingers on screen — suppress single-finger input
             IsTwoFingerGestureActive = true;
 
             Touch t0 = UnityEngine.Input.GetTouch(0);
@@ -89,46 +100,35 @@ namespace QuickChecks.Input
             float currentDistance = Vector2.Distance(t0.position, t1.position);
             Vector2 currentMidpoint = (t0.position + t1.position) * 0.5f;
 
-            // Start of gesture — just record, don't apply
             if (!_gestureActive)
             {
                 _lastPinchDistance = currentDistance;
                 _lastMidpoint = currentMidpoint;
                 _gestureActive = true;
+                _gestureStartTime = Time.time;
                 return;
             }
 
             // Compute deltas
-            float pinchDelta = currentDistance - _lastPinchDistance;  // positive = fingers apart, negative = together
-            float pinchMag = Mathf.Abs(pinchDelta);
+            float pinchDelta = currentDistance - _lastPinchDistance;
             Vector2 panDelta = currentMidpoint - _lastMidpoint;
-            float panMag = panDelta.magnitude;
 
-            // Classify: is this primarily a pinch or a pan?
-            // Use a threshold so small pinch movements during pan don't trigger zoom
-            if (pinchMag > 3f && pinchMag > panMag * 0.5f)
+            // ALWAYS apply both pinch and pan — players naturally do both at once
+            // (fingers drift while pinching). Small values are fine.
+
+            // PINCH (zoom): fingers apart → zoom in, fingers together → zoom out
+            if (Mathf.Abs(pinchDelta) > 0.5f)
             {
-                // PINCH (zoom)
-                // Fingers apart (pinchDelta > 0) → zoom IN → decrease ortho size → NEGATIVE delta
-                // Fingers together (pinchDelta < 0) → zoom OUT → increase ortho size → POSITIVE delta
-                // So we INVERT the pinch delta:
                 float zoomChange = -pinchDelta * zoomSensitivity;
                 ApplyZoom(zoomChange);
             }
-            else if (panMag > 2f)
-            {
-                // PAN
-                ApplyPan(panDelta);
 
-                // Disable camera follow during pan
-                if (_cameraRig != null && _cameraRig.enabled)
-                {
-                    _cameraRig.enabled = false;
-                }
-                _panLingerTimer = panLingerSec;
+            // PAN: both fingers move in same direction
+            if (panDelta.magnitude > 1f)
+            {
+                ApplyPan(panDelta);
             }
 
-            // Always update last positions
             _lastPinchDistance = currentDistance;
             _lastMidpoint = currentMidpoint;
         }
@@ -136,8 +136,6 @@ namespace QuickChecks.Input
         private void ApplyZoom(float zoomDelta)
         {
             if (_cameraRig == null) return;
-            // zoomDelta is NEGATIVE when zooming IN (fingers apart → decrease ortho size)
-            // zoomDelta is POSITIVE when zooming OUT (fingers together → increase ortho size)
             _cameraRig.ApplyPinchZoom(zoomDelta);
         }
 
@@ -152,7 +150,9 @@ namespace QuickChecks.Input
                 0
             );
 
-            _camera.transform.position += worldDelta;
+            // Add to pan offset (not raw position) so the follow camera respects it
+            _panOffset += worldDelta;
+            _panRecenterTimer = panRecenterDelay;
         }
 
         private void HandleMouseWheel()
@@ -161,10 +161,23 @@ namespace QuickChecks.Input
             float scroll = UnityEngine.Input.GetAxis("Mouse ScrollWheel");
             if (Mathf.Abs(scroll) > 0.001f)
             {
-                // Scroll up (positive) → zoom IN → decrease ortho size → NEGATIVE delta
                 ApplyZoom(-scroll * mouseWheelZoomSpeed);
             }
 #endif
         }
+
+        /// <summary>Clears the pan offset — called when a swipe fires (return to follow-the-kart).</summary>
+        public static void ClearPanOffset()
+        {
+            // Instance-level clear since static can't access instance fields
+            if (Instance != null)
+            {
+                Instance._panOffset = Vector3.zero;
+                Instance._panRecenterTimer = 0f;
+            }
+        }
+
+        private static PinchZoomInput Instance;
+        private void OnEnable() { Instance = this; }
     }
 }

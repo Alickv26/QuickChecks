@@ -277,6 +277,8 @@ namespace QuickChecks.Input
             if (swipeEvent != null)
             {
                 swipeEvent.Raise(data);
+                // Clear any pan offset so the camera returns to following the kart
+                PinchZoomInput.ClearPanOffset();
             }
             else
             {

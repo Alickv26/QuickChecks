@@ -5,6 +5,10 @@ namespace QuickChecks.Camera
     /// <summary>
     /// Follows the player kart with smoothing, applies pinch-zoom, and
     /// optionally responds to per-segment zoom hints from the active track.
+    ///
+    /// Pan offset (from PinchZoomInput) is applied AFTER this component's
+    /// LateUpdate — so panning adds on top of the follow position without
+    /// fighting it.
     /// </summary>
     [RequireComponent(typeof(UnityEngine.Camera))]
     public class CameraRig : MonoBehaviour
@@ -21,11 +25,9 @@ namespace QuickChecks.Camera
         [SerializeField] private QuickChecks.Input.InputSettings inputSettings;
         private float _currentZoom;
         private float _targetZoom;
-        private float _hintZoomOverride = -1f; // set by track segments
-        private float _hintOverrideExpireTime = 0f;
 
         private UnityEngine.Camera _cam;
-        private Vector3 _velocityRef; // for SmoothDamp
+        private Vector3 _velocityRef;
 
         private void Awake()
         {
@@ -36,69 +38,43 @@ namespace QuickChecks.Camera
 
         private void LateUpdate()
         {
-            if (target == null) return;
-
-            // Smooth follow.
-            Vector3 desired = target.position;
-            desired.z = transform.position.z;
-            transform.position = Vector3.SmoothDamp(
-                transform.position, desired, ref _velocityRef, 1f - followSmoothing
-            );
-
-            // Decide target zoom: player pinch override expires after 2s of no pinch.
-            // Track segment hints take over after that.
-            if (_hintOverrideExpireTime > Time.time)
+            // Follow target (if set + enabled)
+            if (target != null)
             {
-                _targetZoom = _hintZoomOverride;
+                Vector3 desired = target.position;
+                desired.z = transform.position.z;
+                transform.position = Vector3.SmoothDamp(
+                    transform.position, desired, ref _velocityRef, 1f - followSmoothing
+                );
             }
-            // Pinch zoom is applied directly via ApplyPinchZoom — see below.
 
-            // Smooth zoom.
-            _currentZoom = Mathf.Lerp(_currentZoom, _targetZoom, Time.deltaTime * 8f);
+            // Smooth zoom toward target
+            _currentZoom = Mathf.Lerp(_currentZoom, _targetZoom, Time.deltaTime * 10f);
             _cam.orthographicSize = _currentZoom;
         }
 
         /// <summary>
-        /// Called by PinchZoomInput when user pinches. Player override takes precedence.
+        /// Called by PinchZoomInput when user pinches.
         ///
         /// Direction convention:
-        ///   zoomDelta NEGATIVE = zoom IN (fingers apart on touch, scroll up on mouse) → decrease ortho size
-        ///   zoomDelta POSITIVE = zoom OUT (fingers together on touch, scroll down on mouse) → increase ortho size
+        ///   zoomDelta NEGATIVE = zoom IN → decrease ortho size
+        ///   zoomDelta POSITIVE = zoom OUT → increase ortho size
         /// </summary>
         public void ApplyPinchZoom(float zoomDelta)
         {
-            if (inputSettings == null) return;
+            float minZoom = inputSettings != null ? inputSettings.minCameraZoom : 4f;
+            float maxZoom = inputSettings != null ? inputSettings.maxCameraZoom : 30f;
 
-            _targetZoom = Mathf.Clamp(
-                _targetZoom + zoomDelta,
-                inputSettings.minCameraZoom,
-                inputSettings.maxCameraZoom
-            );
+            _targetZoom = Mathf.Clamp(_targetZoom + zoomDelta, minZoom, maxZoom);
 
-            // Player pinch takes precedence over auto-zoom for 2 seconds.
-            _hintOverrideExpireTime = Time.time + 2f;
-
-            // Snap current zoom partially toward target (prevents "stuck" feeling if pinch ends abruptly).
-            // Without this, _currentZoom lerps slowly toward _targetZoom while the player has
-            // already released the pinch, making it feel like zoom is "stuck".
-            _currentZoom = Mathf.Lerp(_currentZoom, _targetZoom, 0.5f);
-        }
-
-        /// <summary>
-        /// Called by TrackSegment triggers when kart enters a segment with a zoom hint.
-        /// </summary>
-        public void ApplyZoomHint(float zoom)
-        {
-            _hintZoomOverride = zoom;
-            _hintOverrideExpireTime = Time.time + 5f; // hint holds for 5s, then player takes over
+            // Partially snap current toward target for immediate feedback
+            _currentZoom = Mathf.Lerp(_currentZoom, _targetZoom, 0.4f);
         }
 
         public void ResetToDefault(float defaultZoom)
         {
             _targetZoom = defaultZoom;
             _currentZoom = defaultZoom;
-            _hintZoomOverride = -1f;
-            _hintOverrideExpireTime = 0f;
         }
     }
 }
