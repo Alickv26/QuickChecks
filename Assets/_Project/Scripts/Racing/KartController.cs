@@ -42,10 +42,20 @@ namespace QuickChecks.Racing
         [SerializeField] private bool isStopped = true;
         [SerializeField] private bool isOffTrack = false;
 
+        [Header("Boost State")]
+        [Tooltip("True while a boost power-up is active (boost timer still ticking).")]
+        [SerializeField] private bool isBoosting = false;
+        [Tooltip("Time at which the current boost expires (Time.time). 0 = no boost active.")]
+        [SerializeField] private float boostEndTime = 0f;
+        [Tooltip("Multiplier applied to maxSpeed during boost. Set by ApplyBoost().")]
+        [SerializeField] private float boostMultiplier = 1f;
+
         public bool IsOffTrack => isOffTrack;
         public bool IsStopped => isStopped;
         public Vector2 Velocity => currentVelocity;
         public KartStats Stats => stats;
+        public bool IsBoosting => isBoosting;
+        public float BoostTimeRemaining => isBoosting ? Mathf.Max(0f, boostEndTime - Time.time) : 0f;
 
         private Rigidbody2D _rb;
         private UnityEngine.Camera _mainCam;
@@ -189,9 +199,26 @@ namespace QuickChecks.Racing
             }
             else
             {
-                // Cap at maxSpeed.
-                if (currentVelocity.magnitude > stats.maxSpeed)
-                    currentVelocity = currentVelocity.normalized * stats.maxSpeed;
+                // Cap at maxSpeed — but if boosting, the cap is lifted to stats.maxSpeed * boostMultiplier.
+                // Boost tick: check if boost expired this frame, and clear state if so.
+                float effectiveMaxSpeed = stats.maxSpeed;
+                if (isBoosting)
+                {
+                    if (Time.time >= boostEndTime)
+                    {
+                        // Boost expired this frame — clear state, fall back to normal cap.
+                        isBoosting = false;
+                        boostMultiplier = 1f;
+                        // effectiveMaxSpeed stays at stats.maxSpeed — boost is over.
+                    }
+                    else
+                    {
+                        effectiveMaxSpeed = stats.maxSpeed * boostMultiplier;
+                    }
+                }
+
+                if (currentVelocity.magnitude > effectiveMaxSpeed)
+                    currentVelocity = currentVelocity.normalized * effectiveMaxSpeed;
             }
 
             // Drive the Rigidbody2D's velocity directly (Dynamic body — collisions still apply).
@@ -324,10 +351,21 @@ namespace QuickChecks.Racing
 
         public void ApplyBoost(float multiplier, float durationSec)
         {
-            // TODO: implement boost state with timer. For now, instant velocity multiply.
+            // Initial impulse: multiply current velocity immediately.
+            // (If kart was stopped, the multiply does nothing — but we set isStopped=false
+            // so the next FixedUpdate won't bail out, and the player still benefits from the
+            // lifted maxSpeed cap on their next swipe.)
             currentVelocity *= multiplier;
             isStopped = false;
-            Debug.Log($"[Kart] Boost applied: x{multiplier}, new velocity {currentVelocity.magnitude:F0} u/s.");
+
+            // Set boost state. Subsequent boosts REPLACE (do not stack) — simpler and matches GDD.
+            isBoosting = true;
+            boostMultiplier = multiplier;
+            boostEndTime = Time.time + durationSec;
+
+            Debug.Log($"[Kart] Boost applied: x{multiplier} for {durationSec:F2}s. " +
+                      $"New velocity mag {currentVelocity.magnitude:F0} u/s. " +
+                      $"maxSpeed lifted to {(stats != null ? stats.maxSpeed * multiplier : 0f):F0} until t={boostEndTime:F2}.");
         }
 
         /// <summary>
