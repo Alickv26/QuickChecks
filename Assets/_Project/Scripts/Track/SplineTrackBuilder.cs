@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 
 namespace QuickChecks.Track
 {
@@ -464,7 +465,7 @@ namespace QuickChecks.Track
                 // Add visual sprite (colored circle)
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.color = spawn.powerUp.effectColor;
-                sr.sprite = CreateCircleSprite();
+                sr.sprite = CreateSquareSprite();
                 sr.drawMode = SpriteDrawMode.Sliced;
                 sr.size = new Vector2(1.2f, 1.2f);
                 sr.sortingOrder = 8;
