@@ -209,8 +209,13 @@ namespace QuickChecks.Track
             var col = go.AddComponent<BoxCollider2D>();
             col.size = new Vector2(length, thickness);
 
-            // Optional: tiny sprite to make boundary visible (debug)
-            // Skip in production — track border is drawn by track surface mesh
+            // Curb: visible colored stripe along the track edge
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.color = new Color(color.r, color.g, color.b, 0.6f);
+            sr.sprite = CreateSquareSprite();
+            sr.drawMode = SpriteDrawMode.Sliced;
+            sr.size = new Vector2(length, 0.4f);  // thin visible curb
+            sr.sortingOrder = 1;
         }
 
         private List<Checkpoint> BuildCheckpoints(IReadOnlyList<Vector2> points, float halfWidth, bool closedLoop, TrackDefinition trackDefinition)
@@ -456,17 +461,29 @@ namespace QuickChecks.Track
                 go.transform.position = spawnPos;
                 go.transform.localScale = Vector3.one;
 
-                // Add visual sprite (colored circle would be nice; for prototype use square)
+                // Add visual sprite (colored circle)
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.color = spawn.powerUp.effectColor;
-                sr.sprite = CreateSquareSprite();
+                sr.sprite = CreateCircleSprite();
                 sr.drawMode = SpriteDrawMode.Sliced;
-                sr.size = new Vector2(1f, 1f);  // 1x1 unit pickup
-                sr.sortingOrder = 8;  // Above track surface (0), above checkpoints (5)
+                sr.size = new Vector2(1.2f, 1.2f);
+                sr.sortingOrder = 8;
 
-                // Add trigger collider — large radius so fast-moving karts don't skip over it
+                // Add floating label above the power-up
+                var labelGo = new GameObject("Label");
+                labelGo.transform.SetParent(go.transform, false);
+                labelGo.transform.localPosition = new Vector3(0, 1.5f, 0);
+                var label = labelGo.AddComponent<TextMeshPro>();
+                label.text = spawn.powerUp.displayName;
+                label.fontSize = 14;
+                label.alignment = TextAlignmentOptions.Center;
+                label.color = new Color(spawn.powerUp.effectColor.r, spawn.powerUp.effectColor.g, spawn.powerUp.effectColor.b, 0.8f);
+                label.raycastTarget = false;
+                label.sortingOrder = 9;
+
+                // Add trigger collider
                 var col = go.AddComponent<CircleCollider2D>();
-                col.radius = 1.2f;  // Larger pickup radius (was 0.6 — too small for fast karts)
+                col.radius = 1.2f;
                 col.isTrigger = true;
 
                 // Add PowerUpPickup component
@@ -519,9 +536,12 @@ namespace QuickChecks.Track
 
         private void BuildObstacleWall(Transform parent, Vector2 pos, Vector2 size, Vector2 tangent)
         {
+            float angle = Mathf.Atan2(tangent.y, tangent.x) * Mathf.Rad2Deg;
+
             var go = new GameObject($"ObstacleWall_{pos.x:F0}_{pos.y:F0}");
             go.transform.SetParent(parent, false);
             go.transform.position = pos;
+            go.transform.rotation = Quaternion.Euler(0, 0, angle);
             go.transform.localScale = Vector3.one;
 
             // Solid collider (not trigger) — kart stops dead on collision
@@ -529,15 +549,39 @@ namespace QuickChecks.Track
             col.size = size;
             col.isTrigger = false;
 
+            // Wall body: dark gray with a lighter top edge (brick-like look)
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.color = new Color(0.8f, 0.3f, 0.3f, 0.7f);  // muted red
+            sr.color = new Color(0.35f, 0.35f, 0.4f, 0.9f);  // dark gray-blue
             sr.sprite = CreateSquareSprite();
             sr.drawMode = SpriteDrawMode.Sliced;
             sr.size = size;
             sr.sortingOrder = 4;
 
+            // Top cap: lighter stripe along the top edge of the wall (visual depth)
+            var capGo = new GameObject("WallCap");
+            capGo.transform.SetParent(go.transform, false);
+            var capSr = capGo.AddComponent<SpriteRenderer>();
+            capSr.color = new Color(0.55f, 0.55f, 0.6f, 0.9f);  // lighter gray
+            capSr.sprite = CreateSquareSprite();
+            capSr.drawMode = SpriteDrawMode.Sliced;
+            capSr.size = new Vector2(size.x, size.y * 0.2f);  // thin strip at top
+            capSr.sortingOrder = 5;
+            var capRect = capGo.GetComponent<RectTransform>();
+            if (capRect != null)
+            {
+                capRect.anchorMin = new Vector2(0.5f, 1f);
+                capRect.anchorMax = new Vector2(0.5f, 1f);
+                capRect.pivot = new Vector2(0.5f, 1f);
+                capRect.anchoredPosition = Vector2.zero;
+            }
+            else
+            {
+                capGo.transform.localPosition = new Vector3(0, size.y * 0.4f, 0);
+                capGo.transform.localScale = Vector3.one;
+            }
+
             var wall = go.AddComponent<Obstacles.ObstacleWall>();
-            Debug.Log($"[SplineTrackBuilder] Obstacle wall at {pos} size {size}.");
+            Debug.Log($"[SplineTrackBuilder] Obstacle wall at {pos} size {size} angle {angle:F0}°.");
         }
 
         private void BuildBlackHole(Transform parent, Vector2 pos, float radius, float teleportDistance)

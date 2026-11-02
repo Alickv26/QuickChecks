@@ -180,7 +180,8 @@ namespace QuickChecks.Prototype
 
             Vector2 spawnPos = BezierSpline.EvaluateSpline(_trackDef.splinePoints, 0f, _trackDef.isClosedLoop);
             Vector2 spawnTangent = BezierSpline.EvaluateSplineTangent(_trackDef.splinePoints, 0f, _trackDef.isClosedLoop);
-            _runtimeKartSpawn = spawnPos + spawnTangent * 1f;
+            // Place player 0 at the start line, slightly behind it (so the first swipe crosses the finish)
+            _runtimeKartSpawn = spawnPos - spawnTangent.normalized * 1f;
         }
 
         private void BuildKart()
@@ -777,8 +778,16 @@ namespace QuickChecks.Prototype
 
         private void SpawnAdditionalKart(int playerIndex)
         {
-            // Spawn at same position as player (slightly offset)
-            Vector3 spawnPos = _runtimeKartSpawn + new Vector3(0, playerIndex * 2f, 0);
+            // Spawn karts side-by-side on the start line.
+            // Offset along the track normal (perpendicular to the tangent) so karts
+            // are lined up across the track width, not stacked vertically.
+            Vector2 startPos = BezierSpline.EvaluateSpline(_trackDef.splinePoints, 0f, _trackDef.isClosedLoop);
+            Vector2 startTangent = BezierSpline.EvaluateSplineTangent(_trackDef.splinePoints, 0f, _trackDef.isClosedLoop);
+            Vector2 normal = new Vector2(-startTangent.y, startTangent.x).normalized;
+            // Alternate left/right of center, spacing 2 units apart
+            float sideOffset = (playerIndex % 2 == 0 ? 1f : -1f) * ((playerIndex + 1) / 2) * 2f;
+            // Place slightly behind the start line (in the direction opposite to the tangent)
+            Vector3 spawnPos = startPos + normal * sideOffset - (Vector2)(startTangent.normalized * 1.5f);
 
             var kartGo = new GameObject($"Kart_{playerIndex}");
             kartGo.transform.position = spawnPos;
