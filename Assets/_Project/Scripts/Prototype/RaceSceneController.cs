@@ -96,7 +96,14 @@ namespace QuickChecks.Prototype
         private void Start()
         {
             StartRace();
+            // Auto-reset once after a short delay to ensure all karts are lined up
+            // correctly on the start line + turn flow is initialized properly.
+            // This fixes the P&P issue where turns only work after a manual reset.
+            // The _hasAutoReseted flag ensures this only happens once.
+            _autoResetTimer = 0.5f;
         }
+
+        private bool _hasAutoReseted = false;
 
         private void EnsureAssets()
         {
@@ -1357,6 +1364,15 @@ namespace QuickChecks.Prototype
                         {
                             UnityEngine.SceneManagement.SceneManager.LoadScene("Results");
                         }
+                        return;
+                    }
+
+                    // Auto-reset on scene load (only once) — fixes P&P turn flow
+                    if (!_hasAutoReseted)
+                    {
+                        _hasAutoReseted = true;
+                        Debug.Log("[RaceScene] Auto-resetting on scene load to fix spawn positions + turn flow.");
+                        ResetRace();
                         return;
                     }
 

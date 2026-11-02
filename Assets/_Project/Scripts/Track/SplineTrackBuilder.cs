@@ -210,13 +210,30 @@ namespace QuickChecks.Track
             var col = go.AddComponent<BoxCollider2D>();
             col.size = new Vector2(length, thickness);
 
-            // Curb: visible colored stripe along the track edge
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.color = new Color(color.r, color.g, color.b, 0.6f);
-            sr.sprite = CreateSquareSprite();
-            sr.drawMode = SpriteDrawMode.Sliced;
-            sr.size = new Vector2(length, 0.4f);  // thin visible curb
-            sr.sortingOrder = 1;
+            // F1-style curb: alternating white/red segments along the track edge
+            // Split the segment into short alternating colored blocks
+            int curbSegments = Mathf.Max(2, Mathf.RoundToInt(length / 1.5f));  // one block per ~1.5 units
+            float blockLength = length / curbSegments;
+
+            for (int i = 0; i < curbSegments; i++)
+            {
+                var blockGo = new GameObject($"Curb_{i}");
+                blockGo.transform.SetParent(go.transform, false);
+
+                // Position: offset along the segment's local X axis
+                float localX = -length / 2f + blockLength * (i + 0.5f);
+                blockGo.transform.localPosition = new Vector3(localX, 0, 0);
+
+                var sr = blockGo.AddComponent<SpriteRenderer>();
+                // Alternate: even = white, odd = red (classic F1 curb pattern)
+                sr.color = (i % 2 == 0)
+                    ? new Color(0.9f, 0.9f, 0.9f, 0.7f)   // white
+                    : new Color(0.85f, 0.2f, 0.15f, 0.7f);   // red
+                sr.sprite = CreateSquareSprite();
+                sr.drawMode = SpriteDrawMode.Sliced;
+                sr.size = new Vector2(blockLength, 0.4f);
+                sr.sortingOrder = 1;
+            }
         }
 
         private List<Checkpoint> BuildCheckpoints(IReadOnlyList<Vector2> points, float halfWidth, bool closedLoop, TrackDefinition trackDefinition)
