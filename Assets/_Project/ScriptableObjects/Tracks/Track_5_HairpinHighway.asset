@@ -1,0 +1,100 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98640449f4566d859a57797cf37b1e50, type: 3}
+  m_Name: Track_5_HairpinHighway
+  m_EditorClassIdentifier: 
+  trackId: track_05_hairpin_highway
+  displayName: Hairpin Highway
+  difficultyStars: 3
+  previewImage: {fileID: 0}
+  splinePoints:
+  - {x: -18, y: 8}
+  - {x: -12, y: 9}
+  - {x: -6, y: 10}
+  - {x: 0, y: 10}
+  - {x: 6, y: 10}
+  - {x: 10, y: 9}
+  - {x: 12, y: 6}
+  - {x: 10, y: 3}
+  - {x: 8, y: 0}
+  - {x: 8, y: -4}
+  - {x: 10, y: -7}
+  - {x: 12, y: -10}
+  - {x: 8, y: -11}
+  - {x: 4, y: -10}
+  - {x: -2, y: -10}
+  - {x: -8, y: -10}
+  - {x: -12, y: -9}
+  - {x: -15, y: -7}
+  - {x: -14, y: -3}
+  - {x: -12, y: 0}
+  - {x: -14, y: 4}
+  - {x: -16, y: 5}
+  - {x: -20, y: 7}
+  - {x: -20, y: 8}
+  isClosedLoop: 1
+  trackWidth: 4
+  lapCount: 1
+  isFree: 1
+  powerUpSpawns:
+  - t: 0.15
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: 9ed9fed69b72475da9ed381e26c589af, type: 2}
+    oneTimeUse: 0
+  - t: 0.35
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: b60d4dfa4c6a4d62b20a60e71c41a69b, type: 2}
+    oneTimeUse: 0
+  - t: 0.6
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: bd687dff3b6940e68f3e1d9e52015534, type: 2}
+    oneTimeUse: 0
+  - t: 0.85
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: bd687dff3b6940e68f3e1d9e52015534, type: 2}
+    oneTimeUse: 0
+  obstacleSpawns:
+  - type: Gravel
+    t: 0.2
+    lateralOffset: 0
+    size: {x: 7, y: 3}
+    teleportDistance: 0
+  - type: BlackHole
+    t: 0.28
+    lateralOffset: 1.5
+    size: {x: 1, y: 1}
+    teleportDistance: 10
+  - type: Wall
+    t: 0.45
+    lateralOffset: 1.5
+    size: {x: 2, y: 2}
+    teleportDistance: 0
+  - type: Gravel
+    t: 0.5
+    lateralOffset: 0
+    size: {x: 8, y: 3.5}
+    teleportDistance: 0
+  - type: BlackHole
+    t: 0.75
+    lateralOffset: -1.5
+    size: {x: 1, y: 1}
+    teleportDistance: 10
+  defaultZoom: 14
+  useSegmentZoomHints: 1
+  trackColor: {r: 0.106, g: 0.165, b: 0.165, a: 1}
+  borderColor: {r: 1, g: 0.42, b: 0.42, a: 1}
+  backgroundColor: {r: 0.055, g: 0.078, b: 0.078, a: 1}
+  trackIndex: 4
+  unlockTimeOnPreviousTrack: 90
+  maxSwipeCap: -1
+  parSwipeCount: 28
+  optimalLineGhostUrl: 

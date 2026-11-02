@@ -1,0 +1,80 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98640449f4566d859a57797cf37b1e50, type: 3}
+  m_Name: Track_3_ChicaneSprint
+  m_EditorClassIdentifier: 
+  trackId: track_03_chicane_sprint
+  displayName: Chicane Sprint
+  difficultyStars: 2
+  previewImage: {fileID: 0}
+  splinePoints:
+  - {x: -18, y: 0}
+  - {x: -16, y: 4}
+  - {x: -12, y: 8}
+  - {x: -6, y: 9}
+  - {x: 0, y: 8}
+  - {x: 4, y: 10}
+  - {x: 8, y: 8}
+  - {x: 12, y: 6}
+  - {x: 14, y: 2}
+  - {x: 13, y: -3}
+  - {x: 11, y: -7}
+  - {x: 6, y: -9}
+  - {x: 0, y: -10}
+  - {x: -6, y: -9}
+  - {x: -10, y: -7}
+  - {x: -13, y: -4}
+  - {x: -17, y: -1}
+  - {x: -18, y: -2}
+  isClosedLoop: 1
+  trackWidth: 5
+  lapCount: 1
+  isFree: 1
+  powerUpSpawns:
+  - t: 0.25
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: bd687dff3b6940e68f3e1d9e52015534, type: 2}
+    oneTimeUse: 0
+  - t: 0.5
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: c1711e2ac1844266a50c8c0580c7e5a3, type: 2}
+    oneTimeUse: 0
+  - t: 0.75
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: 1e9b2e8737c4455cb533e29a07cff6e8, type: 2}
+    oneTimeUse: 0
+  obstacleSpawns:
+  - type: Wall
+    t: 0.2
+    lateralOffset: 1
+    size: {x: 1.5, y: 1.5}
+    teleportDistance: 0
+  - type: BlackHole
+    t: 0.55
+    lateralOffset: 0
+    size: {x: 1, y: 1}
+    teleportDistance: 8
+  - type: Gravel
+    t: 0.85
+    lateralOffset: 0
+    size: {x: 8, y: 3.5}
+    teleportDistance: 0
+  defaultZoom: 14
+  useSegmentZoomHints: 1
+  trackColor: {r: 0.106, g: 0.165, b: 0.165, a: 1}
+  borderColor: {r: 0.878, g: 0.416, b: 0.769, a: 1}
+  backgroundColor: {r: 0.055, g: 0.078, b: 0.078, a: 1}
+  trackIndex: 2
+  unlockTimeOnPreviousTrack: 55
+  maxSwipeCap: -1
+  parSwipeCount: 14
+  optimalLineGhostUrl: 

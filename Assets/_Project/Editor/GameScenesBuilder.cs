@@ -1010,7 +1010,19 @@ namespace QuickChecks.Editor
             so.FindProperty("toastDialog").objectReferenceValue = toastRefs.Root;
             so.FindProperty("toastText").objectReferenceValue = toastRefs.MessageText;
             so.FindProperty("toastOkButton").objectReferenceValue = toastRefs.OkButton;
+
+            // Wire TrackLibrary asset — falls back to TrackFactory runtime generation if null
+            var trackLib = AssetDatabase.LoadAssetAtPath<Track.TrackLibrary>(
+                "Assets/_Project/ScriptableObjects/Tracks/TrackLibrary.asset");
+            so.FindProperty("trackLibrary").objectReferenceValue = trackLib;
             so.ApplyModifiedPropertiesWithoutUndo();
+
+            if (trackLib == null)
+            {
+                Debug.LogWarning("[GameScenesBuilder] TrackLibrary.asset not found at " +
+                                  "Assets/_Project/ScriptableObjects/Tracks/TrackLibrary.asset — " +
+                                  "TrackSelectController will fall back to TrackFactory runtime generation.");
+            }
 
             EditorSceneManager.SaveScene(scene, SCENES_DIR + "TrackSelect.unity");
             Debug.Log("[GameScenesBuilder] TrackSelect scene built (Phase 2 neon track cards + toast).");

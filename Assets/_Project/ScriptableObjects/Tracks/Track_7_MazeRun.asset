@@ -1,0 +1,130 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98640449f4566d859a57797cf37b1e50, type: 3}
+  m_Name: Track_7_MazeRun
+  m_EditorClassIdentifier: 
+  trackId: track_07_maze_run
+  displayName: Maze Run
+  difficultyStars: 4
+  previewImage: {fileID: 0}
+  splinePoints:
+  - {x: -22, y: 0}
+  - {x: -18, y: 1}
+  - {x: -14, y: 2}
+  - {x: -10, y: 5}
+  - {x: -8, y: 9}
+  - {x: -4, y: 10}
+  - {x: 0, y: 10}
+  - {x: 4, y: 10}
+  - {x: 8, y: 10}
+  - {x: 12, y: 9}
+  - {x: 13, y: 5}
+  - {x: 12, y: 1}
+  - {x: 8, y: 0}
+  - {x: 4, y: 0}
+  - {x: 0, y: 0}
+  - {x: -4, y: 0}
+  - {x: -8, y: -1}
+  - {x: -10, y: -5}
+  - {x: -8, y: -9}
+  - {x: -4, y: -10}
+  - {x: 0, y: -10}
+  - {x: 4, y: -10}
+  - {x: 8, y: -10}
+  - {x: 12, y: -9}
+  - {x: 14, y: -5}
+  - {x: 15, y: 0}
+  - {x: 16, y: 5}
+  - {x: 18, y: 9}
+  - {x: 20, y: 12}
+  - {x: 16, y: 14}
+  - {x: 8, y: 15}
+  - {x: -2, y: 15}
+  - {x: -12, y: 14}
+  - {x: -20, y: 12}
+  - {x: -22, y: 8}
+  - {x: -22, y: 4}
+  isClosedLoop: 1
+  trackWidth: 3.5
+  lapCount: 1
+  isFree: 1
+  powerUpSpawns:
+  - t: 0.05
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: bd687dff3b6940e68f3e1d9e52015534, type: 2}
+    oneTimeUse: 0
+  - t: 0.18
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: 9ed9fed69b72475da9ed381e26c589af, type: 2}
+    oneTimeUse: 0
+  - t: 0.4
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: 5e40f423079e49b18bdf8eab2d602962, type: 2}
+    oneTimeUse: 0
+  - t: 0.6
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: 17fabb6cf55b4406a5784f61bf9c06d0, type: 2}
+    oneTimeUse: 0
+  - t: 0.75
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: b60d4dfa4c6a4d62b20a60e71c41a69b, type: 2}
+    oneTimeUse: 0
+  - t: 0.92
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: a405f4f598bb47879f85830b6995fafd, type: 2}
+    oneTimeUse: 0
+  obstacleSpawns:
+  - type: Wall
+    t: 0.08
+    lateralOffset: 1.5
+    size: {x: 2, y: 2}
+    teleportDistance: 0
+  - type: BlackHole
+    t: 0.2
+    lateralOffset: 0
+    size: {x: 1, y: 1}
+    teleportDistance: 10
+  - type: Gravel
+    t: 0.28
+    lateralOffset: 0
+    size: {x: 8, y: 3.5}
+    teleportDistance: 0
+  - type: Wall
+    t: 0.42
+    lateralOffset: -1.5
+    size: {x: 2, y: 2}
+    teleportDistance: 0
+  - type: Gravel
+    t: 0.5
+    lateralOffset: 0
+    size: {x: 7, y: 3.5}
+    teleportDistance: 0
+  - type: Wall
+    t: 0.65
+    lateralOffset: 1.5
+    size: {x: 2, y: 2}
+    teleportDistance: 0
+  - type: BlackHole
+    t: 0.8
+    lateralOffset: 0
+    size: {x: 1, y: 1}
+    teleportDistance: 12
+  defaultZoom: 16
+  useSegmentZoomHints: 1
+  trackColor: {r: 0.106, g: 0.165, b: 0.165, a: 1}
+  borderColor: {r: 0.725, g: 0.514, b: 1, a: 1}
+  backgroundColor: {r: 0.055, g: 0.078, b: 0.078, a: 1}
+  trackIndex: 6
+  unlockTimeOnPreviousTrack: 130
+  maxSwipeCap: -1
+  parSwipeCount: 40
+  optimalLineGhostUrl: 

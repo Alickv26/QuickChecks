@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98640449f4566d859a57797cf37b1e50, type: 3}
+  m_Name: Track_2_Curves101
+  m_EditorClassIdentifier: 
+  trackId: track_02_curves_101
+  displayName: Curves 101
+  difficultyStars: 1
+  previewImage: {fileID: 0}
+  splinePoints:
+  - {x: -15, y: 0}
+  - {x: -15, y: 5}
+  - {x: -12, y: 8}
+  - {x: -8, y: 8}
+  - {x: -4, y: 8}
+  - {x: -2, y: 10}
+  - {x: 0, y: 10}
+  - {x: 4, y: 10}
+  - {x: 8, y: 8}
+  - {x: 10, y: 5}
+  - {x: 12, y: 2}
+  - {x: 10, y: -2}
+  - {x: 8, y: -5}
+  - {x: 5, y: -8}
+  - {x: 0, y: -10}
+  - {x: -5, y: -10}
+  - {x: -10, y: -8}
+  - {x: -15, y: -5}
+  isClosedLoop: 1
+  trackWidth: 5
+  lapCount: 1
+  isFree: 1
+  powerUpSpawns:
+  - t: 0.5
+    lateralOffset: 0
+    powerUp: {fileID: 11400000, guid: 17fabb6cf55b4406a5784f61bf9c06d0, type: 2}
+    oneTimeUse: 0
+  obstacleSpawns:
+  - type: Wall
+    t: 0.3
+    lateralOffset: 1
+    size: {x: 1.5, y: 1.5}
+    teleportDistance: 0
+  - type: Gravel
+    t: 0.7
+    lateralOffset: 0
+    size: {x: 7, y: 3}
+    teleportDistance: 0
+  defaultZoom: 15
+  useSegmentZoomHints: 1
+  trackColor: {r: 0.106, g: 0.165, b: 0.165, a: 1}
+  borderColor: {r: 0.337, g: 0.706, b: 0.913, a: 1}
+  backgroundColor: {r: 0.055, g: 0.078, b: 0.078, a: 1}
+  trackIndex: 1
+  unlockTimeOnPreviousTrack: 45
+  maxSwipeCap: -1
+  parSwipeCount: 10
+  optimalLineGhostUrl: 
