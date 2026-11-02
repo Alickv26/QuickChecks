@@ -44,6 +44,7 @@ namespace QuickChecks.Prototype
         private GhostRecorder _ghostRecorder;
         private CameraRig _cameraRig;
         private Camera.CameraFollowController _cameraFollowController;
+        private GameObject _cameraGo;
         private PrototypeHUD _hud;
         private SoloGhostPlayer _soloGhost;
 
@@ -162,6 +163,7 @@ namespace QuickChecks.Prototype
         private void BuildCamera()
         {
             var camGo = new GameObject("Main Camera");
+            _cameraGo = camGo;
             var cam = camGo.AddComponent<UnityEngine.Camera>();
             cam.orthographic = true;
             cam.orthographicSize = _trackDef.defaultZoom;
@@ -186,7 +188,7 @@ namespace QuickChecks.Prototype
             _trackData = splineBuilder.Build(_trackDef);
 
             // Compute track bounds from spline points for camera panning limits
-            var pinchZoom = camGo.GetComponent<QuickChecks.Input.PinchZoomInput>();
+            var pinchZoom = _cameraGo.GetComponent<QuickChecks.Input.PinchZoomInput>();
             if (pinchZoom != null && _trackDef.splinePoints != null && _trackDef.splinePoints.Length > 0)
             {
                 float minX = float.MaxValue, maxX = float.MinValue;
