@@ -194,11 +194,15 @@ namespace QuickChecks.Editor
             }
 
             // Assign the icon to all Android icon sizes
-            // PlayerSettings.SetIconsForTargetGroup takes a Texture2D[] (Unity picks the right size)
-            PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Android, new Texture2D[] { iconTex });
+            // Use the loaded texture for ALL icon sizes — Unity will scale as needed
+            var iconArray = new Texture2D[] { iconTex, iconTex, iconTex, iconTex, iconTex };
+            PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Android, iconArray);
+
+            // Also set the default icon (shows in task switcher, etc.)
+            PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Unknown, iconArray);
 
             AssetDatabase.SaveAssets();
-            Debug.Log("[BetaBuildConfig] App icon assigned from user-provided image.");
+            Debug.Log($"[BetaBuildConfig] App icon assigned from {iconPath} (texture size: {iconTex.width}x{iconTex.height}).");
         }
 
         /// <summary>Fallback: generates a placeholder icon if the real one is missing.</summary>

@@ -26,7 +26,7 @@ namespace QuickChecks.Track
         [SerializeField] private int checkpointCount = 8;
 
         [Header("Visual")]
-        [SerializeField] private Color trackColor = new Color(0.12f, 0.12f, 0.13f, 1f);  // Asphalt gray-black
+        [SerializeField] private Color trackColor = new Color(0.18f, 0.18f, 0.19f, 1f);  // Asphalt gray
         [SerializeField] private Color borderColor = new Color(0.247f, 0.878f, 0.760f, 1f); // #3FE0C2
         [SerializeField] private Color finishLineColor = new Color(0.247f, 0.878f, 0.760f, 0.6f);
         [SerializeField] private int trackSortingOrder = 0;
