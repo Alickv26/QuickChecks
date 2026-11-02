@@ -511,7 +511,7 @@ namespace QuickChecks.UI
             }
             if (string.IsNullOrEmpty(name))
             {
-                name = Supabase.Multiplayer.SupabaseAuth.Instance?.DisplayName ?? "Player";
+                name = SupabaseAuth.Instance?.DisplayName ?? "Player";
             }
             footerText.text = $"Playing as: {name}";
             footerText.fontSize = 20;
