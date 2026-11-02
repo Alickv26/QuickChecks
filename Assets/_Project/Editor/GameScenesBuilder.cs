@@ -1978,60 +1978,123 @@ namespace QuickChecks.Editor
                 esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
             }
 
-            // --- Top bar: name input + Save + Test + Back ---
-            var trackNameInput = CreateSimpleInputField(canvasGo.transform, "TrackNameInput",
-                "Track name…", new Vector2(0.5f, 0.96f), new Vector2(700, 60));
+            // --- Top bar container (full-width, blocks taps so the world doesn't get them) ---
+            // Wrap ALL top-row UI (name input + Save/Test/Back/Clear/Undo/Redo) inside a single
+            // Image panel with raycastTarget=true. Taps anywhere in this strip — including the
+            // gaps between buttons — are absorbed and won't register as world-space taps.
+            var topBarGo = new GameObject("TopBar");
+            topBarGo.transform.SetParent(canvasGo.transform, false);
+            topBarGo.AddComponent<RectTransform>();
+            var topBarRect = topBarGo.GetComponent<RectTransform>();
+            topBarRect.anchorMin = new Vector2(0, 1);
+            topBarRect.anchorMax = new Vector2(1, 1);
+            topBarRect.pivot = new Vector2(0.5f, 1);
+            topBarRect.offsetMin = new Vector2(0, -160);
+            topBarRect.offsetMax = new Vector2(0, 0);
+            var topBarImg = topBarGo.AddComponent<Image>();
+            topBarImg.color = new Color(0.05f, 0.08f, 0.08f, 0.92f);
+            topBarImg.raycastTarget = true;  // KEY: absorbs taps in the whole top bar
 
-            // Top bar buttons — evenly spaced, smaller, fit 4 in a row
-            var saveBtn = CreateSimpleButton(canvasGo.transform, "SaveButton", "Save",
-                new Vector2(0.15f, 0.88f), new Vector2(0, 0), new Vector2(180, 60),
-                Phase2UiPalette.AccentCyan, Phase2UiPalette.TextOnAccent);
+            // Top bar inner layout: two rows
+            //   Row 1 (y near top):    TrackNameInput (centered)
+            //   Row 2 (just below):    Save | Test | Back | Clear | Undo | Redo
+            var topBarVlg = topBarGo.AddComponent<VerticalLayoutGroup>();
+            topBarVlg.spacing = 8;
+            topBarVlg.padding = new RectOffset(20, 20, 16, 16);
+            topBarVlg.childAlignment = TextAnchor.UpperCenter;
+            topBarVlg.childControlWidth = true;
+            topBarVlg.childControlHeight = false;
+            topBarVlg.childForceExpandWidth = true;
+            topBarVlg.childForceExpandHeight = false;
 
-            var testBtn = CreateSimpleButton(canvasGo.transform, "TestButton", "Test Race",
-                new Vector2(0.40f, 0.88f), new Vector2(0, 0), new Vector2(180, 60),
-                new Color(0.42f, 0.79f, 0.47f, 0.9f), Color.white);
+            // --- Track name input (top of top bar) ---
+            var trackNameInput = CreateSimpleInputField(topBarGo.transform, "TrackNameInput",
+                "Track name…", new Vector2(0.5f, 1f), new Vector2(0, 50));
 
-            var backBtn = CreateSimpleButton(canvasGo.transform, "BackButton", "< Back",
-                new Vector2(0.65f, 0.88f), new Vector2(0, 0), new Vector2(180, 60),
-                Phase2UiPalette.PanelSurface, Phase2UiPalette.TextPrimary);
+            // --- Top bar button row (Save | Test | Back | Clear | Undo | Redo) ---
+            var topBtnRowGo = new GameObject("TopButtonRow");
+            topBtnRowGo.transform.SetParent(topBarGo.transform, false);
+            topBtnRowGo.AddComponent<RectTransform>();
+            var topBtnRowRect = topBtnRowGo.GetComponent<RectTransform>();
+            topBtnRowRect.sizeDelta = new Vector2(0, 70);
+            var topBtnRowImg = topBtnRowGo.AddComponent<Image>();
+            topBtnRowImg.color = new Color(0, 0, 0, 0);  // transparent — still raycast blocks
+            topBtnRowImg.raycastTarget = true;
+            var topBtnRowHlg = topBtnRowGo.AddComponent<HorizontalLayoutGroup>();
+            topBtnRowHlg.spacing = 10;
+            topBtnRowHlg.padding = new RectOffset(0, 0, 0, 0);
+            topBtnRowHlg.childAlignment = TextAnchor.MiddleCenter;
+            topBtnRowHlg.childControlWidth = true;
+            topBtnRowHlg.childControlHeight = false;
+            topBtnRowHlg.childForceExpandWidth = true;
+            topBtnRowHlg.childForceExpandHeight = false;
 
-            var clearBtn = CreateSimpleButton(canvasGo.transform, "ClearAllButton", "Clear All",
-                new Vector2(0.88f, 0.88f), new Vector2(0, 0), new Vector2(180, 60),
-                new Color(1f, 0.42f, 0.42f, 0.9f), Color.white);
+            var saveBtn = CreatePaletteButton(topBtnRowGo.transform, "SaveButton", "Save");
+            var testBtn = CreatePaletteButton(topBtnRowGo.transform, "TestButton", "Test Race");
+            var backBtn = CreatePaletteButton(topBtnRowGo.transform, "BackButton", "< Back");
+            var clearBtn = CreatePaletteButton(topBtnRowGo.transform, "ClearAllButton", "Clear All");
+            var undoBtn  = CreatePaletteButton(topBtnRowGo.transform, "UndoButton",  "Undo");
+            var redoBtn  = CreatePaletteButton(topBtnRowGo.transform, "RedoButton",  "Redo");
 
-            // --- Bottom bar: tool palette ---
-            var paletteGo = new GameObject("ToolPalette");
-            paletteGo.transform.SetParent(canvasGo.transform, false);
-            paletteGo.AddComponent<RectTransform>();
-            var paletteRect = paletteGo.GetComponent<RectTransform>();
-            paletteRect.anchorMin = new Vector2(0, 0);
-            paletteRect.anchorMax = new Vector2(1, 0);
-            paletteRect.pivot = new Vector2(0.5f, 0);
-            paletteRect.offsetMin = new Vector2(0, 0);
-            paletteRect.offsetMax = new Vector2(0, 120);
-            var paletteImg = paletteGo.AddComponent<Image>();
-            paletteImg.color = new Color(0.05f, 0.08f, 0.08f, 0.95f);
-            paletteImg.raycastTarget = false;
+            // --- Bottom bar: scrollable tool palette with bigger buttons ---
+            // Wrap the palette in a ScrollRect so it can scroll horizontally when the buttons
+            // overflow on narrow screens. Buttons are bigger (180x110) so they're easy to tap.
+            var paletteContainer = new GameObject("ToolPaletteContainer");
+            paletteContainer.transform.SetParent(canvasGo.transform, false);
+            paletteContainer.AddComponent<RectTransform>();
+            var pcRect = paletteContainer.GetComponent<RectTransform>();
+            pcRect.anchorMin = new Vector2(0, 0);
+            pcRect.anchorMax = new Vector2(1, 0);
+            pcRect.pivot = new Vector2(0.5f, 0);
+            pcRect.offsetMin = new Vector2(0, 0);
+            pcRect.offsetMax = new Vector2(0, 150);
+            var pcImg = paletteContainer.AddComponent<Image>();
+            pcImg.color = new Color(0.05f, 0.08f, 0.08f, 0.95f);
+            pcImg.raycastTarget = true;  // blocks taps on the palette area
 
-            var paletteHlg = paletteGo.AddComponent<HorizontalLayoutGroup>();
-            paletteHlg.spacing = 8;
+            // ScrollRect — horizontal scrolling only
+            var scrollRect = paletteContainer.AddComponent<ScrollRect>();
+            scrollRect.horizontal = true;
+            scrollRect.vertical = false;
+            scrollRect.scrollSensitivity = 30f;
+
+            // Content holder — grows with content, drives the scrollbar
+            var paletteContent = new GameObject("PaletteContent");
+            paletteContent.transform.SetParent(paletteContainer.transform, false);
+            paletteContent.AddComponent<RectTransform>();
+            var pcContentRect = paletteContent.GetComponent<RectTransform>();
+            pcContentRect.anchorMin = new Vector2(0, 0);
+            pcContentRect.anchorMax = new Vector2(0, 1);
+            pcContentRect.pivot = new Vector2(0, 0.5f);
+            pcContentRect.offsetMin = Vector2.zero;
+            pcContentRect.offsetMax = Vector2.zero;
+
+            var paletteHlg = paletteContent.AddComponent<HorizontalLayoutGroup>();
+            paletteHlg.spacing = 12;
             paletteHlg.padding = new RectOffset(20, 20, 20, 20);
-            paletteHlg.childAlignment = TextAnchor.MiddleCenter;
-            paletteHlg.childControlWidth = true;
+            paletteHlg.childAlignment = TextAnchor.MiddleLeft;
+            paletteHlg.childControlWidth = false;
             paletteHlg.childControlHeight = false;
-            paletteHlg.childForceExpandWidth = true;
+            paletteHlg.childForceExpandWidth = false;
             paletteHlg.childForceExpandHeight = false;
 
-            var drawBtn = CreatePaletteButton(paletteGo.transform, "DrawBtn", "Draw");
-            var freeDrawBtn = CreatePaletteButton(paletteGo.transform, "FreeDrawBtn", "Free Draw");
-            var wallBtn = CreatePaletteButton(paletteGo.transform, "WallBtn", "Wall");
-            var gravelBtn = CreatePaletteButton(paletteGo.transform, "GravelBtn", "Gravel");
-            var blackHoleBtn = CreatePaletteButton(paletteGo.transform, "BlackHoleBtn", "Black Hole");
-            var boostBtn = CreatePaletteButton(paletteGo.transform, "BoostBtn", "Boost");
-            var shieldBtn = CreatePaletteButton(paletteGo.transform, "ShieldBtn", "Shield");
-            var magnetBtn = CreatePaletteButton(paletteGo.transform, "MagnetBtn", "Magnet");
-            var slingshotBtn = CreatePaletteButton(paletteGo.transform, "SlingshotBtn", "Slingshot");
-            var selectBtn = CreatePaletteButton(paletteGo.transform, "SelectBtn", "Select");
+            var paletteCsf = paletteContent.AddComponent<ContentSizeFitter>();
+            paletteCsf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            paletteCsf.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+            scrollRect.content = pcContentRect;
+
+            // Now create the palette buttons (each bigger: 180x110)
+            var drawBtn       = CreateBigPaletteButton(paletteContent.transform, "DrawBtn",      "Draw");
+            var freeDrawBtn   = CreateBigPaletteButton(paletteContent.transform, "FreeDrawBtn",  "Free Draw");
+            var wallBtn       = CreateBigPaletteButton(paletteContent.transform, "WallBtn",      "Wall");
+            var gravelBtn     = CreateBigPaletteButton(paletteContent.transform, "GravelBtn",    "Gravel");
+            var blackHoleBtn  = CreateBigPaletteButton(paletteContent.transform, "BlackHoleBtn", "Black Hole");
+            var boostBtn      = CreateBigPaletteButton(paletteContent.transform, "BoostBtn",     "Boost");
+            var shieldBtn     = CreateBigPaletteButton(paletteContent.transform, "ShieldBtn",    "Shield");
+            var magnetBtn     = CreateBigPaletteButton(paletteContent.transform, "MagnetBtn",    "Magnet");
+            var slingshotBtn  = CreateBigPaletteButton(paletteContent.transform, "SlingshotBtn", "Slingshot");
+            var selectBtn     = CreateBigPaletteButton(paletteContent.transform, "SelectBtn",    "Select");
 
             // --- Selected item panel (right side, hidden by default) ---
             var selectedPanelGo = new GameObject("SelectedItemPanel");
@@ -2045,7 +2108,7 @@ namespace QuickChecks.Editor
             selectedRect.sizeDelta = new Vector2(280, 220);
             var selectedImg = selectedPanelGo.AddComponent<Image>();
             selectedImg.color = new Color(0.086f, 0.110f, 0.110f, 0.95f);
-            selectedImg.raycastTarget = false;
+            selectedImg.raycastTarget = true;
 
             var selectedVlg = selectedPanelGo.AddComponent<VerticalLayoutGroup>();
             selectedVlg.spacing = 12;
@@ -2103,7 +2166,7 @@ namespace QuickChecks.Editor
 
             selectedPanelGo.SetActive(false);
 
-            // --- Mode indicator text (top-left, just below the back button row) ---
+            // --- Mode indicator text (top-left, just below the top bar) ---
             var modeIndicatorText = Phase2UiPalette.CreateText("ModeIndicator", "Mode: DRAW", 24,
                 Phase2UiPalette.AccentCyan,
                 new Vector2(0.05f, 0.82f), new Vector2(400, 30),
@@ -2132,6 +2195,8 @@ namespace QuickChecks.Editor
             so.FindProperty("testButton").objectReferenceValue = testBtn;
             so.FindProperty("backButton").objectReferenceValue = backBtn;
             so.FindProperty("clearAllButton").objectReferenceValue = clearBtn;
+            so.FindProperty("undoButton").objectReferenceValue  = undoBtn;
+            so.FindProperty("redoButton").objectReferenceValue  = redoBtn;
             so.FindProperty("drawModeButton").objectReferenceValue = drawBtn;
             so.FindProperty("freeDrawModeButton").objectReferenceValue = freeDrawBtn;
             so.FindProperty("wallModeButton").objectReferenceValue = wallBtn;
@@ -2152,6 +2217,14 @@ namespace QuickChecks.Editor
 
             EditorSceneManager.SaveScene(scene, SCENES_DIR + "CustomTrackBuilder.unity");
             Debug.Log("[GameScenesBuilder] CustomTrackBuilder scene built.");
+        }
+
+        /// <summary>Bigger palette button (180x110) for the scrollable bottom palette — easier to tap on mobile.</summary>
+        private static Button CreateBigPaletteButton(Transform parent, string name, string label)
+        {
+            return CreateSimpleButton(parent, name, label,
+                new Vector2(0, 0), new Vector2(0, 0), new Vector2(180, 110),
+                new Color(0.086f, 0.110f, 0.110f, 0.9f), Phase2UiPalette.TextPrimary);
         }
 
         private static Button CreatePaletteButton(Transform parent, string name, string label)

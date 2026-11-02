@@ -37,6 +37,8 @@ namespace QuickChecks.UI
         [SerializeField] private Button testButton;
         [SerializeField] private Button backButton;
         [SerializeField] private Button clearAllButton;
+        [SerializeField] private Button undoButton;
+        [SerializeField] private Button redoButton;
 
         [Header("Tool palette buttons")]
         [SerializeField] private Button drawModeButton;
@@ -100,6 +102,75 @@ namespace QuickChecks.UI
         private float _lastFreeDrawSampleDist = 0f;
         private const float FREE_DRAW_SAMPLE_INTERVAL = 3.0f;  // sample a point every 3 world units of drag
 
+        // --- Undo / Redo ---
+        // We snapshot the track (deep copy of splinePoints/obstacles/powerUps) at every
+        // mutating action. Undo pops the current state onto the redo stack, then restores
+        // the previous state. Redo does the inverse. Clears redo stack on new mutation.
+        private readonly Stack<CustomTrackData> _undoStack = new();
+        private readonly Stack<CustomTrackData> _redoStack = new();
+        private const int MAX_UNDO_DEPTH = 50;
+
+        /// <summary>Snapshot the current track state BEFORE a mutation. Call at the start of every
+        /// mutating action (add/remove/move/etc). Does nothing if the snapshot is identical to
+        /// the top of the undo stack (avoids spamming stack with no-op snapshots during drags).</summary>
+        private void PushUndoSnapshot()
+        {
+            if (_track == null) return;
+            _undoStack.Push(CloneTrack(_track));
+            if (_undoStack.Count > MAX_UNDO_DEPTH) _undoStack.TrimExcess();
+            // New mutation invalidates the redo stack
+            _redoStack.Clear();
+            UpdateUndoRedoInteractable();
+        }
+
+        private void OnUndoClicked()
+        {
+            if (_undoStack.Count == 0) return;
+            // Push current state to redo stack so we can re-apply
+            _redoStack.Push(CloneTrack(_track));
+            _track = _undoStack.Pop();
+            DeselectAll();
+            RebuildTrackPreview();
+            UpdateStatus($"Undo ({_undoStack.Count} left in history).");
+            UpdateUndoRedoInteractable();
+        }
+
+        private void OnRedoClicked()
+        {
+            if (_redoStack.Count == 0) return;
+            _undoStack.Push(CloneTrack(_track));
+            _track = _redoStack.Pop();
+            DeselectAll();
+            RebuildTrackPreview();
+            UpdateStatus($"Redo ({_redoStack.Count} left in redo).");
+            UpdateUndoRedoInteractable();
+        }
+
+        private void UpdateUndoRedoInteractable()
+        {
+            if (undoButton != null) undoButton.interactable = _undoStack.Count > 0;
+            if (redoButton != null) redoButton.interactable = _redoStack.Count > 0;
+        }
+
+        /// <summary>Deep-clone a CustomTrackData (spline points + obstacles + power-ups + metadata).</summary>
+        private static CustomTrackData CloneTrack(CustomTrackData src)
+        {
+            return new CustomTrackData
+            {
+                trackId = src.trackId,
+                trackName = src.trackName,
+                authorId = src.authorId,
+                authorName = src.authorName,
+                isClosedLoop = src.isClosedLoop,
+                trackWidth = src.trackWidth,
+                defaultZoom = src.defaultZoom,
+                parSwipeCount = src.parSwipeCount,
+                splinePoints = new List<CustomTrackData.SerializableVector2>(src.splinePoints),
+                obstacles = new List<CustomTrackData.PlacedObstacle>(src.obstacles),
+                powerUps = new List<CustomTrackData.PlacedPowerUp>(src.powerUps)
+            };
+        }
+
         private void Start()
         {
             // Load existing track if we're editing, otherwise start fresh
@@ -138,6 +209,9 @@ namespace QuickChecks.UI
             WireButton(testButton, OnTestClicked);
             WireButton(backButton, OnBackClicked);
             WireButton(clearAllButton, OnClearAllClicked);
+            WireButton(undoButton, OnUndoClicked);
+            WireButton(redoButton, OnRedoClicked);
+            UpdateUndoRedoInteractable();
 
             WireModeButton(drawModeButton, BuilderMode.Draw);
             WireModeButton(freeDrawModeButton, BuilderMode.FreeDraw);
@@ -198,6 +272,9 @@ namespace QuickChecks.UI
                 _mode = mode;
                 DeselectAll();
                 UpdateModeIndicators();
+                // Refresh the preview so point markers show/hide correctly when switching modes
+                // (e.g., Draw mode hides points when track is built; Select mode shows them).
+                RebuildTrackPreview();
             });
             if (btn.GetComponent<ButtonHoverFx>() == null) btn.gameObject.AddComponent<ButtonHoverFx>();
         }
@@ -403,6 +480,8 @@ namespace QuickChecks.UI
             int pointIdx = FindNearestPointIndex(worldPos, POINT_SELECT_RADIUS);
             if (pointIdx >= 0)
             {
+                // Snapshot BEFORE the drag begins mutating — one undo entry per drag gesture
+                PushUndoSnapshot();
                 _selectedPointIdx = pointIdx;
                 _isDragging = true;
                 if (_mode == BuilderMode.Select)
@@ -418,8 +497,10 @@ namespace QuickChecks.UI
                 int obsIdx = FindNearestObstacleIndex(worldPos);
                 if (obsIdx >= 0)
                 {
+                    PushUndoSnapshot();
                     _selectedObstacleIdx = obsIdx;
                     _selectedPowerUpIdx = -1;
+                    _obstacleResizeHasSnapshot = false;
                     ShowSelectedItemPanel(isObstacle: true);
                     _isDragging = true;
                     return;
@@ -427,6 +508,7 @@ namespace QuickChecks.UI
                 int puIdx = FindNearestPowerUpIndex(worldPos);
                 if (puIdx >= 0)
                 {
+                    PushUndoSnapshot();
                     _selectedPowerUpIdx = puIdx;
                     _selectedObstacleIdx = -1;
                     ShowSelectedItemPanel(isObstacle: false);
@@ -492,6 +574,7 @@ namespace QuickChecks.UI
 
         private void AddPoint(Vector3 pos)
         {
+            PushUndoSnapshot();
             _track.splinePoints.Add(CustomTrackData.SerializableVector2.From(pos));
             RebuildTrackPreview();
             int remaining = 6 - _track.splinePoints.Count;
@@ -503,6 +586,7 @@ namespace QuickChecks.UI
 
         private void PlaceObstacle(string type, Vector3 pos, Vector2 defaultSize)
         {
+            PushUndoSnapshot();
             _track.obstacles.Add(new CustomTrackData.PlacedObstacle
             {
                 type = type,
@@ -518,6 +602,7 @@ namespace QuickChecks.UI
 
         private void PlacePowerUp(string type, Vector3 pos)
         {
+            PushUndoSnapshot();
             _track.powerUps.Add(new CustomTrackData.PlacedPowerUp
             {
                 type = type,
@@ -589,6 +674,7 @@ namespace QuickChecks.UI
             _selectedPointIdx = -1;
             _selectedObstacleIdx = -1;
             _selectedPowerUpIdx = -1;
+            _obstacleResizeHasSnapshot = false;
             if (selectedItemPanel != null) selectedItemPanel.SetActive(false);
         }
 
@@ -615,27 +701,39 @@ namespace QuickChecks.UI
         private void OnSizeSliderChanged(float value)
         {
             if (_selectedObstacleIdx < 0) return;
+            // Only snapshot once per drag — would otherwise flood the undo stack.
+            // We snapshot on first change after selection; subsequent slider changes
+            // in the same gesture share one undo entry.
+            if (!_obstacleResizeHasSnapshot)
+            {
+                PushUndoSnapshot();
+                _obstacleResizeHasSnapshot = true;
+            }
             var o = _track.obstacles[_selectedObstacleIdx];
             o.size = CustomTrackData.SerializableVector2.From(new Vector2(value, value));
             RebuildTrackPreview();
         }
+        private bool _obstacleResizeHasSnapshot = false;
 
         private void OnDeleteSelectedItemClicked()
         {
             if (_selectedObstacleIdx >= 0)
             {
+                PushUndoSnapshot();
                 _track.obstacles.RemoveAt(_selectedObstacleIdx);
                 _selectedObstacleIdx = -1;
                 UpdateStatus("Obstacle deleted.");
             }
             else if (_selectedPowerUpIdx >= 0)
             {
+                PushUndoSnapshot();
                 _track.powerUps.RemoveAt(_selectedPowerUpIdx);
                 _selectedPowerUpIdx = -1;
                 UpdateStatus("Power-up deleted.");
             }
             else if (_selectedPointIdx >= 0)
             {
+                PushUndoSnapshot();
                 _track.splinePoints.RemoveAt(_selectedPointIdx);
                 _selectedPointIdx = -1;
                 UpdateStatus("Point deleted.");
@@ -662,26 +760,48 @@ namespace QuickChecks.UI
             if (_trackPreviewRoot != null) Destroy(_trackPreviewRoot);
             _trackPreviewRoot = new GameObject("TrackPreview");
 
+            bool hasBuiltTrack = _track.splinePoints.Count >= 6;
+            bool trackMeshIsVisible = false;
+
             // Only build the actual track mesh if we have enough points for a closed loop (6 = 3*2 segments)
-            if (_track.splinePoints.Count >= 6)
+            if (hasBuiltTrack)
             {
                 var def = CustomTrackLibrary.ToTrackDefinition(_track);
                 var builderGo = new GameObject("SplineBuilder");
                 builderGo.transform.SetParent(_trackPreviewRoot.transform, false);
                 var splineBuilder = builderGo.AddComponent<SplineTrackBuilder>();
                 splineBuilder.Build(def);
+                trackMeshIsVisible = true;
             }
 
-            // Draw point markers (small colored squares)
-            for (int i = 0; i < _track.splinePoints.Count; i++)
+            // Decide whether to show point markers:
+            //   - Always show if track isn't yet built (count < 6) — no mesh to see anyway
+            //   - In Select mode, always show (so user can grab and drag points)
+            //   - In Draw / FreeDraw / Wall / Gravel / BlackHole / Boost / Shield / Magnet / Slingshot:
+            //     hide markers once the track is built — the rendered track is what the user
+            //     wants to see. (Exception: keep the currently-dragged point visible so the
+            //     user sees what they're moving.)
+            bool showPoints = !hasBuiltTrack
+                              || _mode == BuilderMode.Select
+                              || _selectedPointIdx >= 0;
+
+            if (showPoints)
             {
-                var p = _track.splinePoints[i].ToVector2();
-                var marker = CreateMarker($"Point_{i}", p, 0.5f,
-                    i == _selectedPointIdx ? selectedPointColor : pointColor, sortingOrder: 20);
-                _pointMarkers.Add(marker);
+                // Draw point markers (small colored squares)
+                for (int i = 0; i < _track.splinePoints.Count; i++)
+                {
+                    // If the track mesh is visible, only render the selected point (not all of them)
+                    // — otherwise markers cover the track surface.
+                    if (trackMeshIsVisible && i != _selectedPointIdx) continue;
+
+                    var p = _track.splinePoints[i].ToVector2();
+                    var marker = CreateMarker($"Point_{i}", p, 0.5f,
+                        i == _selectedPointIdx ? selectedPointColor : pointColor, sortingOrder: 20);
+                    _pointMarkers.Add(marker);
+                }
             }
 
-            // Draw obstacle markers
+            // Draw obstacle markers (always visible)
             for (int i = 0; i < _track.obstacles.Count; i++)
             {
                 var o = _track.obstacles[i];
@@ -697,7 +817,7 @@ namespace QuickChecks.UI
                 _obstacleMarkers.Add(marker);
             }
 
-            // Draw power-up markers
+            // Draw power-up markers (always visible)
             for (int i = 0; i < _track.powerUps.Count; i++)
             {
                 var p = _track.powerUps[i];
@@ -794,6 +914,12 @@ namespace QuickChecks.UI
 
         private void OnClearAllClicked()
         {
+            if (_track.splinePoints.Count == 0 && _track.obstacles.Count == 0 && _track.powerUps.Count == 0)
+            {
+                UpdateStatus("Nothing to clear.");
+                return;
+            }
+            PushUndoSnapshot();
             _track.splinePoints.Clear();
             _track.obstacles.Clear();
             _track.powerUps.Clear();
