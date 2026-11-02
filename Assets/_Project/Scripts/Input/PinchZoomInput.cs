@@ -30,6 +30,9 @@ namespace QuickChecks.Input
         [SerializeField] private float panSensitivity = 1.0f;
         [Tooltip("After panning, how long before the follow camera re-centers on the kart (seconds).")]
         [SerializeField] private float panRecenterDelay = 3f;
+        [Tooltip("Maximum distance the camera can pan away from the follow target (kart). " +
+                 "Prevents the player from panning the track completely off-screen.")]
+        [SerializeField] private float maxPanDistance = 12f;
 
         [Header("Mouse (Editor)")]
         [SerializeField] private float mouseWheelZoomSpeed = 2f;
@@ -152,7 +155,21 @@ namespace QuickChecks.Input
 
             // Add to pan offset (not raw position) so the follow camera respects it
             _panOffset += worldDelta;
+            // Clamp pan offset so the camera never pans too far from the kart
+            _panOffset = ClampPanOffset(_panOffset);
             _panRecenterTimer = panRecenterDelay;
+        }
+
+        /// <summary>Clamps the pan offset to maxPanDistance (in world units) from the follow target.</summary>
+        private Vector3 ClampPanOffset(Vector3 offset)
+        {
+            // Limit how far the camera can drift from the kart
+            float dist = offset.magnitude;
+            if (dist > maxPanDistance)
+            {
+                offset = offset.normalized * maxPanDistance;
+            }
+            return offset;
         }
 
         private void HandleMouseWheel()
