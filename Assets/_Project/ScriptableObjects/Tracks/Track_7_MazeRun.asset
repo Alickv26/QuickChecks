@@ -60,33 +60,33 @@ MonoBehaviour:
   powerUpSpawns:
   - t: 0.05
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: 892cff09a8cb4b289a98aa8316602b55, type: 2}
+    powerUp: {fileID: 11400000, guid: 95e6f2aff05c4fdda9b5252bfa0b3447, type: 2}
     oneTimeUse: 0
   - t: 0.18
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: 0d61c734e8884bd297a075f3c9617944, type: 2}
+    powerUp: {fileID: 11400000, guid: e95014bfd157425dbf5b8ae921624954, type: 2}
     oneTimeUse: 0
   - t: 0.4
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: 20f06e2b3fa5472198e46c5e9efc4db2, type: 2}
+    powerUp: {fileID: 11400000, guid: 85ac972d6ba5497198fc70ac5244462f, type: 2}
     oneTimeUse: 0
   - t: 0.6
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: edcb0b46d7b54933a546ab0d434c9deb, type: 2}
+    powerUp: {fileID: 11400000, guid: 8eb5a0f0a2c8474b9789eda1005d23d2, type: 2}
     oneTimeUse: 0
   - t: 0.75
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: d99c189ba6ca4ba68cf9c779ed2a6a8b, type: 2}
+    powerUp: {fileID: 11400000, guid: b39938b0a907460893fe5eaa87e73047, type: 2}
     oneTimeUse: 0
   - t: 0.92
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: ee186aeb2ee0493aba32fa6c55575751, type: 2}
+    powerUp: {fileID: 11400000, guid: 9f957cf483864869889aca9063631392, type: 2}
     oneTimeUse: 0
   obstacleSpawns:
   - type: Wall
     t: 0.08
-    lateralOffset: 1.5
-    size: {x: 2, y: 2}
+    lateralOffset: 1
+    size: {x: 1, y: 1}
     teleportDistance: 0
   - type: BlackHole
     t: 0.2
@@ -100,8 +100,8 @@ MonoBehaviour:
     teleportDistance: 0
   - type: Wall
     t: 0.42
-    lateralOffset: -1.5
-    size: {x: 2, y: 2}
+    lateralOffset: -1
+    size: {x: 1, y: 1}
     teleportDistance: 0
   - type: Gravel
     t: 0.5
@@ -110,8 +110,8 @@ MonoBehaviour:
     teleportDistance: 0
   - type: Wall
     t: 0.65
-    lateralOffset: 1.5
-    size: {x: 2, y: 2}
+    lateralOffset: 1
+    size: {x: 1, y: 1}
     teleportDistance: 0
   - type: BlackHole
     t: 0.8

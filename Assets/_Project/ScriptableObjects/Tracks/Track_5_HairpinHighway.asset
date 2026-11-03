@@ -48,19 +48,19 @@ MonoBehaviour:
   powerUpSpawns:
   - t: 0.15
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: 0d61c734e8884bd297a075f3c9617944, type: 2}
+    powerUp: {fileID: 11400000, guid: e95014bfd157425dbf5b8ae921624954, type: 2}
     oneTimeUse: 0
   - t: 0.35
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: d99c189ba6ca4ba68cf9c779ed2a6a8b, type: 2}
+    powerUp: {fileID: 11400000, guid: b39938b0a907460893fe5eaa87e73047, type: 2}
     oneTimeUse: 0
   - t: 0.6
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: 892cff09a8cb4b289a98aa8316602b55, type: 2}
+    powerUp: {fileID: 11400000, guid: 95e6f2aff05c4fdda9b5252bfa0b3447, type: 2}
     oneTimeUse: 0
   - t: 0.85
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: 892cff09a8cb4b289a98aa8316602b55, type: 2}
+    powerUp: {fileID: 11400000, guid: 95e6f2aff05c4fdda9b5252bfa0b3447, type: 2}
     oneTimeUse: 0
   obstacleSpawns:
   - type: Gravel
@@ -75,8 +75,8 @@ MonoBehaviour:
     teleportDistance: 10
   - type: Wall
     t: 0.45
-    lateralOffset: 1.5
-    size: {x: 2, y: 2}
+    lateralOffset: 1
+    size: {x: 1.2, y: 1.2}
     teleportDistance: 0
   - type: Gravel
     t: 0.5

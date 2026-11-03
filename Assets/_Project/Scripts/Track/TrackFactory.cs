@@ -522,8 +522,8 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.45f, lateralOffset = 1.5f,
-                    size = new Vector2(2f, 2f),
+                    t = 0.45f, lateralOffset = 1.0f,
+                    size = new Vector2(1.2f, 1.2f),
                     teleportDistance = 0f
                 },
                 // Long gravel trap before the bottom hairpin
@@ -639,8 +639,8 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.12f, lateralOffset = 1.5f,
-                    size = new Vector2(2f, 2f),
+                    t = 0.12f, lateralOffset = 1.2f,
+                    size = new Vector2(1.5f, 1.5f),
                     teleportDistance = 0f
                 },
                 // Gravel at the right curve apex
@@ -791,8 +791,8 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.08f, lateralOffset = 1.5f,
-                    size = new Vector2(2f, 2f),
+                    t = 0.08f, lateralOffset = 1.0f,
+                    size = new Vector2(1.0f, 1.0f),
                     teleportDistance = 0f
                 },
                 // Black hole at the top corridor midpoint
@@ -815,8 +815,8 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.42f, lateralOffset = -1.5f,
-                    size = new Vector2(2f, 2f),
+                    t = 0.42f, lateralOffset = -1.0f,
+                    size = new Vector2(1.0f, 1.0f),
                     teleportDistance = 0f
                 },
                 // Gravel at descent to bottom
@@ -831,8 +831,8 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.65f, lateralOffset = 1.5f,
-                    size = new Vector2(2f, 2f),
+                    t = 0.65f, lateralOffset = 1.0f,
+                    size = new Vector2(1.0f, 1.0f),
                     teleportDistance = 0f
                 },
                 // Black hole at the right side (mid-climb)
@@ -963,8 +963,8 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.06f, lateralOffset = 1.5f,
-                    size = new Vector2(2f, 2f),
+                    t = 0.06f, lateralOffset = 1.0f,
+                    size = new Vector2(1.0f, 1.0f),
                     teleportDistance = 0f
                 },
                 // Black hole at the first hairpin exit
@@ -987,8 +987,8 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.28f, lateralOffset = -1.5f,
-                    size = new Vector2(2f, 2f),
+                    t = 0.28f, lateralOffset = -1.0f,
+                    size = new Vector2(1.0f, 1.0f),
                     teleportDistance = 0f
                 },
                 // Black hole at top straight midpoint
@@ -1011,8 +1011,8 @@ namespace QuickChecks.Track
                 new TrackDefinition.ObstacleSpawn
                 {
                     type = TrackDefinition.ObstacleSpawn.ObstacleType.Wall,
-                    t = 0.60f, lateralOffset = 1.5f,
-                    size = new Vector2(2f, 2f),
+                    t = 0.60f, lateralOffset = 1.0f,
+                    size = new Vector2(1.0f, 1.0f),
                     teleportDistance = 0f
                 },
                 // Black hole at the inner chicane entry

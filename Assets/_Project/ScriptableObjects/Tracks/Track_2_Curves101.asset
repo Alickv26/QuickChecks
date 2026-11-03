@@ -42,7 +42,7 @@ MonoBehaviour:
   powerUpSpawns:
   - t: 0.5
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: edcb0b46d7b54933a546ab0d434c9deb, type: 2}
+    powerUp: {fileID: 11400000, guid: 8eb5a0f0a2c8474b9789eda1005d23d2, type: 2}
     oneTimeUse: 0
   obstacleSpawns:
   - type: Wall
