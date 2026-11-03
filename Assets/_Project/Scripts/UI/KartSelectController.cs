@@ -43,6 +43,18 @@ namespace QuickChecks.UI
         [SerializeField] private TMP_Text toastText;
         [SerializeField] private Button toastOkButton;
 
+        [Header("Kart Detail Panel (shown on kart click)")]
+        [Tooltip("Modal panel shown when a kart is tapped. Contains the kart's full context: name, archetype, description, stats with explanations, and a 'Race with this kart' button.")]
+        [SerializeField] private GameObject kartDetailPanel;
+        [SerializeField] private TMP_Text detailKartName;
+        [SerializeField] private TMP_Text detailArchetype;
+        [SerializeField] private TMP_Text detailDescription;
+        [SerializeField] private TMP_Text detailPlaystyle;
+        [SerializeField] private Transform detailStatsContainer;
+        [SerializeField] private Button detailRaceButton;
+        [SerializeField] private TMP_Text detailRaceButtonText;
+        [SerializeField] private Button detailCloseButton;
+
         private KartStats _selectedKart;
         private TrackDefinition _selectedTrack;
 
@@ -51,6 +63,10 @@ namespace QuickChecks.UI
         private int _totalPlayers = 1;
         private bool _isMultiKartMode = false;
         private System.Collections.Generic.List<KartStats> _playerKarts = new();
+
+        // The kart the user is currently viewing in the detail panel (set on click).
+        // Becomes the selected kart only if they tap the 'Race with this kart' button.
+        private KartStats _pendingKart;
 
         private void Start()
         {
@@ -100,6 +116,28 @@ namespace QuickChecks.UI
                         toastDialog.SetActive(false);
                     });
                     EnsureHoverFx(toastOkButton);
+                }
+            }
+
+            // Kart detail panel — hidden by default, shown on kart click
+            if (kartDetailPanel != null)
+            {
+                kartDetailPanel.SetActive(false);
+                if (detailRaceButton != null)
+                {
+                    detailRaceButton.onClick.RemoveAllListeners();
+                    detailRaceButton.onClick.AddListener(OnDetailRaceClicked);
+                    EnsureHoverFx(detailRaceButton);
+                }
+                if (detailCloseButton != null)
+                {
+                    detailCloseButton.onClick.RemoveAllListeners();
+                    detailCloseButton.onClick.AddListener(() =>
+                    {
+                        if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+                        HideKartDetail();
+                    });
+                    EnsureHoverFx(detailCloseButton);
                 }
             }
 
@@ -337,6 +375,7 @@ namespace QuickChecks.UI
 
         private void OnKartClicked(KartStats kart)
         {
+            if (kart == null) return;
             bool unlocked = IsKartUnlocked(kart);
 
             if (!unlocked)
@@ -357,6 +396,110 @@ namespace QuickChecks.UI
             }
 
             if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+
+            // Show the kart detail panel instead of selecting immediately.
+            // User confirms selection via the panel's 'Race with this kart' button.
+            ShowKartDetail(kart);
+        }
+
+        // =====================================================================
+        // Kart detail panel
+        // =====================================================================
+
+        private void ShowKartDetail(KartStats kart)
+        {
+            _pendingKart = kart;
+            if (kartDetailPanel == null)
+            {
+                // No panel wired — fall back to old behavior (select immediately)
+                Debug.LogWarning("[KartSelect] kartDetailPanel not wired — selecting kart directly.");
+                ConfirmKartSelection(kart);
+                return;
+            }
+
+            // Header: name + archetype
+            if (detailKartName != null)
+            {
+                detailKartName.text = kart.displayName;
+                detailKartName.color = Phase2UiPalette.TextPrimary;
+            }
+            if (detailArchetype != null)
+            {
+                detailArchetype.text = kart.archetypeLabel.ToUpperInvariant();
+                detailArchetype.color = kart.kartColor;
+            }
+            if (detailDescription != null)
+            {
+                detailDescription.text = kart.description;
+                detailDescription.color = Phase2UiPalette.TextPrimary;
+            }
+
+            // Playstyle summary — human-readable explanation of what this kart is good at,
+            // derived from its stats. Helps the user understand the numeric stats below.
+            if (detailPlaystyle != null)
+            {
+                detailPlaystyle.text = BuildPlaystyleSummary(kart);
+                detailPlaystyle.color = new Color(0.247f, 0.878f, 0.760f, 1f);
+            }
+
+            // Stats list — labeled with what each stat MEANS (not just the raw number)
+            if (detailStatsContainer != null)
+            {
+                // Clear old stat rows
+                for (int i = detailStatsContainer.childCount - 1; i >= 0; i--)
+                    Destroy(detailStatsContainer.GetChild(i).gameObject);
+
+                AddDetailStatRow(detailStatsContainer, "Power",
+                    "How hard each swipe pushes the kart. Higher = faster off the line.",
+                    $"{kart.impulseMultiplier:F2}×", kart.PowerRating,
+                    new Color(1f, 0.42f, 0.42f), kart.kartColor);
+
+                AddDetailStatRow(detailStatsContainer, "Control",
+                    "How quickly the kart stops after a swipe. Higher = stops where you aim.",
+                    $"{kart.frictionPerSecond:F2} / sec", kart.ControlRating,
+                    new Color(0.247f, 0.878f, 0.760f), kart.kartColor);
+
+                AddDetailStatRow(detailStatsContainer, "Boost",
+                    "Multiplier + duration of the Boost power-up effect.",
+                    $"{kart.boostMultiplier:F1}× for {kart.boostDurationSec:F1}s", kart.BoostRating,
+                    new Color(1f, 0.82f, 0.4f), kart.kartColor);
+
+                AddDetailStatRow(detailStatsContainer, "Top Speed",
+                    "Hard cap on velocity. Reach it with a big swipe + boost.",
+                    $"{kart.maxSpeed:F0} u/s", -1,  // no star rating for this one
+                    new Color(0.725f, 0.514f, 1f), kart.kartColor);
+            }
+
+            // Race button label includes the kart name so it's clear what you're starting
+            if (detailRaceButtonText != null)
+            {
+                detailRaceButtonText.text = _isMultiKartMode
+                    ? $"CONFIRM FOR PLAYER {_currentPlayerIndex + 1}"
+                    : $"RACE WITH {kart.displayName.ToUpperInvariant()}";
+            }
+
+            kartDetailPanel.SetActive(true);
+        }
+
+        private void HideKartDetail()
+        {
+            if (kartDetailPanel != null) kartDetailPanel.SetActive(false);
+            _pendingKart = null;
+        }
+
+        /// <summary>Called when the user taps 'Race with this kart' in the detail panel.</summary>
+        private void OnDetailRaceClicked()
+        {
+            if (_pendingKart == null) return;
+            if (SfxPlayer.Instance != null) SfxPlayer.Instance.PlayMenuClick();
+            var kart = _pendingKart;
+            HideKartDetail();
+            ConfirmKartSelection(kart);
+        }
+
+        /// <summary>Commits the kart selection (was the body of OnKartClicked before this refactor).</summary>
+        private void ConfirmKartSelection(KartStats kart)
+        {
             Debug.Log($"[KartSelect] Selected kart: {kart.displayName} ({kart.kartId})");
 
             if (_isMultiKartMode)
@@ -397,6 +540,124 @@ namespace QuickChecks.UI
             // Rebuild grid to update "SELECTED" chip
             BuildKartGrid();
             UpdateRaceButton();
+        }
+
+        /// <summary>Builds a one-line human-readable summary of the kart's playstyle based on its stats.</summary>
+        private static string BuildPlaystyleSummary(KartStats kart)
+        {
+            // Highest stat wins → that's the kart's strength
+            int power = kart.PowerRating;
+            int control = kart.ControlRating;
+            int boost = kart.BoostRating;
+            int maxRating = Mathf.Max(power, control, boost);
+
+            if (maxRating == 0)
+                return "Balanced — no standout strengths, no weaknesses.";
+
+            // Multiple stats tied at the top → describe the combo
+            var strengths = new System.Collections.Generic.List<string>();
+            if (power == maxRating) strengths.Add("big swipes");
+            if (control == maxRating) strengths.Add("precise stops");
+            if (boost == maxRating) strengths.Add("boost chains");
+            string strengthStr = strengths.Count == 1
+                ? strengths[0]
+                : string.Join(" + ", strengths.ToArray());
+
+            // Speed archetype
+            bool isHighSpeed = kart.maxSpeed >= 280;
+            bool isLowFriction = kart.frictionPerSecond < 0.18f;  // coasts longer
+            string archetype = isHighSpeed
+                ? (isLowFriction ? "Glass cannon — fast but unforgiving" : "Speed — high top speed")
+                : (isLowFriction ? "Coaster — long coast between swipes" : "All-rounder");
+
+            return $"Best at: {strengthstr}. {archetype}.";
+        }
+
+        /// <summary>Adds a labeled stat row to the detail panel: name (left), description (small below name), value (right).</summary>
+        private void AddDetailStatRow(Transform parent, string label, string description, string valueStr,
+                                       int starRating, Color barColor, Color accentColor)
+        {
+            var rowGo = new GameObject($"DetailStat_{label}");
+            rowGo.transform.SetParent(parent, false);
+            var hlg = rowGo.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 16;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = true;
+            hlg.childForceExpandHeight = false;
+
+            // Left: label + description (stacked vertically)
+            var labelColGo = new GameObject("LabelCol");
+            labelColGo.transform.SetParent(rowGo.transform, false);
+            var labelVlg = labelColGo.AddComponent<VerticalLayoutGroup>();
+            labelVlg.spacing = 2;
+            labelVlg.childAlignment = TextAnchor.UpperLeft;
+            labelVlg.childControlWidth = true;
+            labelVlg.childControlHeight = false;
+            labelVlg.childForceExpandWidth = true;
+            labelVlg.childForceExpandHeight = false;
+            var labelColLayout = labelColGo.AddComponent<LayoutElement>();
+            labelColLayout.flexibleWidth = 1;
+
+            var labelGo = new GameObject("Label");
+            labelGo.transform.SetParent(labelColGo.transform, false);
+            var labelText = labelGo.AddComponent<TextMeshProUGUI>();
+            labelText.text = label;
+            labelText.fontSize = 26;
+            labelText.fontStyle = FontStyles.Bold;
+            labelText.alignment = TextAlignmentOptions.Left;
+            labelText.color = accentColor;
+            labelText.raycastTarget = false;
+
+            var descGo = new GameObject("Description");
+            descGo.transform.SetParent(labelColGo.transform, false);
+            var descText = descGo.AddComponent<TextMeshProUGUI>();
+            descText.text = description;
+            descText.fontSize = 18;
+            descText.alignment = TextAlignmentOptions.Left;
+            descText.color = new Color(0.7f, 0.7f, 0.7f, 0.9f);
+            descText.enableWordWrapping = true;
+            descText.raycastTarget = false;
+            var descLayout = descGo.AddComponent<LayoutElement>();
+            descLayout.preferredHeight = 40;
+
+            // Right: value text + optional stars
+            var valColGo = new GameObject("ValueCol");
+            valColGo.transform.SetParent(rowGo.transform, false);
+            var valVlg = valColGo.AddComponent<VerticalLayoutGroup>();
+            valVlg.spacing = 2;
+            valVlg.childAlignment = TextAnchor.MiddleRight;
+            valVlg.childControlWidth = false;
+            valVlg.childControlHeight = false;
+            valVlg.childForceExpandWidth = false;
+            valVlg.childForceExpandHeight = false;
+            var valColLayout = valColGo.AddComponent<LayoutElement>();
+            valColLayout.preferredWidth = 220;
+            valColLayout.flexibleWidth = 0;
+
+            var valGo = new GameObject("Value");
+            valGo.transform.SetParent(valColGo.transform, false);
+            var valText = valGo.AddComponent<TextMeshProUGUI>();
+            valText.text = valueStr;
+            valText.fontSize = 22;
+            valText.alignment = TextAlignmentOptions.Right;
+            valText.color = barColor;
+            valText.raycastTarget = false;
+
+            // Star rating (if applicable)
+            if (starRating >= 0)
+            {
+                var starsGo = new GameObject("Stars");
+                starsGo.transform.SetParent(valColGo.transform, false);
+                var starsText = starsGo.AddComponent<TextMeshProUGUI>();
+                // Filled stars = rating, empty = 3-rating. Use Unicode stars (U+2605/2606).
+                starsText.text = new string('★', starRating) + new string('☆', 3 - starRating);
+                starsText.fontSize = 24;
+                starsText.alignment = TextAlignmentOptions.Right;
+                starsText.color = barColor;
+                starsText.raycastTarget = false;
+            }
         }
 
         /// <summary>Shows the "Pass to Player N" overlay between P&P kart selections.</summary>

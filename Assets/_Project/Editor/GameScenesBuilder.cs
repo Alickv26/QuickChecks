@@ -792,9 +792,10 @@ namespace QuickChecks.Editor
             dotsRect.anchorMin = new Vector2(0.5f, 0.10f);
             dotsRect.anchorMax = new Vector2(0.5f, 0.10f);
             dotsRect.pivot = new Vector2(0.5f, 0.5f);
-            dotsRect.sizeDelta = new Vector2(400, 20);
+            // Taller container to fit the bigger dots (28px) + labels (32px) + spacing
+            dotsRect.sizeDelta = new Vector2(600, 80);
             var dotsHlg = dotsGo.AddComponent<HorizontalLayoutGroup>();
-            dotsHlg.spacing = 12;
+            dotsHlg.spacing = 24;
             dotsHlg.childAlignment = TextAnchor.MiddleCenter;
             dotsHlg.childControlWidth = false;
             dotsHlg.childControlHeight = false;
@@ -1437,6 +1438,156 @@ namespace QuickChecks.Editor
             rlR.pivot = new Vector2(0.5f, 0.5f);
             rlR.offsetMin = Vector2.zero; rlR.offsetMax = Vector2.zero;
 
+            // --- Kart Detail Panel (modal, shown on kart click) ---
+            // Full-screen dimmer + centered card. Visible only when the user taps a kart.
+            var detailDimmerGo = new GameObject("KartDetailPanel");
+            detailDimmerGo.transform.SetParent(canvasGo.transform, false);
+            var detailDimmerRect = detailDimmerGo.AddComponent<RectTransform>();
+            detailDimmerRect.anchorMin = Vector2.zero;
+            detailDimmerRect.anchorMax = Vector2.one;
+            detailDimmerRect.pivot = new Vector2(0.5f, 0.5f);
+            detailDimmerRect.offsetMin = Vector2.zero;
+            detailDimmerRect.offsetMax = Vector2.zero;
+            var detailDimmerImg = detailDimmerGo.AddComponent<Image>();
+            detailDimmerImg.color = new Color(0, 0, 0, 0.7f);  // dim background
+            detailDimmerImg.raycastTarget = true;  // blocks taps on the kart grid behind
+
+            // Inner card (centered, 80% width, 80% height)
+            var detailCardGo = new GameObject("DetailCard");
+            detailCardGo.transform.SetParent(detailDimmerGo.transform, false);
+            var detailCardRect = detailCardGo.AddComponent<RectTransform>();
+            detailCardRect.anchorMin = new Vector2(0.5f, 0.5f);
+            detailCardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            detailCardRect.pivot = new Vector2(0.5f, 0.5f);
+            detailCardRect.sizeDelta = new Vector2(900, 1300);
+            var detailCardImg = detailCardGo.AddComponent<Image>();
+            detailCardImg.color = new Color(0.05f, 0.08f, 0.08f, 0.98f);
+            detailCardImg.raycastTarget = true;
+            var detailCardVlg = detailCardGo.AddComponent<VerticalLayoutGroup>();
+            detailCardVlg.spacing = 16;
+            detailCardVlg.padding = new RectOffset(40, 40, 32, 32);
+            detailCardVlg.childAlignment = TextAnchor.UpperCenter;
+            detailCardVlg.childControlWidth = true;
+            detailCardVlg.childControlHeight = false;
+            detailCardVlg.childForceExpandWidth = true;
+            detailCardVlg.childForceExpandHeight = false;
+
+            // Close (X) button — top-right corner of the card
+            var detailCloseGo = new GameObject("CloseButton");
+            detailCloseGo.transform.SetParent(detailCardGo.transform, false);
+            var detailCloseBtn = detailCloseGo.AddComponent<Button>();
+            var detailCloseImg = detailCloseGo.AddComponent<Image>();
+            detailCloseImg.color = new Color(0.15f, 0.2f, 0.2f, 0.9f);
+            detailCloseImg.raycastTarget = true;
+            detailCloseBtn.targetGraphic = detailCloseImg;
+            var detailCloseRect = detailCloseGo.GetComponent<RectTransform>();
+            detailCloseRect.anchorMin = new Vector2(1, 1);
+            detailCloseRect.anchorMax = new Vector2(1, 1);
+            detailCloseRect.pivot = new Vector2(1, 1);
+            detailCloseRect.anchoredPosition = new Vector2(-12, -12);
+            detailCloseRect.sizeDelta = new Vector2(80, 80);
+            var detailCloseLabelGo = new GameObject("Label");
+            detailCloseLabelGo.transform.SetParent(detailCloseGo.transform, false);
+            var detailCloseLabel = detailCloseLabelGo.AddComponent<TextMeshProUGUI>();
+            detailCloseLabel.text = "X";  // plain ASCII — works with default TMP font
+            detailCloseLabel.fontSize = 48;
+            detailCloseLabel.alignment = TextAlignmentOptions.Center;
+            detailCloseLabel.color = Color.white;
+            detailCloseLabel.raycastTarget = false;
+            var dclR = detailCloseLabelGo.GetComponent<RectTransform>();
+            dclR.anchorMin = Vector2.zero; dclR.anchorMax = Vector2.one;
+            dclR.pivot = new Vector2(0.5f, 0.5f);
+            dclR.offsetMin = Vector2.zero; dclR.offsetMax = Vector2.zero;
+
+            // Kart name (big, top of card)
+            var detailNameText = Phase2UiPalette.CreateText("DetailName", "", 60,
+                Phase2UiPalette.TextPrimary, new Vector2(0.5f, 1f), new Vector2(0, 70),
+                TextAlignmentOptions.Center, false, detailCardGo.transform);
+            var detailNameRect = detailNameText.GetComponent<RectTransform>();
+            detailNameRect.anchorMin = new Vector2(0, 1);
+            detailNameRect.anchorMax = new Vector2(1, 1);
+            detailNameRect.pivot = new Vector2(0.5f, 1);
+            detailNameRect.offsetMin = Vector2.zero; detailNameRect.offsetMax = Vector2.zero;
+
+            // Archetype label (accent color, below name)
+            var detailArchetypeText = Phase2UiPalette.CreateText("DetailArchetype", "", 32,
+                Phase2UiPalette.AccentCyan, new Vector2(0.5f, 1f), new Vector2(0, 40),
+                TextAlignmentOptions.Center, false, detailCardGo.transform);
+            var detailArchetypeRect = detailArchetypeText.GetComponent<RectTransform>();
+            detailArchetypeRect.anchorMin = new Vector2(0, 1);
+            detailArchetypeRect.anchorMax = new Vector2(1, 1);
+            detailArchetypeRect.pivot = new Vector2(0.5f, 1);
+            detailArchetypeRect.offsetMin = Vector2.zero; detailArchetypeRect.offsetMax = Vector2.zero;
+
+            // Description (italic, mid-card)
+            var detailDescText = Phase2UiPalette.CreateText("DetailDesc", "", 28,
+                Phase2UiPalette.TextPrimary, new Vector2(0.5f, 1f), new Vector2(0, 80),
+                TextAlignmentOptions.Center, false, detailCardGo.transform);
+            var detailDescRect = detailDescText.GetComponent<RectTransform>();
+            detailDescRect.anchorMin = new Vector2(0, 1);
+            detailDescRect.anchorMax = new Vector2(1, 1);
+            detailDescRect.pivot = new Vector2(0.5f, 1);
+            detailDescRect.offsetMin = Vector2.zero; detailDescRect.offsetMax = Vector2.zero;
+            detailDescText.enableWordWrapping = true;
+            var detailDescLayout = detailDescText.gameObject.AddComponent<LayoutElement>();
+            detailDescLayout.preferredHeight = 80;
+
+            // Playstyle summary (cyan accent, mid-card)
+            var detailPlaystyleText = Phase2UiPalette.CreateText("DetailPlaystyle", "", 24,
+                Phase2UiPalette.AccentCyan, new Vector2(0.5f, 1f), new Vector2(0, 40),
+                TextAlignmentOptions.Center, false, detailCardGo.transform);
+            var detailPlaystyleRect = detailPlaystyleText.GetComponent<RectTransform>();
+            detailPlaystyleRect.anchorMin = new Vector2(0, 1);
+            detailPlaystyleRect.anchorMax = new Vector2(1, 1);
+            detailPlaystyleRect.pivot = new Vector2(0.5f, 1);
+            detailPlaystyleRect.offsetMin = Vector2.zero; detailPlaystyleRect.offsetMax = Vector2.zero;
+            detailPlaystyleText.enableWordWrapping = true;
+            var detailPlaystyleLayout = detailPlaystyleText.gameObject.AddComponent<LayoutElement>();
+            detailPlaystyleLayout.preferredHeight = 40;
+
+            // Stats container (below playstyle, holds one row per stat)
+            var detailStatsGo = new GameObject("DetailStatsContainer");
+            detailStatsGo.transform.SetParent(detailCardGo.transform, false);
+            var detailStatsRect = detailStatsGo.AddComponent<RectTransform>();
+            detailStatsRect.sizeDelta = new Vector2(0, 0);
+            var detailStatsVlg = detailStatsGo.AddComponent<VerticalLayoutGroup>();
+            detailStatsVlg.spacing = 12;
+            detailStatsVlg.padding = new RectOffset(0, 0, 0, 0);
+            detailStatsVlg.childAlignment = TextAnchor.UpperCenter;
+            detailStatsVlg.childControlWidth = true;
+            detailStatsVlg.childControlHeight = false;
+            detailStatsVlg.childForceExpandWidth = true;
+            detailStatsVlg.childForceExpandHeight = false;
+            var detailStatsLayout = detailStatsGo.AddComponent<LayoutElement>();
+            detailStatsLayout.preferredHeight = 320;
+            var detailStatsCsf = detailStatsGo.AddComponent<ContentSizeFitter>();
+            detailStatsCsf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            // Race button (big, bottom of card)
+            var detailRaceGo = new GameObject("DetailRaceButton");
+            detailRaceGo.transform.SetParent(detailCardGo.transform, false);
+            var detailRaceBtn = detailRaceGo.AddComponent<Button>();
+            var detailRaceImg = detailRaceGo.AddComponent<Image>();
+            detailRaceImg.color = Phase2UiPalette.AccentCyan;
+            detailRaceImg.raycastTarget = true;
+            detailRaceBtn.targetGraphic = detailRaceImg;
+            var detailRaceRect = detailRaceGo.GetComponent<RectTransform>();
+            detailRaceRect.sizeDelta = new Vector2(0, 100);
+            var detailRaceLabelGo = new GameObject("Label");
+            detailRaceLabelGo.transform.SetParent(detailRaceGo.transform, false);
+            var detailRaceLabel = detailRaceLabelGo.AddComponent<TextMeshProUGUI>();
+            detailRaceLabel.text = "RACE WITH THIS KART";
+            detailRaceLabel.fontSize = 40;
+            detailRaceLabel.alignment = TextAlignmentOptions.Center;
+            detailRaceLabel.color = Phase2UiPalette.TextOnAccent;
+            detailRaceLabel.raycastTarget = false;
+            var drlR = detailRaceLabelGo.GetComponent<RectTransform>();
+            drlR.anchorMin = Vector2.zero; drlR.anchorMax = Vector2.one;
+            drlR.pivot = new Vector2(0.5f, 0.5f);
+            drlR.offsetMin = Vector2.zero; drlR.offsetMax = Vector2.zero;
+
+            detailDimmerGo.SetActive(false);
+
             // Toast dialog
             var toastRefs = BuildToastDialog(canvasGo.transform);
 
@@ -1466,6 +1617,16 @@ namespace QuickChecks.Editor
             so.FindProperty("toastDialog").objectReferenceValue = toastRefs.Root;
             so.FindProperty("toastText").objectReferenceValue = toastRefs.MessageText;
             so.FindProperty("toastOkButton").objectReferenceValue = toastRefs.OkButton;
+            // Kart detail panel
+            so.FindProperty("kartDetailPanel").objectReferenceValue = detailDimmerGo;
+            so.FindProperty("detailKartName").objectReferenceValue = detailNameText;
+            so.FindProperty("detailArchetype").objectReferenceValue = detailArchetypeText;
+            so.FindProperty("detailDescription").objectReferenceValue = detailDescText;
+            so.FindProperty("detailPlaystyle").objectReferenceValue = detailPlaystyleText;
+            so.FindProperty("detailStatsContainer").objectReferenceValue = detailStatsGo.transform;
+            so.FindProperty("detailRaceButton").objectReferenceValue = detailRaceBtn;
+            so.FindProperty("detailRaceButtonText").objectReferenceValue = detailRaceLabel;
+            so.FindProperty("detailCloseButton").objectReferenceValue = detailCloseBtn;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             if (kartLib == null)

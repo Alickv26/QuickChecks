@@ -142,20 +142,20 @@ namespace QuickChecks.UI
                 var dotGo = new GameObject($"Dot_{i}");
                 dotGo.transform.SetParent(dotsContainer, false);
 
-                // Dot circle
+                // Dot circle (bigger — was 10x10, now 28x28 so it's tappable on mobile)
                 var dotImg = dotGo.AddComponent<Image>();
                 dotImg.raycastTarget = false;
                 var dotLayout = dotGo.AddComponent<LayoutElement>();
-                dotLayout.preferredWidth = 10;
-                dotLayout.preferredHeight = 10;
+                dotLayout.preferredWidth = 28;
+                dotLayout.preferredHeight = 28;
                 dotLayout.flexibleWidth = 0;
 
-                // Label below the dot
+                // Label below the dot (bigger — was 22, now 32)
                 var labelGo = new GameObject("Label");
                 labelGo.transform.SetParent(dotGo.transform, false);
                 var label = labelGo.AddComponent<TextMeshProUGUI>();
                 label.text = _cards[i].dotLabel;
-                label.fontSize = 22;
+                label.fontSize = 32;
                 label.fontStyle = FontStyles.Bold;
                 label.alignment = TextAlignmentOptions.Center;
                 label.color = new Color(0.7f, 0.7f, 0.7f, 0.9f);
@@ -164,16 +164,16 @@ namespace QuickChecks.UI
                 labelRect.anchorMin = new Vector2(0.5f, 0);
                 labelRect.anchorMax = new Vector2(0.5f, 0);
                 labelRect.pivot = new Vector2(0.5f, 1);
-                labelRect.anchoredPosition = new Vector2(0, -14);
-                labelRect.sizeDelta = new Vector2(100, 18);
+                labelRect.anchoredPosition = new Vector2(0, -8);
+                labelRect.sizeDelta = new Vector2(160, 32);
 
                 // Add a vertical layout so the dot + label stack
                 var vlg = dotGo.AddComponent<VerticalLayoutGroup>();
-                vlg.spacing = 4;
+                vlg.spacing = 8;
                 vlg.childAlignment = TextAnchor.MiddleCenter;
                 vlg.childControlWidth = false;
                 vlg.childControlHeight = false;
-                vlg.padding = new RectOffset(8, 8, 0, 18);
+                vlg.padding = new RectOffset(8, 8, 0, 32);
             }
             UpdateDots();
         }
