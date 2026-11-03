@@ -570,7 +570,7 @@ namespace QuickChecks.UI
                 ? (isLowFriction ? "Glass cannon — fast but unforgiving" : "Speed — high top speed")
                 : (isLowFriction ? "Coaster — long coast between swipes" : "All-rounder");
 
-            return $"Best at: {strengthstr}. {archetype}.";
+            return $"Best at: {strengthStr}. {archetype}.";
         }
 
         /// <summary>Adds a labeled stat row to the detail panel: name (left), description (small below name), value (right).</summary>
