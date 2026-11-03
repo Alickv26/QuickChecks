@@ -142,20 +142,20 @@ namespace QuickChecks.UI
                 var dotGo = new GameObject($"Dot_{i}");
                 dotGo.transform.SetParent(dotsContainer, false);
 
-                // Dot circle (bigger — was 10x10, now 28x28 so it's tappable on mobile)
+                // Dot circle (much bigger — was 28x28, now 48x48 so it's a real visual indicator)
                 var dotImg = dotGo.AddComponent<Image>();
                 dotImg.raycastTarget = false;
                 var dotLayout = dotGo.AddComponent<LayoutElement>();
-                dotLayout.preferredWidth = 28;
-                dotLayout.preferredHeight = 28;
+                dotLayout.preferredWidth = 48;
+                dotLayout.preferredHeight = 48;
                 dotLayout.flexibleWidth = 0;
 
-                // Label below the dot (bigger — was 22, now 32)
+                // Label below the dot (much bigger — was 32, now 40)
                 var labelGo = new GameObject("Label");
                 labelGo.transform.SetParent(dotGo.transform, false);
                 var label = labelGo.AddComponent<TextMeshProUGUI>();
                 label.text = _cards[i].dotLabel;
-                label.fontSize = 32;
+                label.fontSize = 40;
                 label.fontStyle = FontStyles.Bold;
                 label.alignment = TextAlignmentOptions.Center;
                 label.color = new Color(0.7f, 0.7f, 0.7f, 0.9f);
@@ -164,16 +164,16 @@ namespace QuickChecks.UI
                 labelRect.anchorMin = new Vector2(0.5f, 0);
                 labelRect.anchorMax = new Vector2(0.5f, 0);
                 labelRect.pivot = new Vector2(0.5f, 1);
-                labelRect.anchoredPosition = new Vector2(0, -8);
-                labelRect.sizeDelta = new Vector2(160, 32);
+                labelRect.anchoredPosition = new Vector2(0, -10);
+                labelRect.sizeDelta = new Vector2(200, 44);
 
                 // Add a vertical layout so the dot + label stack
                 var vlg = dotGo.AddComponent<VerticalLayoutGroup>();
-                vlg.spacing = 8;
+                vlg.spacing = 10;
                 vlg.childAlignment = TextAnchor.MiddleCenter;
                 vlg.childControlWidth = false;
                 vlg.childControlHeight = false;
-                vlg.padding = new RectOffset(8, 8, 0, 32);
+                vlg.padding = new RectOffset(8, 8, 0, 44);
             }
             UpdateDots();
         }

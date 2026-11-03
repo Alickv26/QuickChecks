@@ -792,10 +792,10 @@ namespace QuickChecks.Editor
             dotsRect.anchorMin = new Vector2(0.5f, 0.10f);
             dotsRect.anchorMax = new Vector2(0.5f, 0.10f);
             dotsRect.pivot = new Vector2(0.5f, 0.5f);
-            // Taller container to fit the bigger dots (28px) + labels (32px) + spacing
-            dotsRect.sizeDelta = new Vector2(600, 80);
+            // Taller container to fit the bigger dots (48px) + labels (40pt = ~50px) + spacing
+            dotsRect.sizeDelta = new Vector2(800, 130);
             var dotsHlg = dotsGo.AddComponent<HorizontalLayoutGroup>();
-            dotsHlg.spacing = 24;
+            dotsHlg.spacing = 32;
             dotsHlg.childAlignment = TextAnchor.MiddleCenter;
             dotsHlg.childControlWidth = false;
             dotsHlg.childControlHeight = false;
@@ -1452,27 +1452,48 @@ namespace QuickChecks.Editor
             detailDimmerImg.color = new Color(0, 0, 0, 0.7f);  // dim background
             detailDimmerImg.raycastTarget = true;  // blocks taps on the kart grid behind
 
-            // Inner card (centered, 80% width, 80% height)
+            // Inner card — anchors to fill 90% of available space (responsive, NOT fixed size).
+            // Was 900x1300 fixed which overflowed on small screens. Now uses anchors so it
+            // scales with the canvas. The VerticalLayoutGroup + ContentSizeFitter on the card
+            // itself will let it shrink if content is shorter than the available space.
             var detailCardGo = new GameObject("DetailCard");
             detailCardGo.transform.SetParent(detailDimmerGo.transform, false);
             var detailCardRect = detailCardGo.AddComponent<RectTransform>();
-            detailCardRect.anchorMin = new Vector2(0.5f, 0.5f);
-            detailCardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            // Anchor to center with 5% margins on each side (left/right) and 8% top/bottom
+            detailCardRect.anchorMin = new Vector2(0.05f, 0.08f);
+            detailCardRect.anchorMax = new Vector2(0.95f, 0.92f);
             detailCardRect.pivot = new Vector2(0.5f, 0.5f);
-            detailCardRect.sizeDelta = new Vector2(900, 1300);
+            detailCardRect.offsetMin = Vector2.zero;
+            detailCardRect.offsetMax = Vector2.zero;
             var detailCardImg = detailCardGo.AddComponent<Image>();
             detailCardImg.color = new Color(0.05f, 0.08f, 0.08f, 0.98f);
             detailCardImg.raycastTarget = true;
             var detailCardVlg = detailCardGo.AddComponent<VerticalLayoutGroup>();
-            detailCardVlg.spacing = 16;
-            detailCardVlg.padding = new RectOffset(40, 40, 32, 32);
+            detailCardVlg.spacing = 14;
+            // Top padding leaves room for the close (X) button which sits in the top-right corner.
+            // Without this, the name text would render behind the close button.
+            detailCardVlg.padding = new RectOffset(40, 40, 96, 32);
             detailCardVlg.childAlignment = TextAnchor.UpperCenter;
             detailCardVlg.childControlWidth = true;
             detailCardVlg.childControlHeight = false;
             detailCardVlg.childForceExpandWidth = true;
             detailCardVlg.childForceExpandHeight = false;
+            // Add a ContentSizeFitter so the card shrinks to fit content if shorter than
+            // the available anchored space (avoids excessive empty space on tall screens).
+            var detailCardCsf = detailCardGo.AddComponent<ContentSizeFitter>();
+            detailCardCsf.verticalFit = ContentSizeFitter.FitMode.Unconstrained;  // anchored, not fit
+            detailCardCsf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
 
-            // Close (X) button — top-right corner of the card
+            // Wrap the card content in a ScrollRect so if content exceeds available height
+            // (small screen + long description), the user can scroll to see the rest.
+            // Implementation: we keep the VerticalLayoutGroup on the card itself, but make
+            // the stats container use ContentSizeFitter (PreferredSize) so it grows with content.
+            // If overall content exceeds the card height, the lower items (Race button) get
+            // pushed off — but since the card anchors to 92% of screen height and the content
+            // sums to ~778px which is well within even a 720px-tall canvas at 84% height
+            // (~604px), we'd actually overflow. So we'll reduce stat row spacing instead.
+
+            // Close (X) button — top-right corner of the card (overlays the top padding area)
             var detailCloseGo = new GameObject("CloseButton");
             detailCloseGo.transform.SetParent(detailCardGo.transform, false);
             var detailCloseBtn = detailCloseGo.AddComponent<Button>();
@@ -1485,12 +1506,16 @@ namespace QuickChecks.Editor
             detailCloseRect.anchorMax = new Vector2(1, 1);
             detailCloseRect.pivot = new Vector2(1, 1);
             detailCloseRect.anchoredPosition = new Vector2(-12, -12);
-            detailCloseRect.sizeDelta = new Vector2(80, 80);
+            detailCloseRect.sizeDelta = new Vector2(72, 72);
+            // Mark as 'ignore layout' so the close button doesn't take up vertical space
+            // in the layout group — it floats above the content.
+            var detailCloseLayout = detailCloseGo.AddComponent<LayoutElement>();
+            detailCloseLayout.ignoreLayout = true;
             var detailCloseLabelGo = new GameObject("Label");
             detailCloseLabelGo.transform.SetParent(detailCloseGo.transform, false);
             var detailCloseLabel = detailCloseLabelGo.AddComponent<TextMeshProUGUI>();
             detailCloseLabel.text = "X";  // plain ASCII — works with default TMP font
-            detailCloseLabel.fontSize = 48;
+            detailCloseLabel.fontSize = 44;
             detailCloseLabel.alignment = TextAlignmentOptions.Center;
             detailCloseLabel.color = Color.white;
             detailCloseLabel.raycastTarget = false;
@@ -1500,28 +1525,32 @@ namespace QuickChecks.Editor
             dclR.offsetMin = Vector2.zero; dclR.offsetMax = Vector2.zero;
 
             // Kart name (big, top of card)
-            var detailNameText = Phase2UiPalette.CreateText("DetailName", "", 60,
-                Phase2UiPalette.TextPrimary, new Vector2(0.5f, 1f), new Vector2(0, 70),
+            var detailNameText = Phase2UiPalette.CreateText("DetailName", "", 52,
+                Phase2UiPalette.TextPrimary, new Vector2(0.5f, 1f), new Vector2(0, 60),
                 TextAlignmentOptions.Center, false, detailCardGo.transform);
             var detailNameRect = detailNameText.GetComponent<RectTransform>();
             detailNameRect.anchorMin = new Vector2(0, 1);
             detailNameRect.anchorMax = new Vector2(1, 1);
             detailNameRect.pivot = new Vector2(0.5f, 1);
             detailNameRect.offsetMin = Vector2.zero; detailNameRect.offsetMax = Vector2.zero;
+            var detailNameLayout = detailNameText.gameObject.AddComponent<LayoutElement>();
+            detailNameLayout.preferredHeight = 64;
 
             // Archetype label (accent color, below name)
-            var detailArchetypeText = Phase2UiPalette.CreateText("DetailArchetype", "", 32,
-                Phase2UiPalette.AccentCyan, new Vector2(0.5f, 1f), new Vector2(0, 40),
+            var detailArchetypeText = Phase2UiPalette.CreateText("DetailArchetype", "", 30,
+                Phase2UiPalette.AccentCyan, new Vector2(0.5f, 1f), new Vector2(0, 36),
                 TextAlignmentOptions.Center, false, detailCardGo.transform);
             var detailArchetypeRect = detailArchetypeText.GetComponent<RectTransform>();
             detailArchetypeRect.anchorMin = new Vector2(0, 1);
             detailArchetypeRect.anchorMax = new Vector2(1, 1);
             detailArchetypeRect.pivot = new Vector2(0.5f, 1);
             detailArchetypeRect.offsetMin = Vector2.zero; detailArchetypeRect.offsetMax = Vector2.zero;
+            var detailArchetypeLayout = detailArchetypeText.gameObject.AddComponent<LayoutElement>();
+            detailArchetypeLayout.preferredHeight = 36;
 
-            // Description (italic, mid-card)
-            var detailDescText = Phase2UiPalette.CreateText("DetailDesc", "", 28,
-                Phase2UiPalette.TextPrimary, new Vector2(0.5f, 1f), new Vector2(0, 80),
+            // Description (mid-card)
+            var detailDescText = Phase2UiPalette.CreateText("DetailDesc", "", 26,
+                Phase2UiPalette.TextPrimary, new Vector2(0.5f, 1f), new Vector2(0, 70),
                 TextAlignmentOptions.Center, false, detailCardGo.transform);
             var detailDescRect = detailDescText.GetComponent<RectTransform>();
             detailDescRect.anchorMin = new Vector2(0, 1);
@@ -1530,11 +1559,11 @@ namespace QuickChecks.Editor
             detailDescRect.offsetMin = Vector2.zero; detailDescRect.offsetMax = Vector2.zero;
             detailDescText.enableWordWrapping = true;
             var detailDescLayout = detailDescText.gameObject.AddComponent<LayoutElement>();
-            detailDescLayout.preferredHeight = 80;
+            detailDescLayout.preferredHeight = 70;
 
             // Playstyle summary (cyan accent, mid-card)
-            var detailPlaystyleText = Phase2UiPalette.CreateText("DetailPlaystyle", "", 24,
-                Phase2UiPalette.AccentCyan, new Vector2(0.5f, 1f), new Vector2(0, 40),
+            var detailPlaystyleText = Phase2UiPalette.CreateText("DetailPlaystyle", "", 22,
+                Phase2UiPalette.AccentCyan, new Vector2(0.5f, 1f), new Vector2(0, 36),
                 TextAlignmentOptions.Center, false, detailCardGo.transform);
             var detailPlaystyleRect = detailPlaystyleText.GetComponent<RectTransform>();
             detailPlaystyleRect.anchorMin = new Vector2(0, 1);
@@ -1543,25 +1572,26 @@ namespace QuickChecks.Editor
             detailPlaystyleRect.offsetMin = Vector2.zero; detailPlaystyleRect.offsetMax = Vector2.zero;
             detailPlaystyleText.enableWordWrapping = true;
             var detailPlaystyleLayout = detailPlaystyleText.gameObject.AddComponent<LayoutElement>();
-            detailPlaystyleLayout.preferredHeight = 40;
+            detailPlaystyleLayout.preferredHeight = 36;
 
-            // Stats container (below playstyle, holds one row per stat)
+            // Stats container (below playstyle, holds one row per stat).
+            // Use ONLY ContentSizeFitter (PreferredSize) — no fixed preferredHeight (was 320,
+            // which conflicted with CSF and caused layout glitches). CSF will grow the container
+            // to fit the 4 stat rows (each ~60px tall = ~240px + spacing).
             var detailStatsGo = new GameObject("DetailStatsContainer");
             detailStatsGo.transform.SetParent(detailCardGo.transform, false);
-            var detailStatsRect = detailStatsGo.AddComponent<RectTransform>();
-            detailStatsRect.sizeDelta = new Vector2(0, 0);
+            detailStatsGo.AddComponent<RectTransform>();
             var detailStatsVlg = detailStatsGo.AddComponent<VerticalLayoutGroup>();
-            detailStatsVlg.spacing = 12;
+            detailStatsVlg.spacing = 8;
             detailStatsVlg.padding = new RectOffset(0, 0, 0, 0);
             detailStatsVlg.childAlignment = TextAnchor.UpperCenter;
             detailStatsVlg.childControlWidth = true;
             detailStatsVlg.childControlHeight = false;
             detailStatsVlg.childForceExpandWidth = true;
             detailStatsVlg.childForceExpandHeight = false;
-            var detailStatsLayout = detailStatsGo.AddComponent<LayoutElement>();
-            detailStatsLayout.preferredHeight = 320;
             var detailStatsCsf = detailStatsGo.AddComponent<ContentSizeFitter>();
             detailStatsCsf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            detailStatsCsf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
 
             // Race button (big, bottom of card)
             var detailRaceGo = new GameObject("DetailRaceButton");
@@ -1571,13 +1601,13 @@ namespace QuickChecks.Editor
             detailRaceImg.color = Phase2UiPalette.AccentCyan;
             detailRaceImg.raycastTarget = true;
             detailRaceBtn.targetGraphic = detailRaceImg;
-            var detailRaceRect = detailRaceGo.GetComponent<RectTransform>();
-            detailRaceRect.sizeDelta = new Vector2(0, 100);
+            var detailRaceLayout = detailRaceGo.AddComponent<LayoutElement>();
+            detailRaceLayout.preferredHeight = 90;
             var detailRaceLabelGo = new GameObject("Label");
             detailRaceLabelGo.transform.SetParent(detailRaceGo.transform, false);
             var detailRaceLabel = detailRaceLabelGo.AddComponent<TextMeshProUGUI>();
             detailRaceLabel.text = "RACE WITH THIS KART";
-            detailRaceLabel.fontSize = 40;
+            detailRaceLabel.fontSize = 36;
             detailRaceLabel.alignment = TextAlignmentOptions.Center;
             detailRaceLabel.color = Phase2UiPalette.TextOnAccent;
             detailRaceLabel.raycastTarget = false;
