@@ -19,4 +19,5 @@ MonoBehaviour:
   effectColor: {r: 0.42, g: 0.792, b: 0.467, a: 1}
   instantUse: 0
   durationSec: 0
+  expiresOnTurnEnd: 0
   rewindDurationSec: 1

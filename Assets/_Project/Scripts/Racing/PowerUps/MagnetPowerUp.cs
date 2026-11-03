@@ -4,12 +4,14 @@ namespace QuickChecks.Racing.PowerUps
 {
     /// <summary>
     /// MAGNET — Defensive power-up.
-    /// Effect: Pulls nearby power-up pickups toward the kart for 6 seconds.
-    /// Duration: 6 seconds.
-    /// Pickup: Instant use.
+    /// Effect: Pulls nearby power-up pickups toward the kart for the rest of the current turn.
     ///
-    /// Implementation: OnUpdate() ticks while active, finds all PowerUpPickup
-    /// components within a radius, and lerps them toward the kart.
+    /// TURN-BASED: Expires at the end of the current turn (kart stops moving without an
+    /// extra move available). No time-based duration.
+    ///
+    /// Implementation: OnUpdate() ticks every frame while active, finds all PowerUpPickup
+    /// components within a radius, and lerps them toward the kart. PowerUpSystem calls
+    /// OnUpdate for turn-based power-ups too (not just time-based ones).
     /// </summary>
     [CreateAssetMenu(menuName = "QuickChecks/Power-Up/Magnet", fileName = "PowerUp_Magnet")]
     public class MagnetPowerUp : PowerUpBase
@@ -26,13 +28,14 @@ namespace QuickChecks.Racing.PowerUps
             displayName = "Magnet";
             effectColor = new Color(0.78f, 0.639f, 1f);  // #C7A3FF lavender
             instantUse = true;
-            durationSec = 6f;
+            durationSec = 0f;            // No time-based expiry
+            expiresOnTurnEnd = true;     // Expires at end of current turn
         }
 
         public override void OnPickup(KartController kart)
         {
             if (kart == null) return;
-            Debug.Log($"[Magnet] Activated on {kart.gameObject.name} for {durationSec}s. " +
+            Debug.Log($"[Magnet] Activated on {kart.gameObject.name} (expires at end of current turn). " +
                       $"Pull radius: {pullRadius} units, pull speed: {pullSpeed} u/s.");
         }
 
@@ -62,7 +65,8 @@ namespace QuickChecks.Racing.PowerUps
 
         public override void OnExpire(KartController kart)
         {
-            Debug.Log("[Magnet] Expired — pickups no longer pulled.");
+            Debug.Log("[Magnet] Expired (turn end) — pickups no longer pulled.");
         }
     }
 }
+

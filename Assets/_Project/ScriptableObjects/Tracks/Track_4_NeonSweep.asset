@@ -42,19 +42,19 @@ MonoBehaviour:
   powerUpSpawns:
   - t: 0.15
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: bd687dff3b6940e68f3e1d9e52015534, type: 2}
+    powerUp: {fileID: 11400000, guid: 892cff09a8cb4b289a98aa8316602b55, type: 2}
     oneTimeUse: 0
   - t: 0.35
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: 17fabb6cf55b4406a5784f61bf9c06d0, type: 2}
+    powerUp: {fileID: 11400000, guid: edcb0b46d7b54933a546ab0d434c9deb, type: 2}
     oneTimeUse: 0
   - t: 0.5
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: bd687dff3b6940e68f3e1d9e52015534, type: 2}
+    powerUp: {fileID: 11400000, guid: 892cff09a8cb4b289a98aa8316602b55, type: 2}
     oneTimeUse: 0
   - t: 0.8
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: a405f4f598bb47879f85830b6995fafd, type: 2}
+    powerUp: {fileID: 11400000, guid: ee186aeb2ee0493aba32fa6c55575751, type: 2}
     oneTimeUse: 0
   obstacleSpawns:
   - type: Wall

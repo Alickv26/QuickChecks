@@ -196,6 +196,17 @@ namespace QuickChecks.Racing
                 currentVelocity = Vector2.zero;
                 isStopped = true;
                 _rb.velocity = Vector2.zero;
+
+                // --- Turn-end cleanup ---
+                // The kart just transitioned moving → stopped. If the player has no extra move
+                // available (Double Move power-up), the turn is over — clear turn-based power-up
+                // state that lives on KartController (Boost + Bounce). PowerUpSystem separately
+                // listens for this transition to expire its own active power-up effects.
+                if (!HasExtraMove)
+                {
+                    ClearBoost();
+                    ClearBounce();
+                }
             }
             else
             {
@@ -237,19 +248,23 @@ namespace QuickChecks.Racing
         // Unity's collision callbacks — fired by Dynamic Rigidbody2D hitting BoxCollider2D walls.
         private void OnCollisionEnter2D(Collision2D collision)
         {
-            // BOUNCE MODE: reflect velocity off the wall instead of stopping
-            if (_bounceMode && currentVelocity.magnitude > 5f)
+            // BOUNCE MODE: reflect velocity off the wall instead of stopping.
+            // Threshold lowered to 2 u/s (was 5) for billiard-ball feel — even slow swipes bounce.
+            // Below this, treat as a tap and stop normally (prevents in-place jitter).
+            if (_bounceMode && currentVelocity.magnitude > 2f)
             {
                 // Get the collision normal (direction the wall pushes back)
                 Vector2 normal = collision.contacts[0].normal;
-                // Reflect velocity: v' = v - 2(v·n)n
+                // Reflect velocity: v' = v - 2(v·n)n, then scale by retention.
+                // Retention is now 0.9 (set by BouncePowerUp) — feels like a billiard ball
+                // bouncing off a cushion: most velocity preserved, slight energy loss.
                 Vector2 reflected = Vector2.Reflect(currentVelocity, normal);
                 currentVelocity = reflected * _bounceRetention;
                 if (_rb != null) _rb.velocity = currentVelocity;
                 isStopped = false;
                 Debug.Log($"[Kart] BOUNCED off '{collision.gameObject.name}' — velocity reflected, " +
                           $"new direction ({currentVelocity.normalized.x:F2}, {currentVelocity.normalized.y:F2}), " +
-                          $"speed {currentVelocity.magnitude:F0} u/s.");
+                          $"speed {currentVelocity.magnitude:F0} u/s (retention {_bounceRetention:F2}).");
                 return;
             }
 
@@ -265,6 +280,16 @@ namespace QuickChecks.Racing
             currentVelocity = Vector2.zero;
             if (_rb != null) _rb.velocity = Vector2.zero;
             isStopped = true;
+
+            // --- Turn-end cleanup (wall-stop path) ---
+            // Same as FixedUpdate's stop transition: clear turn-based power-up state on the kart
+            // (Boost + Bounce). PowerUpSystem.OnCollisionEnter path is handled separately by
+            // PowerUpSystem's stop-transition detection.
+            if (!HasExtraMove)
+            {
+                ClearBoost();
+                ClearBounce();
+            }
 
             // Determine if this is a track boundary (Inner/Outer) or an obstacle wall.
             // We only show "BUMP!" visual feedback for obstacle walls, not track boundaries.
@@ -361,11 +386,15 @@ namespace QuickChecks.Racing
             // Set boost state. Subsequent boosts REPLACE (do not stack) — simpler and matches GDD.
             isBoosting = true;
             boostMultiplier = multiplier;
-            boostEndTime = Time.time + durationSec;
+            // durationSec <= 0 means turn-based expiry (no time limit). The boost state will
+            // be cleared in FixedUpdate when the kart's turn ends (karts stops moving without
+            // an extra move available). durationSec > 0 falls back to time-based expiry.
+            boostEndTime = durationSec > 0f ? Time.time + durationSec : float.PositiveInfinity;
 
-            Debug.Log($"[Kart] Boost applied: x{multiplier} for {durationSec:F2}s. " +
-                      $"New velocity mag {currentVelocity.magnitude:F0} u/s. " +
-                      $"maxSpeed lifted to {(stats != null ? stats.maxSpeed * multiplier : 0f):F0} until t={boostEndTime:F2}.");
+            Debug.Log($"[Kart] Boost applied: x{multiplier} " +
+                      (durationSec > 0f ? $"for {durationSec:F2}s." : "(turn-based — expires at end of current turn).") +
+                      $" New velocity mag {currentVelocity.magnitude:F0} u/s. " +
+                      $"maxSpeed lifted to {(stats != null ? stats.maxSpeed * multiplier : 0f):F0}.");
         }
 
         /// <summary>
@@ -472,6 +501,29 @@ namespace QuickChecks.Racing
         {
             _bounceMode = enabled;
             _bounceRetention = retention;
+        }
+
+        /// <summary>Clears the bounce mode (called when the kart's turn ends).</summary>
+        public void ClearBounce()
+        {
+            if (_bounceMode)
+            {
+                _bounceMode = false;
+                _bounceRetention = 0.7f;  // reset to default
+                Debug.Log("[Kart] Bounce mode cleared (turn end).");
+            }
+        }
+
+        /// <summary>Clears the boost state (called when the kart's turn ends).</summary>
+        public void ClearBoost()
+        {
+            if (isBoosting)
+            {
+                isBoosting = false;
+                boostMultiplier = 1f;
+                boostEndTime = 0f;
+                Debug.Log("[Kart] Boost state cleared (turn end).");
+            }
         }
 
         // Trail Wall: next swipe's trail becomes a barrier

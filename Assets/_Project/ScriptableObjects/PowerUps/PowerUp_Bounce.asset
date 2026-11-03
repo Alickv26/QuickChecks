@@ -14,9 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   powerUpId: bounce
   displayName: Bounce
-  effectDescription: "Your next wall hit bounces you off instead of stopping"
+  effectDescription: "Walls + track limits bounce you off at 90% velocity until end of turn"
   icon: {fileID: 0}
   effectColor: {r: 0.3, g: 0.9, b: 0.5, a: 1}
   instantUse: 1
-  durationSec: 5
-  bounceVelocityRetention: 0.7
+  durationSec: 0
+  expiresOnTurnEnd: 1
+  bounceVelocityRetention: 0.9

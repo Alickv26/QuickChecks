@@ -60,27 +60,27 @@ MonoBehaviour:
   powerUpSpawns:
   - t: 0.05
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: bd687dff3b6940e68f3e1d9e52015534, type: 2}
+    powerUp: {fileID: 11400000, guid: 892cff09a8cb4b289a98aa8316602b55, type: 2}
     oneTimeUse: 0
   - t: 0.18
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: 9ed9fed69b72475da9ed381e26c589af, type: 2}
+    powerUp: {fileID: 11400000, guid: 0d61c734e8884bd297a075f3c9617944, type: 2}
     oneTimeUse: 0
   - t: 0.4
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: 5e40f423079e49b18bdf8eab2d602962, type: 2}
+    powerUp: {fileID: 11400000, guid: 20f06e2b3fa5472198e46c5e9efc4db2, type: 2}
     oneTimeUse: 0
   - t: 0.6
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: 17fabb6cf55b4406a5784f61bf9c06d0, type: 2}
+    powerUp: {fileID: 11400000, guid: edcb0b46d7b54933a546ab0d434c9deb, type: 2}
     oneTimeUse: 0
   - t: 0.75
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: b60d4dfa4c6a4d62b20a60e71c41a69b, type: 2}
+    powerUp: {fileID: 11400000, guid: d99c189ba6ca4ba68cf9c779ed2a6a8b, type: 2}
     oneTimeUse: 0
   - t: 0.92
     lateralOffset: 0
-    powerUp: {fileID: 11400000, guid: a405f4f598bb47879f85830b6995fafd, type: 2}
+    powerUp: {fileID: 11400000, guid: ee186aeb2ee0493aba32fa6c55575751, type: 2}
     oneTimeUse: 0
   obstacleSpawns:
   - type: Wall

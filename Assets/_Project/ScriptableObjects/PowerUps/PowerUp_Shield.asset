@@ -14,8 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   powerUpId: shield
   displayName: Shield
-  effectDescription: "Invulnerable to obstacles + black holes for 10s"
+  effectDescription: "Persists across turns until consumed by an offensive effect (v1: placeholder)"
   icon: {fileID: 0}
   effectColor: {r: 0.306, g: 0.804, b: 0.769, a: 1}
   instantUse: 1
-  durationSec: 10
+  durationSec: 0
+  expiresOnTurnEnd: 0

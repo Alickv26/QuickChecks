@@ -35,8 +35,15 @@ namespace QuickChecks.Racing
         [Tooltip("If true, effect applies immediately on pickup. If false, kart holds it and uses on tap.")]
         public bool instantUse = false;
 
-        [Tooltip("Duration of effect in seconds. 0 = instant (resolves immediately, no ticking).")]
+        [Tooltip("Duration of effect in seconds. 0 = no time-based expiry (turn-based or until-used).")]
         public float durationSec = 0f;
+
+        [Tooltip("If true, this power-up stays active until the kart's turn ends (kart stops moving " +
+                 "without an extra move available). When the turn ends, OnExpire() is called. " +
+                 "Use this for power-ups that should NOT use a time-based duration in this " +
+                 "turn-based game. Examples: Boost, Bounce, Magnet, Phase Dodge.\n\n" +
+                 "If false, the power-up uses durationSec for time-based expiry (legacy behavior).")]
+        public bool expiresOnTurnEnd = false;
 
         /// <summary>Called when the kart picks up this power-up. For instant-use, applies effect here.</summary>
         public abstract void OnPickup(KartController kart);

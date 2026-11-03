@@ -14,10 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   powerUpId: magnet
   displayName: Magnet
-  effectDescription: "Pulls nearby power-ups toward your kart for 6s"
+  effectDescription: "Pulls nearby power-ups toward your kart until end of turn"
   icon: {fileID: 0}
   effectColor: {r: 0.78, g: 0.639, b: 1, a: 1}
   instantUse: 1
-  durationSec: 6
+  durationSec: 0
+  expiresOnTurnEnd: 1
   pullRadius: 8
   pullSpeed: 6

@@ -14,8 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   powerUpId: boost
   displayName: Boost
-  effectDescription: "Velocity multiplied by 1.8× for 1.5s — punch through gravel + walls"
+  effectDescription: "Velocity multiplied by 1.8x - maxSpeed lifted until end of turn"
   icon: {fileID: 0}
   effectColor: {r: 1, g: 0.42, b: 0.42, a: 1}
   instantUse: 1
-  durationSec: 1.5
+  durationSec: 0
+  expiresOnTurnEnd: 1

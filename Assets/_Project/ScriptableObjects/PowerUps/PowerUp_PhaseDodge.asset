@@ -14,8 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   powerUpId: phase_dodge
   displayName: Phase Dodge
-  effectDescription: "Next swipe phases through walls — used or expires in 5s"
+  effectDescription: "Next wall hit phases through - used OR expires at end of turn"
   icon: {fileID: 0}
   effectColor: {r: 1, g: 0.71, b: 0.15, a: 1}
   instantUse: 1
-  durationSec: 5
+  durationSec: 0
+  expiresOnTurnEnd: 1

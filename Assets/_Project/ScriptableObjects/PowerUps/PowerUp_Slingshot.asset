@@ -19,3 +19,4 @@ MonoBehaviour:
   effectColor: {r: 0.725, g: 0.514, b: 1, a: 1}
   instantUse: 1
   durationSec: 0
+  expiresOnTurnEnd: 0

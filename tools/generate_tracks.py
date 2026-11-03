@@ -56,17 +56,21 @@ POWERUP_SCRIPT_GUIDS = {
 # ============================================================================
 
 POWERUPS = [
-    # (key,        fileName,              scriptGUID,                            powerUpId,       displayName,   effectDescription,                                                                     effectColorRGB,            instantUse, durationSec, extraFields)
-    ("boost",       "PowerUp_Boost",       POWERUP_SCRIPT_GUIDS["boost"],       "boost",         "Boost",        "Velocity multiplied by 1.8× for 1.5s — punch through gravel + walls",                  (1.0, 0.42, 0.42),        True,       1.5,        {}),
-    ("shield",      "PowerUp_Shield",       POWERUP_SCRIPT_GUIDS["shield"],     "shield",        "Shield",       "Invulnerable to obstacles + black holes for 10s",                                     (0.306, 0.804, 0.769),    True,       10.0,       {}),
-    ("magnet",      "PowerUp_Magnet",       POWERUP_SCRIPT_GUIDS["magnet"],      "magnet",        "Magnet",       "Pulls nearby power-ups toward your kart for 6s",                                      (0.78, 0.639, 1.0),       True,       6.0,        {"pullRadius": 8.0, "pullSpeed": 6.0}),
-    ("double_move", "PowerUp_DoubleMove",   POWERUP_SCRIPT_GUIDS["double_move"], "double_move",   "2x Move",      "Take 2 swipes this turn instead of 1",                                                (1.0, 0.84, 0.0),         True,       0.0,        {}),
-    ("trail_wall",  "PowerUp_TrailWall",    POWERUP_SCRIPT_GUIDS["trail_wall"],  "trail_wall",    "Trail Wall",   "Your next swipe leaves a wall behind that blocks opponents",                          (1.0, 0.42, 0.79),        True,       0.0,        {"wallDurationSec": 10.0}),
-    ("bounce",      "PowerUp_Bounce",       POWERUP_SCRIPT_GUIDS["bounce"],     "bounce",        "Bounce",       "Your next wall hit bounces you off instead of stopping",                               (0.3, 0.9, 0.5),          True,       5.0,        {"bounceVelocityRetention": 0.7}),
-    ("slingshot",   "PowerUp_Slingshot",    POWERUP_SCRIPT_GUIDS["slingshot"],  "slingshot",     "Slingshot",    "Instantly launches you toward the next checkpoint",                                   (0.725, 0.514, 1.0),      True,       0.0,        {}),
-    ("phase_dodge", "PowerUp_PhaseDodge",   POWERUP_SCRIPT_GUIDS["phase_dodge"],"phase_dodge",   "Phase Dodge",  "Next swipe phases through walls — used or expires in 5s",                            (1.0, 0.71, 0.15),        True,       5.0,        {}),
-    ("rewind",      "PowerUp_Rewind",       POWERUP_SCRIPT_GUIDS["rewind"],     "rewind",        "Rewind",       "Sends you back to your previous stop position",                                       (0.42, 0.792, 0.467),     False,      0.0,        {"rewindDurationSec": 1.0}),
+    # (key,        fileName,              scriptGUID,                            powerUpId,       displayName,   effectDescription,                                                                     effectColorRGB,            instantUse, durationSec, expiresOnTurnEnd, extraFields)
+    # durationSec=0 + expiresOnTurnEnd=True  = turn-based (expires at end of current turn).
+    # durationSec=0 + expiresOnTurnEnd=False = until used / replaced (persists across turns).
+    # durationSec>0                           = legacy time-based (not used in v1 turn-based game).
+    ("boost",       "PowerUp_Boost",       POWERUP_SCRIPT_GUIDS["boost"],       "boost",         "Boost",        "Velocity multiplied by 1.8x - maxSpeed lifted until end of turn",                      (1.0, 0.42, 0.42),        True,       0.0,        True,  {}),
+    ("shield",      "PowerUp_Shield",      POWERUP_SCRIPT_GUIDS["shield"],      "shield",        "Shield",       "Persists across turns until consumed by an offensive effect (v1: placeholder)",          (0.306, 0.804, 0.769),    True,       0.0,        False, {}),
+    ("magnet",      "PowerUp_Magnet",      POWERUP_SCRIPT_GUIDS["magnet"],       "magnet",        "Magnet",       "Pulls nearby power-ups toward your kart until end of turn",                            (0.78, 0.639, 1.0),       True,       0.0,        True,  {"pullRadius": 8.0, "pullSpeed": 6.0}),
+    ("double_move", "PowerUp_DoubleMove",  POWERUP_SCRIPT_GUIDS["double_move"], "double_move",   "2x Move",      "Take 2 swipes this turn instead of 1",                                                  (1.0, 0.84, 0.0),         True,       0.0,        False, {}),
+    ("trail_wall",  "PowerUp_TrailWall",   POWERUP_SCRIPT_GUIDS["trail_wall"],  "trail_wall",    "Trail Wall",   "Your next swipe leaves a wall behind that blocks opponents",                           (1.0, 0.42, 0.79),        True,       0.0,        False, {"wallDurationSec": 30.0}),
+    ("bounce",      "PowerUp_Bounce",      POWERUP_SCRIPT_GUIDS["bounce"],      "bounce",        "Bounce",       "Walls + track limits bounce you off at 90% velocity until end of turn",                 (0.3, 0.9, 0.5),          True,       0.0,        True,  {"bounceVelocityRetention": 0.9}),
+    ("slingshot",   "PowerUp_Slingshot",   POWERUP_SCRIPT_GUIDS["slingshot"],   "slingshot",     "Slingshot",    "Instantly launches you toward the next checkpoint",                                    (0.725, 0.514, 1.0),      True,       0.0,        False, {}),
+    ("phase_dodge", "PowerUp_PhaseDodge",  POWERUP_SCRIPT_GUIDS["phase_dodge"], "phase_dodge",   "Phase Dodge",  "Next wall hit phases through - used OR expires at end of turn",                        (1.0, 0.71, 0.15),        True,       0.0,        True,  {}),
+    ("rewind",      "PowerUp_Rewind",      POWERUP_SCRIPT_GUIDS["rewind"],      "rewind",        "Rewind",       "Sends you back to your previous stop position",                                        (0.42, 0.792, 0.467),     False,      0.0,        False, {"rewindDurationSec": 1.0}),
 ]
+
 
 # ============================================================================
 # Track definitions (extracted from TrackFactory.cs)
@@ -552,12 +556,14 @@ MonoBehaviour:
   icon: {{fileID: 0}}
   effectColor: {effect_color}
   instantUse: {instant_use}
-  durationSec: {duration_sec}{extra_fields}
+  durationSec: {duration_sec}
+  expiresOnTurnEnd: {expires_on_turn_end}{extra_fields}
 """
 
 
 def write_powerup_asset(path, pu):
-    key, file_name, script_guid, power_up_id, display_name, effect_desc, color_rgb, instant_use, duration_sec, extra = pu
+    # Tuple now has 11 elements (added expiresOnTurnEnd before extraFields)
+    key, file_name, script_guid, power_up_id, display_name, effect_desc, color_rgb, instant_use, duration_sec, expires_on_turn_end, extra = pu
     extra_yaml = ""
     for field_name, field_val in extra.items():
         extra_yaml += f"\n  {field_name}: {fmt(field_val)}"
@@ -570,6 +576,7 @@ def write_powerup_asset(path, pu):
         effect_color=fmt_color((color_rgb[0], color_rgb[1], color_rgb[2], 1.0)),
         instant_use="1" if instant_use else "0",
         duration_sec=fmt(duration_sec),
+        expires_on_turn_end="1" if expires_on_turn_end else "0",
         extra_fields=extra_yaml,
     )
     with open(path, "w", newline="\n") as f:

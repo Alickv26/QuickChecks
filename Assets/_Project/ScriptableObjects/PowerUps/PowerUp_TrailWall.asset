@@ -19,4 +19,5 @@ MonoBehaviour:
   effectColor: {r: 1, g: 0.42, b: 0.79, a: 1}
   instantUse: 1
   durationSec: 0
-  wallDurationSec: 10
+  expiresOnTurnEnd: 0
+  wallDurationSec: 30
