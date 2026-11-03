@@ -87,6 +87,12 @@ namespace QuickChecks.UI
         private const float POINT_SELECT_RADIUS = 1.5f;
         private const float OBSTACLE_SELECT_RADIUS = 3.0f;
 
+        // Lazy undo snapshot: when the user taps an existing point/obstacle/power-up,
+        // we set this flag instead of pushing a snapshot immediately. The snapshot is
+        // only pushed on the FIRST actual drag movement — so a tap without drag doesn't
+        // create a no-op undo entry.
+        private bool _dragSnapshotPending = false;
+
         // Touch state for pinch-zoom + pan
         private bool _isPinching = false;
         private float _lastPinchDistance = 0f;
@@ -386,8 +392,9 @@ namespace QuickChecks.UI
                 {
                     _isFreeDrawing = true;
                     _lastFreeDrawSampleDist = 0f;
-                    // Place the first point immediately
-                    AddPoint(worldPos);
+                    // Place the first point — this pushes one undo snapshot for the entire gesture.
+                    // Subsequent sampled points (in the drag handler) use pushSnapshot=false.
+                    AddPoint(worldPos, pushSnapshot: true);
                     return;
                 }
 
@@ -417,7 +424,9 @@ namespace QuickChecks.UI
                         float distFromLast = Vector2.Distance(lastPoint, worldPos);
                         if (distFromLast >= FREE_DRAW_SAMPLE_INTERVAL)
                         {
-                            AddPoint(worldPos);
+                            // Don't push snapshot — the whole free-draw gesture is one undo entry.
+                            // The snapshot was already pushed when the first point was placed.
+                            AddPoint(worldPos, pushSnapshot: false);
                         }
                     }
                     return;
@@ -430,6 +439,9 @@ namespace QuickChecks.UI
                 _isDragging = false;
                 _isFreeDrawing = false;
                 _hasMovedSinceDown = false;
+                // Clear the pending snapshot flag — if the user released without dragging,
+                // no snapshot was pushed (no no-op undo entry).
+                _dragSnapshotPending = false;
             }
         }
 
@@ -472,7 +484,27 @@ namespace QuickChecks.UI
         private bool IsPointerOverUI()
         {
             if (EventSystem.current == null) return false;
-            return EventSystem.current.IsPointerOverGameObject();
+
+            // Mouse check (desktop + Unity's mouse emulation for single touches)
+            if (EventSystem.current.IsPointerOverGameObject())
+                return true;
+
+            // Touch check — on mobile, IsPointerOverGameObject() without an arg defaults to
+            // the mouse pointer (ID -1) which doesn't track touches. We need to check each
+            // active touch's fingerId explicitly.
+            for (int i = 0; i < UnityEngine.Input.touchCount; i++)
+            {
+                var touch = UnityEngine.Input.GetTouch(i);
+                if (touch.phase == UnityEngine.TouchPhase.Began
+                    || touch.phase == UnityEngine.TouchPhase.Moved
+                    || touch.phase == UnityEngine.TouchPhase.Stationary)
+                {
+                    if (EventSystem.current.IsPointerOverGameObject(touch.fingerId))
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         private void HandlePointerDown(Vector3 worldPos)
@@ -481,8 +513,9 @@ namespace QuickChecks.UI
             int pointIdx = FindNearestPointIndex(worldPos, POINT_SELECT_RADIUS);
             if (pointIdx >= 0)
             {
-                // Snapshot BEFORE the drag begins mutating — one undo entry per drag gesture
-                PushUndoSnapshot();
+                // Don't push snapshot yet — defer until the drag actually moves.
+                // This prevents no-op undo entries when the user taps a point without dragging.
+                _dragSnapshotPending = true;
                 _selectedPointIdx = pointIdx;
                 _isDragging = true;
                 if (_mode == BuilderMode.Select)
@@ -498,7 +531,7 @@ namespace QuickChecks.UI
                 int obsIdx = FindNearestObstacleIndex(worldPos);
                 if (obsIdx >= 0)
                 {
-                    PushUndoSnapshot();
+                    _dragSnapshotPending = true;
                     _selectedObstacleIdx = obsIdx;
                     _selectedPowerUpIdx = -1;
                     _obstacleResizeHasSnapshot = false;
@@ -509,7 +542,7 @@ namespace QuickChecks.UI
                 int puIdx = FindNearestPowerUpIndex(worldPos);
                 if (puIdx >= 0)
                 {
-                    PushUndoSnapshot();
+                    _dragSnapshotPending = true;
                     _selectedPowerUpIdx = puIdx;
                     _selectedObstacleIdx = -1;
                     ShowSelectedItemPanel(isObstacle: false);
@@ -550,6 +583,14 @@ namespace QuickChecks.UI
 
         private void HandlePointerDrag(Vector3 worldPos)
         {
+            // Lazy snapshot: push the undo snapshot on the FIRST actual drag movement.
+            // If the user just tapped without dragging, no snapshot is pushed (no no-op undo).
+            if (_dragSnapshotPending)
+            {
+                PushUndoSnapshot();
+                _dragSnapshotPending = false;
+            }
+
             if (_selectedPointIdx >= 0)
             {
                 _track.splinePoints[_selectedPointIdx] = CustomTrackData.SerializableVector2.From(worldPos);
@@ -573,9 +614,9 @@ namespace QuickChecks.UI
         // Track editing
         // =====================================================================
 
-        private void AddPoint(Vector3 pos)
+        private void AddPoint(Vector3 pos, bool pushSnapshot = true)
         {
-            PushUndoSnapshot();
+            if (pushSnapshot) PushUndoSnapshot();
             _track.splinePoints.Add(CustomTrackData.SerializableVector2.From(pos));
             RebuildTrackPreview();
             int remaining = 6 - _track.splinePoints.Count;
@@ -676,6 +717,7 @@ namespace QuickChecks.UI
             _selectedObstacleIdx = -1;
             _selectedPowerUpIdx = -1;
             _obstacleResizeHasSnapshot = false;
+            _dragSnapshotPending = false;
             if (selectedItemPanel != null) selectedItemPanel.SetActive(false);
         }
 
