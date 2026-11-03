@@ -67,6 +67,7 @@ namespace QuickChecks.UI
         [Header("Colors (palette)")]
         [SerializeField] private Color pointColor = new(0.247f, 0.878f, 0.760f);
         [SerializeField] private Color selectedPointColor = new(1f, 0.82f, 0.4f);
+        [SerializeField] private Color pointNumberColor = new(0.055f, 0.078f, 0.078f);
 
         // State
         private enum BuilderMode { Draw, FreeDraw, Wall, Gravel, BlackHole, Boost, Shield, Magnet, Slingshot, Select }
@@ -777,26 +778,39 @@ namespace QuickChecks.UI
             // Decide whether to show point markers:
             //   - Always show if track isn't yet built (count < 6) — no mesh to see anyway
             //   - In Select mode, always show (so user can grab and drag points)
-            //   - In Draw / FreeDraw / Wall / Gravel / BlackHole / Boost / Shield / Magnet / Slingshot:
-            //     hide markers once the track is built — the rendered track is what the user
-            //     wants to see. (Exception: keep the currently-dragged point visible so the
-            //     user sees what they're moving.)
+            //   - In Draw / FreeDraw: ALWAYS show with numbers (the user wants to see the order
+            //     they placed points, even when the track mesh is rendered — so they can plan
+            //     where to add the next point or which existing point to drag).
+            //   - In Wall / Gravel / BlackHole / Boost / Shield / Magnet / Slingshot: hide
+            //     markers once the track is built (focus is on placing items, not editing points).
+            //     Exception: keep the currently-dragged point visible.
+            bool isDrawLike = _mode == BuilderMode.Draw || _mode == BuilderMode.FreeDraw;
             bool showPoints = !hasBuiltTrack
                               || _mode == BuilderMode.Select
+                              || isDrawLike
                               || _selectedPointIdx >= 0;
 
             if (showPoints)
             {
-                // Draw point markers (small colored squares)
                 for (int i = 0; i < _track.splinePoints.Count; i++)
                 {
-                    // If the track mesh is visible, only render the selected point (not all of them)
-                    // — otherwise markers cover the track surface.
-                    if (trackMeshIsVisible && i != _selectedPointIdx) continue;
+                    // In Draw/FreeDraw/Select: show all points (with numbers).
+                    // In other modes: only the dragged point is shown — others cover the track.
+                    if (!isDrawLike && _mode != BuilderMode.Select
+                        && trackMeshIsVisible && i != _selectedPointIdx) continue;
 
                     var p = _track.splinePoints[i].ToVector2();
-                    var marker = CreateMarker($"Point_{i}", p, 0.5f,
-                        i == _selectedPointIdx ? selectedPointColor : pointColor, sortingOrder: 20);
+                    bool isSelected = i == _selectedPointIdx;
+                    Color markerColor = isSelected ? selectedPointColor : pointColor;
+                    var marker = CreateMarker($"Point_{i}", p, 0.5f, markerColor, sortingOrder: 20);
+
+                    // Add a number label child for Draw / FreeDraw modes (1-based, human-friendly).
+                    // We also render numbers in Select mode so the user can see which point is which
+                    // while selecting — useful when planning edits.
+                    if (isDrawLike || _mode == BuilderMode.Select)
+                    {
+                        CreateNumberLabel(marker.transform, i + 1);
+                    }
                     _pointMarkers.Add(marker);
                 }
             }
@@ -847,6 +861,38 @@ namespace QuickChecks.UI
             return go;
         }
 
+        /// <summary>
+        /// Creates a world-space TextMeshPro label showing the given number, anchored to a parent
+        /// marker. The label renders above the marker (sortingOrder = 22) so it's visible
+        /// even when the track mesh is behind it.
+        /// </summary>
+        private void CreateNumberLabel(Transform parent, int number)
+        {
+            var labelGo = new GameObject($"PointNumber_{number}");
+            labelGo.transform.SetParent(parent, false);
+            labelGo.transform.localPosition = Vector3.zero;
+            labelGo.transform.localScale = Vector3.one;
+            try
+            {
+                var label = labelGo.AddComponent<TextMeshPro>();
+                label.text = number.ToString();
+                label.fontSize = 1.5f;
+                label.alignment = TextAlignmentOptions.Center;
+                label.color = pointNumberColor;
+                label.raycastTarget = false;
+                label.enableWordWrapping = false;
+                // Render above the marker (sprite sortingOrder was 20, this is 22)
+                label.sortingOrder = 22;
+                // Auto-size so the number fits inside the 1-unit marker
+                label.autoSizeTextContainer = true;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[CustomBuilder] Failed to create TextMeshPro number label: {ex.Message}");
+                Destroy(labelGo);
+            }
+        }
+
         private Sprite _cachedSquareSprite;
         private Sprite CreateSquareSprite()
         {
@@ -892,7 +938,13 @@ namespace QuickChecks.UI
 
             if (GameFlowManager.Instance != null)
             {
+                // Stash the track so when the player exits the test race via Back, the builder
+                // re-opens with this exact track (with full undo history if the builder survives
+                // the scene load — note: undo stacks DON'T survive, only the saved track data does).
                 GameFlowManager.Instance.pendingCustomTrack = _track;
+                // Set the flag so RaceSceneController's Back button routes back to this builder
+                // instead of going to TrackSelect.
+                GameFlowManager.Instance.lastRaceCameFromCustomBuilder = true;
                 GameFlowManager.Instance.selectedMode = RaceMode.Solo;
                 GameFlowManager.Instance.StartRace(
                     CustomTrackLibrary.ToTrackDefinition(_track),

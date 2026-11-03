@@ -55,6 +55,11 @@ namespace QuickChecks.Core
                  "Set to null to start a fresh track.")]
         public Track.CustomTrackData pendingCustomTrack;
 
+        [Tooltip("Set to true when the player taps 'Test Race' inside the Custom Track Builder. " +
+                 "RaceSceneController checks this on its Back button — if true, returns to the " +
+                 "Builder (with pendingCustomTrack re-stashed) instead of going to TrackSelect.")]
+        public bool lastRaceCameFromCustomBuilder = false;
+
         [Header("Last Race Results (carried to Results scene)")]
         public int lastRaceSwipes;
         public long lastRaceTimeMs;
@@ -96,11 +101,13 @@ namespace QuickChecks.Core
 
         public void GoToMainMenu()
         {
+            lastRaceCameFromCustomBuilder = false;
             SceneManager.LoadScene(mainMenuScene);
         }
 
         public void GoToTrackSelect()
         {
+            lastRaceCameFromCustomBuilder = false;
             SceneManager.LoadScene(trackSelectScene);
         }
 
@@ -116,12 +123,16 @@ namespace QuickChecks.Core
         /// <summary>Goes to the Custom Track Select screen (lists saved custom tracks).</summary>
         public void GoToCustomTrackSelect()
         {
+            lastRaceCameFromCustomBuilder = false;
             SceneManager.LoadScene(customTrackSelectScene);
         }
 
         /// <summary>Goes to the Custom Track Builder scene. Set pendingCustomTrack first.</summary>
         public void GoToCustomTrackBuilder()
         {
+            // Note: we do NOT clear lastRaceCameFromCustomBuilder here — the player is returning
+            // to the builder after testing, which is the expected flow. If they Back out of the
+            // builder, that Back button calls GoToCustomTrackSelect() which clears the flag.
             SceneManager.LoadScene(customTrackBuilderScene);
         }
 

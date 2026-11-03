@@ -373,6 +373,12 @@ namespace QuickChecks.Prototype
             SetField(_hud, "resetButton", resetBtn);
 
             // ----- Back button (top-right, below RESET) -----
+            // Label changes depending on whether this race came from the Custom Track Builder
+            // ("← EDIT TRACK") or from regular track select ("← TRACK SELECT").
+            bool cameFromBuilder = Core.GameFlowManager.Instance != null
+                                   && Core.GameFlowManager.Instance.lastRaceCameFromCustomBuilder;
+            string backLabelTxt = cameFromBuilder ? "← EDIT TRACK" : "← TRACK SELECT";
+
             var backBtnGo = new GameObject("BackButton");
             backBtnGo.transform.SetParent(canvasGo.transform, false);
             var backBtn = backBtnGo.AddComponent<Button>();
@@ -392,7 +398,7 @@ namespace QuickChecks.Prototype
             try
             {
                 var backLabel = backLabelGo.AddComponent<TextMeshProUGUI>();
-                backLabel.text = "← TRACK SELECT";
+                backLabel.text = backLabelTxt;
                 backLabel.fontSize = 30;
                 backLabel.alignment = TextAlignmentOptions.Center;
                 backLabel.color = Color.white;
@@ -401,7 +407,7 @@ namespace QuickChecks.Prototype
             catch
             {
                 var backLabel = backLabelGo.AddComponent<Text>();
-                backLabel.text = "← TRACK SELECT";
+                backLabel.text = backLabelTxt;
                 backLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 backLabel.fontSize = 22;
                 backLabel.alignment = TextAnchor.MiddleCenter;
@@ -417,17 +423,29 @@ namespace QuickChecks.Prototype
 
             backBtn.onClick.AddListener(() =>
             {
-                Debug.Log("[RaceScene] Back button clicked — going to track select.");
                 if (Core.GameFlowManager.Instance != null)
                 {
-                    Core.GameFlowManager.Instance.GoToTrackSelect();
+                    if (Core.GameFlowManager.Instance.lastRaceCameFromCustomBuilder)
+                    {
+                        Debug.Log("[RaceScene] Back button clicked — returning to Custom Track Builder.");
+                        // GoToCustomTrackBuilder does NOT clear the flag, so the player can test
+                        // multiple times in a row without losing the "edit track" affordance.
+                        // The flag is cleared when they Back out of the Builder (→ CustomTrackSelect)
+                        // or navigate to MainMenu/TrackSelect.
+                        Core.GameFlowManager.Instance.GoToCustomTrackBuilder();
+                    }
+                    else
+                    {
+                        Debug.Log("[RaceScene] Back button clicked — going to track select.");
+                        Core.GameFlowManager.Instance.GoToTrackSelect();
+                    }
                 }
                 else
                 {
                     UnityEngine.SceneManagement.SceneManager.LoadScene("TrackSelect");
                 }
             });
-            Debug.Log("[Prototype] Back button created at top-right (below RESET).");
+            Debug.Log($"[Prototype] Back button created at top-right (below RESET) — label='{backLabelTxt}'.");
 
             // ----- Turn banner (top-center, slides in/out) -----
             var bannerGo = new GameObject("TurnBanner");
