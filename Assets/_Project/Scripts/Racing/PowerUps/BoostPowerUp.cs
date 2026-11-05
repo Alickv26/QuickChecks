@@ -43,5 +43,15 @@ namespace QuickChecks.Racing.PowerUps
             Debug.Log($"[Boost] Used by {kart.gameObject.name} — {kart.Stats.boostMultiplier}× velocity boost " +
                       "(expires at end of current turn).");
         }
+
+        /// <summary>
+        /// Called on pickup. For held power-ups, this is just a notification — the effect
+        /// is applied in OnUse() when the player taps the inventory slot.
+        /// Required because PowerUpBase.OnPickup is abstract.
+        /// </summary>
+        public override void OnPickup(KartController kart)
+        {
+            // No-op — Boost is a held power-up. Effect applies in OnUse().
+        }
     }
 }
