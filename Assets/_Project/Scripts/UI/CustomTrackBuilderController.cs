@@ -350,17 +350,19 @@ namespace QuickChecks.UI
             if (Mathf.Abs(panX) > 0.01f || Mathf.Abs(panY) > 0.01f)
             {
                 var pos = builderCamera.transform.position;
-                pos.x += panX * 20f * Time.deltaTime;
-                pos.y += panY * 20f * Time.deltaTime;
+                // Reduced from 20f to 8f — was too fast (62% viewport/sec), felt jittery on held keys.
+                pos.x += panX * 8f * Time.deltaTime;
+                pos.y += panY * 8f * Time.deltaTime;
                 builderCamera.transform.position = pos;
             }
 
             // Desktop: mouse wheel zoom
+            // Reduced from 2f to 0.8f — was 12.5% zoom per notch, far too aggressive.
             float scroll = UnityEngine.Input.mouseScrollDelta.y;
             if (Mathf.Abs(scroll) > 0.01f)
             {
                 builderCamera.orthographicSize = Mathf.Clamp(
-                    builderCamera.orthographicSize - scroll * 2f, 6f, 30f);
+                    builderCamera.orthographicSize - scroll * 0.8f, 6f, 30f);
             }
 
             // Touch handling (mobile)
@@ -447,34 +449,46 @@ namespace QuickChecks.UI
 
         /// <summary>
         /// Two-finger gesture: pinch to zoom + two-finger drag to pan.
+        /// Thresholds filter out finger jitter so the camera doesn't move when the player
+        /// is trying to do just one gesture (zoom OR pan, not both at once).
         /// </summary>
         private void HandleTwoFingerGesture()
         {
             var t0 = UnityEngine.Input.GetTouch(0);
             var t1 = UnityEngine.Input.GetTouch(1);
 
-            // Pinch zoom
+            // Pinch zoom — reduced from 0.02f to 0.012f to match the race scene.
+            // Threshold added (5px) to filter out finger jitter when the player is panning, not zooming.
             float currentDist = Vector2.Distance(t0.position, t1.position);
             if (_isPinching)
             {
-                float zoomDelta = (_lastPinchDistance - currentDist) * 0.02f;
-                builderCamera.orthographicSize = Mathf.Clamp(
-                    builderCamera.orthographicSize + zoomDelta, 6f, 30f);
+                float pinchDelta = _lastPinchDistance - currentDist;
+                if (Mathf.Abs(pinchDelta) > 5f)  // threshold — filters finger jitter
+                {
+                    float zoomDelta = pinchDelta * 0.012f;
+                    builderCamera.orthographicSize = Mathf.Clamp(
+                        builderCamera.orthographicSize + zoomDelta, 6f, 30f);
+                }
             }
             _lastPinchDistance = currentDist;
             _isPinching = true;
 
             // Two-finger pan (drag both fingers in the same direction)
+            // Threshold added (8px) to filter out drift during a pinch so pan only fires on
+            // intentional panning, not when the player is just zooming.
             Vector2 currentCenter = (t0.position + t1.position) / 2f;
             if (_isTwoFingerPanning)
             {
                 Vector2 delta = currentCenter - _lastTwoFingerCenter;
-                // Convert screen delta to world delta (invert because camera moves opposite to drag)
-                float worldUnitsPerScreenPixel = builderCamera.orthographicSize * 2f / Screen.height;
-                var camPos = builderCamera.transform.position;
-                camPos.x -= delta.x * worldUnitsPerScreenPixel;
-                camPos.y -= delta.y * worldUnitsPerScreenPixel;
-                builderCamera.transform.position = camPos;
+                if (delta.magnitude > 8f)  // threshold — filters finger drift during pinch
+                {
+                    // Convert screen delta to world delta (invert because camera moves opposite to drag)
+                    float worldUnitsPerScreenPixel = builderCamera.orthographicSize * 2f / Screen.height;
+                    var camPos = builderCamera.transform.position;
+                    camPos.x -= delta.x * worldUnitsPerScreenPixel;
+                    camPos.y -= delta.y * worldUnitsPerScreenPixel;
+                    builderCamera.transform.position = camPos;
+                }
             }
             _lastTwoFingerCenter = currentCenter;
             _isTwoFingerPanning = true;

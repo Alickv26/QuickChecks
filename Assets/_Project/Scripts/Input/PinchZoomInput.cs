@@ -24,16 +24,24 @@ namespace QuickChecks.Input
     {
         [Header("Zoom")]
         [Tooltip("How much a pinch gesture affects zoom. Higher = more zoom per pinch pixel.")]
-        [SerializeField] private float zoomSensitivity = 0.015f;
+        [SerializeField] private float zoomSensitivity = 0.012f;
 
         [Header("Pan")]
         [Tooltip("How much a two-finger drag affects camera pan.")]
-        [SerializeField] private float panSensitivity = 1.0f;
+        [SerializeField] private float panSensitivity = 0.7f;
         [Tooltip("After panning, how long before the follow camera re-centers on the kart (seconds).")]
         [SerializeField] private float panRecenterDelay = 3f;
         [Tooltip("Maximum distance the camera can pan away from the follow target (kart). " +
                  "Prevents the player from panning the track completely off-screen.")]
         [SerializeField] private float maxPanDistance = 12f;
+
+        [Header("Touch Thresholds")]
+        [Tooltip("Minimum pinch delta (in pixels) before zoom is applied. Filters out finger jitter " +
+                 "when the player is trying to pan, not zoom. Mobile fingers naturally tremble ~1-2px.")]
+        [SerializeField] private float pinchThreshold = 5f;
+        [Tooltip("Minimum pan delta (in pixels) before pan is applied. Filters out finger drift " +
+                 "during a pinch so the camera doesn't move when the player only wants to zoom.")]
+        [SerializeField] private float panThreshold = 8f;
 
         [Header("Track Bounds")]
         [Tooltip("When set, the camera is clamped to these bounds (min/max X/Y). " +
@@ -41,7 +49,7 @@ namespace QuickChecks.Input
         public Vector4 trackBounds;  // x=minX, y=maxX, z=minY, w=maxY
 
         [Header("Mouse (Editor)")]
-        [SerializeField] private float mouseWheelZoomSpeed = 2f;
+        [SerializeField] private float mouseWheelZoomSpeed = 0.8f;
 
         private CameraRig _cameraRig;
         private UnityEngine.Camera _camera;
@@ -123,17 +131,20 @@ namespace QuickChecks.Input
             Vector2 panDelta = currentMidpoint - _lastMidpoint;
 
             // ALWAYS apply both pinch and pan — players naturally do both at once
-            // (fingers drift while pinching). Small values are fine.
+            // (fingers drift while pinching). Small values are filtered by thresholds
+            // so the camera doesn't jitter when the player is trying to do just one gesture.
 
             // PINCH (zoom): fingers apart → zoom in, fingers together → zoom out
-            if (Mathf.Abs(pinchDelta) > 0.5f)
+            // Threshold filters out finger jitter (mobile fingers tremble ~1-2px when held still)
+            if (Mathf.Abs(pinchDelta) > pinchThreshold)
             {
                 float zoomChange = -pinchDelta * zoomSensitivity;
                 ApplyZoom(zoomChange);
             }
 
             // PAN: both fingers move in same direction
-            if (panDelta.magnitude > 1f)
+            // Threshold filters out drift during a pinch so pan only fires on intentional panning
+            if (panDelta.magnitude > panThreshold)
             {
                 ApplyPan(panDelta);
             }

@@ -33,7 +33,12 @@ namespace QuickChecks.Camera
         {
             _cam = GetComponent<UnityEngine.Camera>();
             _cam.orthographic = true;
-            _currentZoom = _targetZoom = inputSettings != null ? 12f : 12f;
+            // Preserve whatever orthographicSize was set by BuildCamera (the track's defaultZoom),
+            // instead of hard-coding 12f. The old code had a dead ternary `inputSettings != null ? 12f : 12f`
+            // which always returned 12f, overriding the track's defaultZoom (14-18) and making the
+            // camera start more zoomed-in than intended — which made pan/zoom feel more sensitive
+            // (smaller viewport = same world-unit pan covers more screen).
+            _currentZoom = _targetZoom = _cam.orthographicSize > 0f ? _cam.orthographicSize : 12f;
         }
 
         private void LateUpdate()
