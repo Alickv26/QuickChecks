@@ -63,6 +63,15 @@ namespace QuickChecks.Track
 
             [Tooltip("If true, this pickup is one-time use (no respawn).")]
             public bool oneTimeUse;
+
+            [Tooltip("If true, the spawn uses 'exactPosition' directly (no spline re-derivation). " +
+                     "Used by the Custom Track Builder so items render exactly where the user clicked, " +
+                     "not snapped to the spline. When false, position is computed from t + lateralOffset.")]
+            public bool useExactPosition;
+
+            [Tooltip("Exact world position for this spawn. Only used when useExactPosition = true. " +
+                     "Otherwise the position is derived from the spline at parameter t + lateralOffset along the normal.")]
+            public Vector2 exactPosition;
         }
 
         /// <summary>
@@ -90,6 +99,15 @@ namespace QuickChecks.Track
 
             [Tooltip("For BlackHole: how far back to teleport the kart (world units along the reverse direction).")]
             public float teleportDistance;
+
+            [Tooltip("If true, the spawn uses 'exactPosition' directly (no spline re-derivation). " +
+                     "Used by the Custom Track Builder so obstacles render exactly where the user clicked, " +
+                     "not snapped to the spline. When false, position is computed from t + lateralOffset.")]
+            public bool useExactPosition;
+
+            [Tooltip("Exact world position for this obstacle. Only used when useExactPosition = true. " +
+                     "Otherwise the position is derived from the spline at parameter t + lateralOffset along the normal.")]
+            public Vector2 exactPosition;
         }
 
         [Header("Camera")]

@@ -2180,7 +2180,9 @@ namespace QuickChecks.Editor
             topBarRect.anchorMin = new Vector2(0, 1);
             topBarRect.anchorMax = new Vector2(1, 1);
             topBarRect.pivot = new Vector2(0.5f, 1);
-            topBarRect.offsetMin = new Vector2(0, -160);
+            // Increased from -160 to -220 for taller top bar (better touch targets + more
+            // vertical space to absorb stray taps that would otherwise leak to the world).
+            topBarRect.offsetMin = new Vector2(0, -220);
             topBarRect.offsetMax = new Vector2(0, 0);
             var topBarImg = topBarGo.AddComponent<Image>();
             topBarImg.color = new Color(0.05f, 0.08f, 0.08f, 0.92f);
@@ -2191,23 +2193,23 @@ namespace QuickChecks.Editor
             //   Row 2 (just below):    Save | Test | Back | Clear | Undo | Redo
             var topBarVlg = topBarGo.AddComponent<VerticalLayoutGroup>();
             topBarVlg.spacing = 8;
-            topBarVlg.padding = new RectOffset(20, 20, 16, 16);
+            topBarVlg.padding = new RectOffset(20, 20, 24, 24);
             topBarVlg.childAlignment = TextAnchor.UpperCenter;
             topBarVlg.childControlWidth = true;
             topBarVlg.childControlHeight = false;
             topBarVlg.childForceExpandWidth = true;
             topBarVlg.childForceExpandHeight = false;
 
-            // --- Track name input (top of top bar) ---
+            // --- Track name input (top of top bar) — taller for easier touch ---
             var trackNameInput = CreateSimpleInputField(topBarGo.transform, "TrackNameInput",
-                "Track name…", new Vector2(0.5f, 1f), new Vector2(0, 50));
+                "Track name…", new Vector2(0.5f, 1f), new Vector2(0, 80));
 
             // --- Top bar button row (Save | Test | Back | Clear | Undo | Redo) ---
             var topBtnRowGo = new GameObject("TopButtonRow");
             topBtnRowGo.transform.SetParent(topBarGo.transform, false);
             topBtnRowGo.AddComponent<RectTransform>();
             var topBtnRowRect = topBtnRowGo.GetComponent<RectTransform>();
-            topBtnRowRect.sizeDelta = new Vector2(0, 70);
+            topBtnRowRect.sizeDelta = new Vector2(0, 90);  // was 70 — taller buttons for touch
             var topBtnRowImg = topBtnRowGo.AddComponent<Image>();
             topBtnRowImg.color = new Color(0, 0, 0, 0);  // transparent — still raycast blocks
             topBtnRowImg.raycastTarget = true;
@@ -2238,7 +2240,9 @@ namespace QuickChecks.Editor
             pcRect.anchorMax = new Vector2(1, 0);
             pcRect.pivot = new Vector2(0.5f, 0);
             pcRect.offsetMin = new Vector2(0, 0);
-            pcRect.offsetMax = new Vector2(0, 150);
+            // Increased from 150 to 220 — taller palette for bigger touch targets +
+            // more area to absorb stray taps so they don't leak to the world.
+            pcRect.offsetMax = new Vector2(0, 220);
             var pcImg = paletteContainer.AddComponent<Image>();
             pcImg.color = new Color(0.05f, 0.08f, 0.08f, 0.95f);
             pcImg.raycastTarget = true;  // blocks taps on the palette area
@@ -2410,11 +2414,11 @@ namespace QuickChecks.Editor
             Debug.Log("[GameScenesBuilder] CustomTrackBuilder scene built.");
         }
 
-        /// <summary>Bigger palette button (180x110) for the scrollable bottom palette — easier to tap on mobile.</summary>
+        /// <summary>Bigger palette button (180x140) for the scrollable bottom palette — easier to tap on mobile.</summary>
         private static Button CreateBigPaletteButton(Transform parent, string name, string label)
         {
             return CreateSimpleButton(parent, name, label,
-                new Vector2(0, 0), new Vector2(0, 0), new Vector2(180, 110),
+                new Vector2(0, 0), new Vector2(0, 0), new Vector2(180, 140),
                 new Color(0.086f, 0.110f, 0.110f, 0.9f), Phase2UiPalette.TextPrimary);
         }
 

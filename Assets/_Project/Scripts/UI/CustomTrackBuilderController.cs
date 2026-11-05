@@ -481,30 +481,28 @@ namespace QuickChecks.UI
         }
 
         /// <summary>True if the pointer is over any UI element (buttons, inputs, etc.)</summary>
+        /// <remarks>
+        /// Uses EventSystem.current.RaycastAll with a PointerEventData positioned at the mouse
+        /// position. This is more reliable than IsPointerOverGameObject for touch input because:
+        ///   - IsPointerOverGameObject(fingerId) only works reliably during OnPointerDown/Up callbacks
+        ///     or when the touch is in Began phase. For Moved/Stationary/Ended it may return false
+        ///     even when the finger IS over a UI element.
+        ///   - RaycastAll works for any phase because it directly raycasts against all
+        ///     GraphicRaycasters in the scene at the given screen position.
+        /// Unity's mouse emulation for touches keeps Input.mousePosition synced with the active
+        /// touch position, so this works for both mouse and touch.
+        /// </remarks>
         private bool IsPointerOverUI()
         {
             if (EventSystem.current == null) return false;
 
-            // Mouse check (desktop + Unity's mouse emulation for single touches)
-            if (EventSystem.current.IsPointerOverGameObject())
-                return true;
-
-            // Touch check — on mobile, IsPointerOverGameObject() without an arg defaults to
-            // the mouse pointer (ID -1) which doesn't track touches. We need to check each
-            // active touch's fingerId explicitly.
-            for (int i = 0; i < UnityEngine.Input.touchCount; i++)
+            var eventData = new PointerEventData(EventSystem.current)
             {
-                var touch = UnityEngine.Input.GetTouch(i);
-                if (touch.phase == UnityEngine.TouchPhase.Began
-                    || touch.phase == UnityEngine.TouchPhase.Moved
-                    || touch.phase == UnityEngine.TouchPhase.Stationary)
-                {
-                    if (EventSystem.current.IsPointerOverGameObject(touch.fingerId))
-                        return true;
-                }
-            }
-
-            return false;
+                position = UnityEngine.Input.mousePosition
+            };
+            var results = new System.Collections.Generic.List<RaycastResult>();
+            EventSystem.current.RaycastAll(eventData, results);
+            return results.Count > 0;
         }
 
         private void HandlePointerDown(Vector3 worldPos)

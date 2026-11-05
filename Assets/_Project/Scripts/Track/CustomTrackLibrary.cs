@@ -120,7 +120,12 @@ namespace QuickChecks.Track
                         t = o.t,
                         lateralOffset = o.lateralOffset,
                         size = o.size.ToVector2(),
-                        teleportDistance = type == TrackDefinition.ObstacleSpawn.ObstacleType.BlackHole ? 8f : 0f
+                        teleportDistance = type == TrackDefinition.ObstacleSpawn.ObstacleType.BlackHole ? 8f : 0f,
+                        // CRITICAL: use the exact click position — otherwise SplineTrackBuilder
+                        // re-derives the position from t + lateralOffset, snapping the obstacle
+                        // to the spline centerline and losing the user's precise placement.
+                        useExactPosition = true,
+                        exactPosition = o.position.ToVector2()
                     });
                 }
             }
@@ -136,7 +141,10 @@ namespace QuickChecks.Track
                     {
                         t = p.t,
                         lateralOffset = p.lateralOffset,
-                        powerUp = CreatePowerUpFromType(p.type)
+                        powerUp = CreatePowerUpFromType(p.type),
+                        // CRITICAL: use the exact click position (same reason as obstacles above).
+                        useExactPosition = true,
+                        exactPosition = p.position.ToVector2()
                     });
                 }
             }

@@ -484,11 +484,25 @@ namespace QuickChecks.Track
                     continue;
                 }
 
-                // Compute position: along spline at t, offset by lateralOffset along the normal
-                Vector2 center = BezierSpline.EvaluateSpline(points, spawn.t, closedLoop);
-                Vector2 tangent = BezierSpline.EvaluateSplineTangent(points, spawn.t, closedLoop);
-                Vector2 normal = new Vector2(-tangent.y, tangent.x);
-                Vector2 spawnPos = center + normal * spawn.lateralOffset;
+                // Compute position: use exactPosition if set (Custom Track Builder places items
+                // at the exact click position), otherwise derive from spline t + lateralOffset
+                // (hand-authored tracks use this approach).
+                Vector2 spawnPos;
+                Vector2 tangent;
+                if (spawn.useExactPosition)
+                {
+                    spawnPos = spawn.exactPosition;
+                    // Approximate the tangent at the nearest spline point (used for orienting
+                    // the pickup's sprite rotation, if any). Falls back to the spline at t=spawn.t.
+                    tangent = BezierSpline.EvaluateSplineTangent(points, spawn.t, closedLoop);
+                }
+                else
+                {
+                    Vector2 center = BezierSpline.EvaluateSpline(points, spawn.t, closedLoop);
+                    tangent = BezierSpline.EvaluateSplineTangent(points, spawn.t, closedLoop);
+                    Vector2 normal = new Vector2(-tangent.y, tangent.x);
+                    spawnPos = center + normal * spawn.lateralOffset;
+                }
 
                 var go = new GameObject($"PowerUp_{spawn.powerUp.powerUpId}_t{spawn.t:F2}");
                 go.transform.SetParent(container.transform, false);
@@ -545,10 +559,23 @@ namespace QuickChecks.Track
             int placed = 0;
             foreach (var obs in trackDefinition.obstacleSpawns)
             {
-                Vector2 center = BezierSpline.EvaluateSpline(points, obs.t, closedLoop);
-                Vector2 tangent = BezierSpline.EvaluateSplineTangent(points, obs.t, closedLoop);
-                Vector2 normal = new Vector2(-tangent.y, tangent.x);
-                Vector2 spawnPos = center + normal * obs.lateralOffset;
+                // Compute position: use exactPosition if set (Custom Track Builder), otherwise
+                // derive from spline t + lateralOffset (hand-authored tracks).
+                Vector2 spawnPos;
+                Vector2 tangent;
+                if (obs.useExactPosition)
+                {
+                    spawnPos = obs.exactPosition;
+                    // Use the spline tangent at the nearest t for orienting walls along the track.
+                    tangent = BezierSpline.EvaluateSplineTangent(points, obs.t, closedLoop);
+                }
+                else
+                {
+                    Vector2 center = BezierSpline.EvaluateSpline(points, obs.t, closedLoop);
+                    tangent = BezierSpline.EvaluateSplineTangent(points, obs.t, closedLoop);
+                    Vector2 normal = new Vector2(-tangent.y, tangent.x);
+                    spawnPos = center + normal * obs.lateralOffset;
+                }
 
                 switch (obs.type)
                 {
